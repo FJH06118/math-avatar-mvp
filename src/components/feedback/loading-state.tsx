@@ -11,7 +11,7 @@ export function LoadingState({
 }: LoadingStateProps) {
   return (
     <div
-      className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-background p-6 text-center"
+      className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border bg-card p-6 text-center"
       role="status"
       aria-live="polite"
     >

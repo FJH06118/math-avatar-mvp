@@ -46,30 +46,35 @@ export function UploadDropzone({
     <div
       {...getRootProps({
         className: cn(
-          "flex min-h-72 w-full flex-col items-center justify-center gap-5 rounded-2xl border border-dashed bg-card p-8 text-center outline-none transition-colors duration-200",
+          "group flex min-h-80 w-full flex-col items-center justify-center gap-5 rounded-lg border border-dashed border-foreground/25 bg-secondary/24 p-6 text-center outline-none transition-[color,background-color,border-color] duration-[180ms] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:p-10",
           isDragActive
-            ? "border-primary bg-primary/5"
-            : "hover:border-primary/50 hover:bg-muted/40",
+            ? "border-primary bg-primary/8"
+            : "hover:border-primary/60 hover:bg-secondary/38",
           disabled && "cursor-not-allowed opacity-60",
         ),
         "aria-label": "选择或拖拽上传 PPT 文件",
       })}
     >
       <input {...getInputProps()} />
-      <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <UploadCloudIcon aria-hidden="true" className="size-6" />
-      </div>
+      <UploadCloudIcon
+        aria-hidden="true"
+        className="size-8 text-primary"
+        strokeWidth={1.7}
+      />
       <div className="flex max-w-lg flex-col gap-2">
-        <p className="text-base font-semibold">
+        <p className="text-balance text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
           {isDragActive ? "松开即可添加课件" : "拖拽 PPT 到这里，或点击选择文件"}
         </p>
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-base text-muted-foreground sm:text-sm">
           支持 .ppt 和 .pptx，单个文件最大 100 MB
         </p>
       </div>
-      <span className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+      <span className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-[0_5px_14px_color-mix(in_oklch,var(--primary)_18%,transparent)]">
         选择文件
       </span>
+      <p className="text-sm text-muted-foreground">
+        文件仅用于当前课程制作
+      </p>
     </div>
   );
 }

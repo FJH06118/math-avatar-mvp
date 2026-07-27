@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ResultSkeleton() {
   return (
     <PageContainer
-      className="flex flex-col gap-8 py-10 sm:py-14"
+      size="wide"
+      className="product-surface my-5 flex flex-col gap-8 rounded-lg p-5 sm:my-8 sm:p-10"
       aria-label="正在加载视频结果"
       aria-busy="true"
     >
@@ -14,8 +15,8 @@ export function ResultSkeleton() {
         <Skeleton className="h-4 w-[36rem] max-w-full" />
       </div>
       <div className="grid min-h-[28rem] gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <Skeleton className="aspect-video w-full rounded-2xl" />
-        <Skeleton className="h-80 rounded-2xl" />
+        <Skeleton className="aspect-video w-full rounded-md" />
+        <Skeleton className="h-80 rounded-md" />
       </div>
     </PageContainer>
   );

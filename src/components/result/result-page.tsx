@@ -4,11 +4,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   CaptionsIcon,
-  ClapperboardIcon,
   DownloadIcon,
   FileVideoIcon,
   RefreshCwIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageContainer } from "@/components/layout/page-container";
+import { WorkflowFrame } from "@/components/layout/workflow-frame";
 import {
   Alert,
   AlertDescription,
@@ -133,55 +134,37 @@ export function ResultPage({ projectId }: ResultPageProps) {
   }
 
   return (
-    <PageContainer className="flex flex-col gap-8 py-10 sm:py-14">
-      <header className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div className="flex max-w-3xl flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-primary">第 5 步，共 5 步</p>
-            <Badge variant="secondary">生成成功</Badge>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-            授课视频已生成
-          </h1>
-          <p className="text-sm leading-6 text-muted-foreground sm:text-base">
-            {result.title} 已完成数字人、语音与字幕合成，可以预览或下载。
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/projects/${projectId}`}
-            className={cn(buttonVariants({ variant: "outline" }))}
-          >
-            <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-            返回编辑
-          </Link>
-          <ConfirmDialog
-            title="重新生成授课视频？"
-            description="系统将使用当前已保存的讲稿和授课配置创建新任务。现有视频仍可在本次会话中查看。"
-            confirmLabel="重新生成"
-            disabled={regenerateMutation.isPending}
-            onConfirm={() => regenerateMutation.mutate()}
-            trigger={
-              <Button
-                type="button"
-                variant="outline"
-                disabled={regenerateMutation.isPending}
-              >
-                {regenerateMutation.isPending ? (
-                  <Spinner data-icon="inline-start" aria-hidden="true" />
-                ) : (
-                  <RefreshCwIcon
-                    data-icon="inline-start"
-                    aria-hidden="true"
-                  />
-                )}
-                {regenerateMutation.isPending ? "正在创建任务…" : "重新生成"}
-              </Button>
-            }
-          />
-        </div>
-      </header>
-
+    <WorkflowFrame
+      currentStep={4}
+      title="授课视频已生成"
+      description={`${result.title} 已完成画面、语音与字幕合成，可以预览或下载。`}
+      backHref={`/projects/${projectId}`}
+      backLabel="返回项目工作台"
+      status={<Badge variant="secondary">生成成功</Badge>}
+      actions={
+        <ConfirmDialog
+          title="重新生成授课视频？"
+          description="系统将使用当前已保存的讲稿和授课配置创建新任务。现有视频仍可在本次会话中查看。"
+          confirmLabel="重新生成"
+          disabled={regenerateMutation.isPending}
+          onConfirm={() => regenerateMutation.mutate()}
+          trigger={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={regenerateMutation.isPending}
+            >
+              {regenerateMutation.isPending ? (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              ) : (
+                <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />
+              )}
+              {regenerateMutation.isPending ? "正在创建任务…" : "重新生成"}
+            </Button>
+          }
+        />
+      }
+    >
       {regenerateMutation.isError ? (
         <Alert variant="destructive" role="alert">
           <AlertTitle>无法重新生成</AlertTitle>
@@ -194,12 +177,12 @@ export function ResultPage({ projectId }: ResultPageProps) {
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+      <div className="grid overflow-hidden rounded-lg border border-foreground/18 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-stretch">
         <section
-          className="min-w-0 overflow-hidden rounded-2xl border bg-card"
+          className="min-w-0 overflow-hidden border-b border-foreground/18 bg-card lg:border-r lg:border-b-0"
           aria-labelledby="video-preview-title"
         >
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between gap-3 border-b border-foreground/12 px-4 py-3 sm:px-5">
             <h2 id="video-preview-title" className="text-base font-semibold">
               视频预览
             </h2>
@@ -230,8 +213,16 @@ export function ResultPage({ projectId }: ResultPageProps) {
                 当前浏览器不支持视频播放，请下载 MP4 后观看。
               </video>
             ) : (
-              <div className="flex aspect-video items-center justify-center p-6 text-center text-primary-foreground">
-                视频文件暂不可用，请稍后重新加载。
+              <div className="relative aspect-video overflow-hidden bg-secondary">
+                {result.posterUrl ? (
+                  <Image
+                    src={result.posterUrl}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 70vw, 100vw"
+                    className="object-cover object-center mix-blend-multiply"
+                  />
+                ) : null}
               </div>
             )}
           </div>
@@ -241,15 +232,17 @@ export function ResultPage({ projectId }: ResultPageProps) {
             aria-live="polite"
           >
             <p className="text-sm text-muted-foreground">
-              {videoStatus === "loading"
-                ? "正在加载视频封面与播放信息…"
+              {!result.videoUrl
+                ? "演示环境暂未接入真实视频，当前显示课程封面。"
+                : videoStatus === "loading"
+                  ? "正在加载视频封面与播放信息…"
                 : videoStatus === "error"
                   ? "视频加载失败，可以重试或下载 MP4。"
                   : "视频已就绪，可直接播放并开启中文字幕。"}
             </p>
-            {videoStatus === "loading" ? (
+            {result.videoUrl && videoStatus === "loading" ? (
               <Spinner aria-hidden="true" />
-            ) : videoStatus === "error" ? (
+            ) : result.videoUrl && videoStatus === "error" ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -266,7 +259,7 @@ export function ResultPage({ projectId }: ResultPageProps) {
           </div>
         </section>
 
-        <aside className="flex flex-col gap-5 rounded-2xl border bg-card p-5">
+        <aside className="flex flex-col gap-6 bg-secondary/38 p-5 sm:p-6">
           <div>
             <h2 className="text-base font-semibold">视频信息</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -374,10 +367,9 @@ export function ResultPage({ projectId }: ResultPageProps) {
         </Alert>
       ) : null}
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <ClapperboardIcon aria-hidden="true" className="size-4" />
-        Mock 演示视频仅用于验证播放器和下载流程。
-      </div>
-    </PageContainer>
+      <p className="text-sm text-muted-foreground">
+        当前为本地演示数据，接入真实渲染服务后可播放并下载成片。
+      </p>
+    </WorkflowFrame>
   );
 }

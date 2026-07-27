@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PauseIcon, PlayIcon, Volume2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -71,6 +71,7 @@ export function TeachingSettingsForm({
   onSaveStateChange,
   onValidityChange,
 }: TeachingSettingsFormProps) {
+  const queryClient = useQueryClient();
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(JSON.stringify(settings));
@@ -98,11 +99,39 @@ export function TeachingSettingsForm({
     mutationFn: (nextSettings: TeachingSettings) =>
       updateTeachingSettings(projectId, nextSettings),
     onMutate: () => onSaveStateChange("saving"),
-    onSuccess: (savedSettings) => {
+    onSuccess: (savedSettings, attemptedSettings) => {
+      const attemptedKey = JSON.stringify(attemptedSettings);
+      const currentKey = JSON.stringify(form.getValues());
       lastSavedRef.current = JSON.stringify(savedSettings);
       failedValuesRef.current = null;
-      form.reset(savedSettings);
-      onSaveStateChange("saved");
+      queryClient.setQueryData(
+        ["workspace", projectId],
+        (current: unknown) => {
+          if (
+            !current ||
+            typeof current !== "object" ||
+            !("project" in current)
+          ) {
+            return current;
+          }
+          const workspace = current as {
+            project: { settings: TeachingSettings };
+          };
+          return {
+            ...workspace,
+            project: {
+              ...workspace.project,
+              settings: savedSettings,
+            },
+          };
+        },
+      );
+      if (currentKey === attemptedKey) {
+        form.reset(savedSettings);
+        onSaveStateChange("saved");
+      } else {
+        onSaveStateChange("unsaved");
+      }
     },
     onError: (_error, attemptedSettings) => {
       failedValuesRef.current = JSON.stringify(attemptedSettings);
@@ -166,7 +195,7 @@ export function TeachingSettingsForm({
   }
 
   return (
-    <aside className="min-w-0 rounded-2xl border bg-card p-4">
+    <aside className="min-w-0 border-t border-foreground/15 bg-card p-4 sm:p-5 lg:col-span-2 xl:col-span-1 xl:border-t-0">
       <form
         aria-label="授课配置"
         autoComplete="off"
@@ -318,7 +347,9 @@ export function TeachingSettingsForm({
                   aria-label="授课语速"
                   onValueChange={field.onChange}
                 />
-                <FieldDescription>建议数学推导使用 0.90×–1.10×。</FieldDescription>
+                <FieldDescription>
+                  建议数学推导使用 0.90× 至 1.10×。
+                </FieldDescription>
               </Field>
             )}
           />
@@ -358,7 +389,7 @@ export function TeachingSettingsForm({
           </div>
           {saveMutation.isError ? (
             <div
-              className="flex flex-col gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3"
+              className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
               role="alert"
             >
               <p className="text-sm text-destructive">

@@ -2,12 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeftIcon,
   CheckCircle2Icon,
   RotateCcwIcon,
   SquareIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -15,13 +13,14 @@ import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { PageContainer } from "@/components/layout/page-container";
+import { WorkflowFrame } from "@/components/layout/workflow-frame";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Progress,
   ProgressLabel,
@@ -35,7 +34,6 @@ import {
   getJob,
   retryJob,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import type { Job } from "@/types";
 
 import { JobStageList } from "./job-stage-list";
@@ -162,60 +160,48 @@ export function ParsingFlow({
   );
 
   return (
-    <PageContainer className="flex flex-col gap-8 py-10 sm:py-14">
-      <div className="flex flex-col gap-5">
-        <Link
-          href="/"
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "self-start",
-          )}
+    <WorkflowFrame
+      currentStep={1}
+      title="解析课程课件"
+      description={
+        activeStage?.description ??
+        "正在整理课件页面、数学公式和初始讲稿。"
+      }
+      backHref="/"
+      backLabel="返回项目列表"
+      status={
+        <Badge
+          variant={job.status === "failed" ? "destructive" : "secondary"}
         >
-          <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-          返回项目列表
-        </Link>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div className="flex max-w-2xl flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-primary">第 2 步，共 5 步</p>
-              <Badge variant="secondary">
-                {job.status === "completed"
-                  ? "解析完成"
-                  : job.status === "failed"
-                    ? "解析失败"
-                    : job.status === "cancelled"
-                      ? "已取消"
-                      : "解析中"}
-              </Badge>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-              解析课程课件
-            </h1>
-            <p className="text-sm leading-6 text-muted-foreground sm:text-base">
-              {activeStage?.description ??
-                "正在整理课件页面、数学公式和初始讲稿。"}
-            </p>
-          </div>
-          {job.status === "running" ? (
-            <ConfirmDialog
-              title="取消课件解析？"
-              description="当前解析进度会停止，你可以稍后从项目列表重新开始。"
-              confirmLabel="取消解析"
-              onConfirm={() => cancelMutation.mutate(job.id)}
-              disabled={cancelMutation.isPending}
-              trigger={
-                <Button type="button" variant="outline">
-                  <SquareIcon data-icon="inline-start" aria-hidden="true" />
-                  取消任务
-                </Button>
-              }
-            />
-          ) : null}
-        </div>
-      </div>
-
+          {job.status === "completed"
+            ? "解析完成"
+            : job.status === "failed"
+              ? "解析失败"
+              : job.status === "cancelled"
+                ? "已取消"
+                : "解析中"}
+        </Badge>
+      }
+      actions={
+        job.status === "running" ? (
+          <ConfirmDialog
+            title="取消课件解析？"
+            description="当前解析进度会停止，你可以稍后从项目列表重新开始。"
+            confirmLabel="取消解析"
+            onConfirm={() => cancelMutation.mutate(job.id)}
+            disabled={cancelMutation.isPending}
+            trigger={
+              <Button type="button" variant="outline">
+                <SquareIcon data-icon="inline-start" aria-hidden="true" />
+                取消任务
+              </Button>
+            }
+          />
+        ) : undefined
+      }
+    >
       <section
-        className="flex flex-col gap-6 rounded-2xl border bg-card p-5 sm:p-6"
+        className="mx-auto flex w-full max-w-4xl flex-col gap-7"
         aria-labelledby="parsing-progress-title"
       >
         <Progress value={job.progress}>
@@ -224,6 +210,27 @@ export function ParsingFlow({
           </ProgressLabel>
           <ProgressValue />
         </Progress>
+        <p className="sr-only" role="status" aria-live="polite">
+          {job.status === "running"
+            ? `当前阶段：${activeStage?.label ?? "课件解析"}`
+            : job.status === "completed"
+              ? "课件解析完成"
+              : job.status === "failed"
+                ? "课件解析失败"
+                : "课件解析已取消"}
+        </p>
+
+        {cancelMutation.isError || retryMutation.isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>任务操作失败</AlertTitle>
+            <AlertDescription>
+              {getUserFacingErrorMessage(
+                cancelMutation.error ?? retryMutation.error,
+                "请求没有生效，请检查连接后重试。",
+              )}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {job.status === "failed" ? (
           <ErrorState
@@ -272,6 +279,6 @@ export function ParsingFlow({
           </Button>
         ) : null}
       </section>
-    </PageContainer>
+    </WorkflowFrame>
   );
 }

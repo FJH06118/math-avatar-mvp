@@ -4,7 +4,6 @@ import { useMutation } from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
   FileIcon,
-  RotateCcwIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
@@ -73,6 +72,9 @@ export function UploadFlow() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [cancelledMessage, setCancelledMessage] = useState<string | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<
+    "idle" | "uploading" | "creating"
+  >("idle");
 
   const uploadMutation = useMutation<
     UploadMutationResult,
@@ -82,12 +84,17 @@ export function UploadFlow() {
     mutationFn: async ({ file, fail }) => {
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      setUploadPhase("uploading");
       const uploadedFile = await uploadPresentation({
         file,
         fail,
         signal: controller.signal,
         onProgress: setProgress,
       });
+      if (controller.signal.aborted) {
+        throw new DOMException("上传已取消", "AbortError");
+      }
+      setUploadPhase("creating");
       const project = await createProject({
         title: getProjectTitle(file.name),
         uploadedFileId: uploadedFile.id,
@@ -104,6 +111,7 @@ export function UploadFlow() {
     },
     onSettled: () => {
       abortControllerRef.current = null;
+      setUploadPhase("idle");
     },
   });
 
@@ -172,11 +180,19 @@ export function UploadFlow() {
           onFileRejected={handleFileRejected}
         />
       ) : (
-        <div className="flex flex-col gap-4 rounded-2xl border bg-card p-4 sm:p-6">
-          <Item variant="muted">
+        <div className="flex flex-col gap-6 rounded-lg border border-foreground/18 bg-card p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-4 border-b border-foreground/15 pb-5">
+            <div>
+              <h2 className="text-xl font-semibold">课件已就位</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                确认文件后开始上传
+              </p>
+            </div>
+          </div>
+          <Item variant="muted" className="rounded-md border border-foreground/10 p-4">
             <ItemMedia
               variant="icon"
-              className="flex size-10 items-center justify-center rounded-lg bg-background text-primary"
+              className="flex size-9 items-center justify-center border-0 bg-transparent text-primary"
             >
               <FileIcon aria-hidden="true" />
             </ItemMedia>
@@ -186,7 +202,7 @@ export function UploadFlow() {
                 {formatBytes(selectedFile.size)} ·{" "}
                 {selectedFile.name.toLowerCase().endsWith(".pptx")
                   ? "PowerPoint 演示文稿"
-                  : "PowerPoint 97–2003 演示文稿"}
+                  : "PowerPoint 97 至 2003 演示文稿"}
               </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -206,14 +222,18 @@ export function UploadFlow() {
           {isUploading || isSuccess ? (
             <Progress value={isSuccess ? 100 : progress}>
               <ProgressLabel>
-                {isSuccess ? "上传完成，正在创建项目" : "正在上传课件"}
+                {isSuccess
+                  ? "上传完成，正在进入解析页"
+                  : uploadPhase === "creating"
+                    ? "正在创建课程项目"
+                    : "正在上传课件"}
               </ProgressLabel>
               <ProgressValue />
             </Progress>
           ) : null}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {isUploading ? (
+            {isUploading && uploadPhase === "uploading" ? (
               <Button type="button" variant="outline" onClick={cancelUpload}>
                 取消上传
               </Button>
@@ -229,7 +249,9 @@ export function UploadFlow() {
                 <UploadIcon data-icon="inline-start" aria-hidden="true" />
               )}
               {isUploading
-                ? `正在上传 ${progress}%`
+                ? uploadPhase === "creating"
+                  ? "正在创建项目"
+                  : `正在上传 ${progress}%`
                 : isSuccess
                   ? "上传完成"
                   : "开始上传"}
@@ -273,18 +295,6 @@ export function UploadFlow() {
         </Alert>
       ) : null}
 
-      {uploadMutation.isError &&
-      !(uploadMutation.error instanceof DOMException) ? (
-        <Button
-          type="button"
-          variant="ghost"
-          className="self-start"
-          onClick={retryUpload}
-        >
-          <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
-          使用同一文件重试
-        </Button>
-      ) : null}
     </div>
   );
 }

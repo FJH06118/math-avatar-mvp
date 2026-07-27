@@ -44,7 +44,10 @@ export function SlideContentTabs({
   onScriptChange,
 }: SlideContentTabsProps) {
   return (
-    <section className="min-w-0 rounded-2xl border bg-card p-4 sm:p-5">
+    <section className="min-w-0 border-b border-foreground/15 bg-card p-4 sm:p-6 xl:border-r xl:border-b-0">
+      <p className="sr-only" role="status" aria-live="polite">
+        已切换到第 {slide.index + 1} 页：{slide.title}
+      </p>
       <Tabs
         value={activeTab}
         className="min-w-0"
@@ -74,11 +77,11 @@ export function SlideContentTabs({
           </TabsList>
         </div>
 
-        <TabsContent value="preview" className="pt-3">
+        <TabsContent value="preview" className="pt-4">
           <SlidePreview slide={slide} />
         </TabsContent>
 
-        <TabsContent value="content" className="pt-3">
+        <TabsContent value="content" className="pt-5">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <h2 className="text-base font-semibold">页面摘要</h2>
@@ -95,7 +98,7 @@ export function SlideContentTabs({
           </div>
         </TabsContent>
 
-        <TabsContent value="script" className="pt-3">
+        <TabsContent value="script" className="pt-5">
           <Field>
             <FieldLabel htmlFor={`script-${slide.id}`}>本页授课讲稿</FieldLabel>
             <Textarea
@@ -112,7 +115,7 @@ export function SlideContentTabs({
           </Field>
         </TabsContent>
 
-        <TabsContent value="formulas" className="pt-3">
+        <TabsContent value="formulas" className="pt-5">
           <FormulaList formulas={slide.formulas} />
         </TabsContent>
       </Tabs>

@@ -45,7 +45,7 @@ export async function getRenderResult(
     fileSizeBytes: 86_400_000,
     resolution: "1920 × 1080",
     generatedAt: timestamp,
-    assetsAvailable: true,
+    assetsAvailable: false,
   };
   mockDb.renders.set(projectId, result);
   return structuredClone(result);

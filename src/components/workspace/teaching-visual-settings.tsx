@@ -76,7 +76,11 @@ export function TeachingVisualSettings({
         <ChevronDownIcon
           data-icon="inline-end"
           aria-hidden="true"
-          className={isOpen ? "rotate-180" : undefined}
+          className={
+            isOpen
+              ? "rotate-180 transition-transform duration-[140ms] ease-[var(--ease-out)] motion-reduce:transform-none"
+              : "transition-transform duration-[140ms] ease-[var(--ease-out)] motion-reduce:transform-none"
+          }
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-5">

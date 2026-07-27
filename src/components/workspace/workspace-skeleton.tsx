@@ -16,10 +16,10 @@ export function WorkspaceSkeleton() {
         </div>
         <Skeleton className="h-10 w-full" />
       </div>
-      <div className="grid min-h-[34rem] gap-4 p-4 sm:p-6 xl:grid-cols-[15rem_minmax(0,1fr)_20rem] lg:p-8">
-        <Skeleton className="h-72 rounded-2xl xl:h-[34rem]" />
-        <Skeleton className="h-[34rem] rounded-2xl" />
-        <Skeleton className="h-[34rem] rounded-2xl" />
+      <div className="grid min-h-[34rem] gap-1 p-4 sm:p-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:p-8 xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
+        <Skeleton className="h-56 rounded-md lg:h-[34rem]" />
+        <Skeleton className="h-[34rem] rounded-md" />
+        <Skeleton className="h-[28rem] rounded-md lg:col-span-2 xl:col-span-1 xl:h-[34rem]" />
       </div>
     </div>
   );

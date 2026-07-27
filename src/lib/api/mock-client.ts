@@ -22,13 +22,8 @@ const DEFAULT_SETTINGS: TeachingSettings = {
 };
 
 export const demoRenderAssets = {
-  videoUrl:
-    "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-  posterUrl:
-    "data:image/svg+xml;charset=utf-8," +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#eef0ff"/><rect x="108" y="92" width="1064" height="536" rx="32" fill="#ffffff" stroke="#c8ccef" stroke-width="4"/><circle cx="270" cy="264" r="72" fill="#4f46e5"/><path d="M224 408c0-66 92-104 138-52 20 22 30 49 30 82v66H224z" fill="#4f46e5"/><text x="448" y="286" font-size="56" font-family="sans-serif" font-weight="700" fill="#252a44">高等数学数字人课堂</text><text x="448" y="370" font-size="34" font-family="sans-serif" fill="#61677f">函数极限与连续性</text><text x="448" y="446" font-size="26" font-family="sans-serif" fill="#777d95">点击播放完整授课视频</text></svg>',
-    ),
+  videoUrl: undefined,
+  posterUrl: "/images/math-course-editorial.webp",
   srtUrl:
     "data:text/plain;charset=utf-8,1%0A00%3A00%3A00%2C000%20--%3E%2000%3A00%3A04%2C000%0A%E6%AC%A2%E8%BF%8E%E6%9D%A5%E5%88%B0%E9%AB%98%E7%AD%89%E6%95%B0%E5%AD%A6%E8%AF%BE%E5%A0%82%E3%80%82",
   captionTrackUrl:
@@ -80,7 +75,7 @@ const seedRenderResults: RenderResult[] = [
     fileSizeBytes: 78_200_000,
     resolution: "1920 × 1080",
     generatedAt: minutesAgo(280),
-    assetsAvailable: true,
+    assetsAvailable: false,
   },
 ];
 

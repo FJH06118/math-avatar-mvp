@@ -240,6 +240,15 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  useEffect(() => {
+    document.documentElement.dataset.workspaceDirty = hasUnsavedChanges
+      ? "true"
+      : "false";
+    return () => {
+      delete document.documentElement.dataset.workspaceDirty;
+    };
+  }, [hasUnsavedChanges]);
+
   function handleScriptChange(value: string) {
     if (!selectedSlide) {
       return;
@@ -285,20 +294,14 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-muted/30">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background">
       <WorkspaceHeader
         project={data.project}
         saveState={combinedSaveState}
         hasUnsavedChanges={hasUnsavedChanges}
-        canSaveScripts={hasUnsavedScripts}
-        canGenerate={canGenerate}
-        isGenerating={createRenderMutation.isPending}
-        generateDisabledReason={generateDisabledReason}
-        onSave={saveScripts}
-        onGenerate={() => createRenderMutation.mutate()}
       />
 
-      <div className="grid min-w-0 gap-4 p-4 sm:p-6 xl:grid-cols-[15rem_minmax(0,1fr)_20rem] xl:items-start lg:p-8">
+      <div className="product-surface mx-4 my-4 grid min-w-0 gap-0 overflow-hidden rounded-lg sm:mx-6 sm:my-6 lg:mx-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-stretch xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
         <SlideSidebar
           slides={data.slides}
           selectedSlideId={selectedSlide.id}

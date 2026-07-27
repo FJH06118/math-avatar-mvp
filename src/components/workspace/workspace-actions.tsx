@@ -26,7 +26,7 @@ export function WorkspaceActions({
   onGenerate,
 }: WorkspaceActionsProps) {
   return (
-    <footer className="sticky bottom-0 z-20 flex flex-col gap-3 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+    <footer className="sticky inset-x-0 bottom-0 z-30 flex flex-col gap-3 border-t border-foreground/15 bg-card/96 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
       <div className="min-w-0">
         <p className="text-sm font-medium">准备好后生成完整授课视频</p>
         <p

@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeftIcon,
   CheckCircle2Icon,
   ExternalLinkIcon,
   RotateCcwIcon,
@@ -16,6 +15,7 @@ import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { PageContainer } from "@/components/layout/page-container";
+import { WorkflowFrame } from "@/components/layout/workflow-frame";
 import { JobStageList } from "@/components/parsing/job-stage-list";
 import {
   Alert,
@@ -172,86 +172,70 @@ export function GenerationFlow({
   );
 
   return (
-    <PageContainer className="flex flex-col gap-8 py-10 sm:py-14">
-      <div className="flex flex-col gap-5">
-        <Link
-          href={`/projects/${projectId}`}
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "self-start",
-          )}
+    <WorkflowFrame
+      currentStep={3}
+      title="生成授课视频"
+      description={
+        activeStage?.description ??
+        "正在合成语音、数字人画面与中文字幕。"
+      }
+      backHref={`/projects/${projectId}`}
+      backLabel="返回项目工作台"
+      status={
+        <Badge
+          variant={job.status === "failed" ? "destructive" : "secondary"}
         >
-          <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-          返回项目工作台
-        </Link>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div className="flex max-w-2xl flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-primary">第 4 步，共 5 步</p>
-              <Badge
-                variant={job.status === "failed" ? "destructive" : "secondary"}
-              >
-                {job.status === "completed"
-                  ? "生成完成"
-                  : job.status === "failed"
-                    ? "生成失败"
-                    : job.status === "cancelled"
-                      ? "已取消"
-                      : "生成中"}
-              </Badge>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-              生成数字人授课视频
-            </h1>
-            <p className="text-sm leading-6 text-muted-foreground sm:text-base">
-              {activeStage?.description ??
-                "正在合成语音、数字人画面与中文字幕。"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {job.status === "running" ? (
-              <>
-                <Link
-                  href="/"
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                >
-                  <ExternalLinkIcon
-                    data-icon="inline-start"
-                    aria-hidden="true"
-                  />
-                  返回列表，后台继续
-                </Link>
-                <ConfirmDialog
-                  title="取消视频生成？"
-                  description="当前生成进度会停止。已保存的讲稿和授课配置不会丢失。"
-                  confirmLabel="取消生成"
-                  onConfirm={() => cancelMutation.mutate(job.id)}
-                  disabled={cancelMutation.isPending}
-                  trigger={
-                    <Button type="button" variant="outline">
-                      {cancelMutation.isPending ? (
-                        <Spinner
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <SquareIcon
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                      )}
-                      {cancelMutation.isPending ? "取消中…" : "取消任务"}
-                    </Button>
-                  }
-                />
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
+          {job.status === "completed"
+            ? "生成完成"
+            : job.status === "failed"
+              ? "生成失败"
+              : job.status === "cancelled"
+                ? "已取消"
+                : "生成中"}
+        </Badge>
+      }
+      actions={
+        job.status === "running" ? (
+          <>
+            <Link
+              href="/"
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              <ExternalLinkIcon
+                data-icon="inline-start"
+                aria-hidden="true"
+              />
+              返回列表，后台继续
+            </Link>
+            <ConfirmDialog
+              title="取消视频生成？"
+              description="当前生成进度会停止。已保存的讲稿和授课配置不会丢失。"
+              confirmLabel="取消生成"
+              onConfirm={() => cancelMutation.mutate(job.id)}
+              disabled={cancelMutation.isPending}
+              trigger={
+                <Button type="button" variant="outline">
+                  {cancelMutation.isPending ? (
+                    <Spinner
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <SquareIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {cancelMutation.isPending ? "取消中…" : "取消任务"}
+                </Button>
+              }
+            />
+          </>
+        ) : undefined
+      }
+    >
       <section
-        className="flex flex-col gap-6 rounded-2xl border bg-card p-5 sm:p-6"
+        className="mx-auto flex w-full max-w-4xl flex-col gap-7"
         aria-labelledby="generation-progress-title"
       >
         <Progress value={job.progress}>
@@ -260,6 +244,27 @@ export function GenerationFlow({
           </ProgressLabel>
           <ProgressValue />
         </Progress>
+        <p className="sr-only" role="status" aria-live="polite">
+          {job.status === "running"
+            ? `当前阶段：${activeStage?.label ?? "视频生成"}`
+            : job.status === "completed"
+              ? "授课视频生成完成"
+              : job.status === "failed"
+                ? "授课视频生成失败"
+                : "视频生成已取消"}
+        </p>
+
+        {cancelMutation.isError || retryMutation.isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>任务操作失败</AlertTitle>
+            <AlertDescription>
+              {getUserFacingErrorMessage(
+                cancelMutation.error ?? retryMutation.error,
+                "请求没有生效，请检查连接后重试。",
+              )}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {job.status === "failed" ? (
           <ErrorState
@@ -308,6 +313,6 @@ export function GenerationFlow({
           </Button>
         ) : null}
       </section>
-    </PageContainer>
+    </WorkflowFrame>
   );
 }

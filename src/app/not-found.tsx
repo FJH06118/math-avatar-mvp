@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export default function NotFoundPage() {
   return (
     <PageContainer className="flex flex-1 items-center justify-center py-14">
-      <section className="flex max-w-lg flex-col items-center gap-4 rounded-2xl border bg-card p-6 text-center sm:p-8">
+      <section className="product-surface flex max-w-lg flex-col items-center gap-4 rounded-lg p-6 text-center sm:p-8">
         <p className="font-medium text-primary">404</p>
         <h1 className="text-2xl font-semibold">没有找到这个页面</h1>
         <p className="text-pretty text-muted-foreground">

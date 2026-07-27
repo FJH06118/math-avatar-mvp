@@ -34,7 +34,7 @@ function FormulaStatusIcon({ status }: { status: Formula["status"] }) {
 export function FormulaList({ formulas }: { formulas: Formula[] }) {
   if (formulas.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed p-6 text-center">
+      <div className="rounded-lg border border-dashed p-6 text-center">
         <p className="text-sm font-medium">本页未识别到数学公式</p>
         <p className="text-sm text-muted-foreground">
           如课件中实际包含公式，可在真实后端接入后重新识别。

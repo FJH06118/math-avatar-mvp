@@ -6,14 +6,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "@/components/ui/item";
+import { cn } from "@/lib/utils";
 import type { JobStage } from "@/types";
 
 function StageIcon({ status }: { status: JobStage["status"] }) {
@@ -21,7 +14,12 @@ function StageIcon({ status }: { status: JobStage["status"] }) {
     return <CheckIcon aria-hidden="true" />;
   }
   if (status === "running") {
-    return <LoaderCircleIcon aria-hidden="true" className="animate-spin" />;
+    return (
+      <LoaderCircleIcon
+        aria-hidden="true"
+        className="animate-spin motion-reduce:animate-pulse"
+      />
+    );
   }
   if (status === "failed") {
     return <XIcon aria-hidden="true" />;
@@ -31,15 +29,16 @@ function StageIcon({ status }: { status: JobStage["status"] }) {
 
 export function JobStageList({ stages }: { stages: JobStage[] }) {
   return (
-    <ItemGroup>
+    <ol className="divide-y divide-foreground/12 border-y border-foreground/15">
       {stages.map((stage) => (
-        <Item
+        <li
           key={stage.id}
-          variant={stage.status === "running" ? "muted" : "default"}
-          className="sm:flex-nowrap"
+          className={cn(
+            "grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 py-4",
+            stage.status === "running" && "text-foreground",
+          )}
         >
-          <ItemMedia
-            variant="icon"
+          <span
             className={
               stage.status === "failed"
                 ? "text-destructive"
@@ -49,11 +48,13 @@ export function JobStageList({ stages }: { stages: JobStage[] }) {
             }
           >
             <StageIcon status={stage.status} />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>{stage.label}</ItemTitle>
-            <ItemDescription>{stage.description}</ItemDescription>
-          </ItemContent>
+          </span>
+          <div className="min-w-0">
+            <p className="font-medium">{stage.label}</p>
+            <p className="mt-0.5 text-base text-muted-foreground sm:text-sm">
+              {stage.description}
+            </p>
+          </div>
           <Badge
             variant={
               stage.status === "failed"
@@ -69,10 +70,10 @@ export function JobStageList({ stages }: { stages: JobStage[] }) {
                 ? `${stage.progress}%`
                 : stage.status === "failed"
                   ? "失败"
-                  : "等待中"}
+              : "等待中"}
           </Badge>
-        </Item>
+        </li>
       ))}
-    </ItemGroup>
+    </ol>
   );
 }

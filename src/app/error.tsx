@@ -2,6 +2,7 @@
 
 import { HomeIcon, RotateCcwIcon } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 import { PageContainer } from "@/components/layout/page-container";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -13,14 +14,25 @@ export default function RouteError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <PageContainer className="flex flex-1 items-center justify-center py-14">
       <section
-        className="flex max-w-lg flex-col items-center gap-4 rounded-2xl border bg-card p-6 text-center sm:p-8"
+        className="product-surface flex max-w-lg flex-col items-center gap-4 rounded-lg p-6 text-center sm:p-8"
         role="alert"
         aria-labelledby="route-error-title"
       >
-        <h1 id="route-error-title" className="text-2xl font-semibold">
+        <h1
+          ref={headingRef}
+          id="route-error-title"
+          tabIndex={-1}
+          className="text-2xl font-semibold outline-none"
+        >
           当前页面未能正常加载
         </h1>
         <p className="text-pretty text-muted-foreground">

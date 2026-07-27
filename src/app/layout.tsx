@@ -7,8 +7,8 @@ import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "智数讲堂",
-    template: "%s｜智数讲堂",
+    default: "数学课程制作",
+    template: "%s｜数学课程制作",
   },
   description: "使用数字人把高等数学课件转化为自然、清晰的授课视频。",
 };
