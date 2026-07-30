@@ -1,61 +1,76 @@
 # 高等数学数字人授课智能体
 
-一个使用 Mock API 演示完整课程制作流程的中文前端 MVP：上传 PPT/PPTX、解析课件、逐页编辑讲稿、设置数字人与音色、生成视频并下载 MP4/SRT。
+这是“PPT 解析与讲稿审核 + 数字人讲解视频生成”的总项目仓库。仓库按前端、后端和文档分区管理：
 
-## 本地启动
-
-环境要求：Node.js 20.9 或更高版本。
-
-```bash
-npm install
-npm run dev
+```text
+数字人前端/
+├── frontend/          Next.js 前端、静态资源和 Windows 启动器
+├── backend/           PPT 解析、LLM 规划、Edge TTS、视频合成与验证
+├── docs/
+│   ├── product/       产品需求文档和产品决策
+│   ├── planning/      开发计划
+│   ├── status/        阶段报告和后续路线
+│   └── handoffs/      开发交接文档
+├── package.json       全仓统一命令
+└── README.md
 ```
 
-打开 [http://localhost:3000](http://localhost:3000)。
+根目录名称目前沿用原来的“数字人前端”，但它现在代表完整项目；前端和后端实现分别只放在 `frontend/` 与 `backend/`。
 
-Windows PowerShell 如果限制执行 `npm.ps1`，可使用：
+## 快速开始
+
+环境要求：
+
+- Node.js 20.9 或更高版本；
+- Python 3.10 或更高版本（运行后端时需要）；
+- Microsoft PowerPoint，或 LibreOffice + Poppler（用于生成原页图）；
+- FFmpeg/ffprobe 默认随 Node.js 依赖提供；Docker 或自定义路径可使用系统版本；
+- 可访问 Microsoft Edge TTS 的网络（使用真实配音时需要）。
+
+安装 Node.js 依赖并启动前端：
 
 ```powershell
 npm.cmd install
 npm.cmd run dev
 ```
 
-### Windows 一键打开
+打开 [http://localhost:3000](http://localhost:3000)。
 
-双击项目根目录下的 `打开智数讲堂.cmd`。启动器会：
+Windows 也可以双击 [`frontend/打开智数讲堂.cmd`](frontend/打开智数讲堂.cmd)。启动器会在缺少生产构建时先执行构建，再启动并打开网页。
 
-1. 检查 `localhost:3000` 是否已运行；
-2. 必要时启动独立的生产服务器窗口；
-3. 自动在默认浏览器打开网页。
+## 常用命令
 
-保持服务器窗口开启即可持续访问；关闭服务器窗口即可停止服务。修改代码后，先运行 `npm.cmd run build`，再双击启动器查看最新生产版本。
+```powershell
+# 前端
+npm.cmd run dev
+npm.cmd run typecheck
+npm.cmd run lint
+npm.cmd run build
 
-## 质量检查
+# 后端测试
+npm.cmd run backend:test
 
-```bash
-npm run typecheck
-npm run lint -- --max-warnings=0
-npm run build
+# 后端分阶段运行
+npm.cmd run backend:prepare -- --input "课件.pptx" --job-dir "backend/work/job-001"
+npm.cmd run backend:approve -- --job-dir "backend/work/job-001"
+npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 ```
 
-## 演示路径
+后端安装、环境变量、审核流程、Docker 和输出文件说明见 [`backend/README.md`](backend/README.md)。
 
-- `/`：项目首页与最近项目
-- `/upload`：PPT/PPTX 上传、校验、进度与失败重试
-- `/projects/project-limit`：三栏课程工作台
-- `/projects/project-limit/parsing`：课件解析任务
-- `/projects/project-limit/generating`：视频生成任务
-- `/projects/project-derivative/result`：带种子数据的视频结果页
+## 当前能力边界
 
-上传失败演示：选择文件名中包含“失败”的合法 PPT/PPTX，第一次上传会失败，重试后成功。
+- 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
+- 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
+- 浏览器上传尚未接入后端。当前实施顺序是先确认目录重组基线、补测试门禁和共享契约，再做真实三页切片；不能直接跳到 Web 集成。
 
-## 技术栈
+## 文档入口
 
-- Next.js App Router、React、TypeScript
-- Tailwind CSS、shadcn/ui（Base UI）
-- TanStack Query
-- React Hook Form、Zod
-- react-dropzone
-- Lucide React
+- [文档索引与归档规则](docs/README.md)
+- [当前任务与续接点](docs/CURRENT_TASK.md)
+- [当前项目状态](docs/STATUS.md)
+- [产品需求摘要](docs/PRD.md)
+- [当前真实架构](docs/ARCHITECTURE.md)
+- [项目决策](docs/DECISIONS.md)
 
-所有业务接口集中在 `src/lib/api`，领域类型集中在 `src/types`。当前版本不解析真实 PPT，也不调用真实数字人、语音或视频服务。
+详细 PRD、实施计划、ADR 和历史交接由 [文档索引](docs/README.md) 统一链接。以后新增文件应遵循根目录 [`AGENTS.md`](AGENTS.md) 中的规则：前端实现放 `frontend/`，后端实现放 `backend/`，跨端资料按类型放入 `docs/`。
