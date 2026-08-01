@@ -30,7 +30,7 @@
 6. `build(backend): add pipeline runtime packaging and usage docs`
    - `backend/Dockerfile`
    - `backend/README.md`
-7. 本轮收尾文档提交（待本文件更新后执行）
+7. `docs: record repository reorganization status`（已完成）
    - `docs/STATUS.md`
    - `docs/CURRENT_TASK.md`
 
@@ -44,9 +44,8 @@
 
 ## 剩余步骤
 
-1. 串行复跑最终 `typecheck`、`lint`、`backend:test`（记录默认命令缺少 Python；同时复跑 bundled Python 测试）和 `build`。
-2. 检查本次两个状态文档的差异，只暂存它们并创建收尾提交。
-3. 运行 `git status --short --untracked-files=all`，确认工作树干净；若有内容，只保留明确被忽略或等待用户授权的项目。
+- 本轮没有剩余实现或提交步骤；最终检查已完成，工作树干净。
+- 下一阶段需等待用户明确授权，并从 `docs/STATUS.md` 的未完成任务和阻塞项开始规划。
 
 本轮不继续实现共享契约、真实 API、数据库、队列、对象存储或其他新功能。
 
