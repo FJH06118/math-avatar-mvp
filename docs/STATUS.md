@@ -6,7 +6,7 @@
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 已提交代码基线已同步到 `origin/main`；当前工作树只包含本轮尚未提交的规划与 Codex 交接文档。
+- 已提交代码基线已同步到 `origin/main`；规划与交接文档已于 `546c6bb` 单独提交。
 - 当前仓库包含 `frontend/`、`backend/` 和 `docs/` 三个主要工作区；根目录保留工作区级脚本和配置。
 - 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
@@ -37,9 +37,9 @@
 
 ## 正在进行
 
-- 正在建立可复用的 Codex 续接提示词和全流程开发路线图；本轮不修改业务代码。
-- 规划文档尚未提交，等待用户复核与提交授权。
-- 文档基线完成后的下一阶段是“阶段 1A：可复现环境与测试保护”；不得直接跳到真实 API 或基础设施建设。
+- 正在执行“阶段 1A：可复现环境与测试保护”；不得直接跳到真实 API 或基础设施建设。
+- 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
+- Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试和 `routes:check` 已加入；阶段 1A 门禁已串行通过，等待用户确认是否进入阶段 1B。
 
 ## 未完成任务
 
@@ -49,7 +49,7 @@
 4. 根据确认后的架构接入数据库、队列和对象存储；这些技术目前尚未采用。
 5. 完善 PPT/PPTX 安全校验、隔离执行、上传策略及图片公式 OCR 范围。
 6. 补齐多页源页面覆盖、遮挡、黑帧、静音、时长、哈希、编码和最终状态一致性等硬门禁。
-7. 增加前端组件/契约/集成/端到端测试及 `routes:check`；当前项目尚无这些测试命令。
+7. 增加契约、集成和端到端测试；阶段 1A 已具备最小前端 unit/component 测试和 `routes:check`，尚未覆盖真实产品流。
 8. 验证生产 LLM/TTS 供应商、正式交付规格和真实端到端媒体样本。
 
 ## 已知问题
@@ -61,12 +61,11 @@
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
 - 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
 - 默认模型仍可能是 `deepseek-chat`；生产模型、TTS 凭据和供应商尚未确认。
-- 当前没有 OCR、前端测试、契约测试、端到端测试或 `routes:check`。
+- 当前没有 OCR、契约测试或端到端测试；阶段 1A 的前端 unit/component 测试与 `routes:check` 已建立。
 - 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
 ## 当前阻塞项
 
-- 当前机器没有 `python` 或已安装的 Python 3 命令；本轮后端测试使用 Codex 提供的 Python 解释器运行，项目默认 `npm.cmd run backend:test` 无法直接复现。
 - 当前机器没有 Docker 命令，因此 `backend/Dockerfile` 只完成静态审查，未完成容器构建验证。
 - 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置。
 - 生产 API、数据库、队列、对象存储和供应商选择仍需产品/架构确认，未视为既定方案。
@@ -82,11 +81,19 @@
 - Codex bundled Python `unittest discover -s backend/tests -v`：4/4 通过。
 - `node --check backend/run.mjs backend/video/*.mjs`：通过。
 - `docker --version`：不可用；未进行 Docker 构建。
-- `npm.cmd run backend:test`：因环境缺少 `python` 命令未启动；等价测试已用 bundled Python 通过。
+
+2026-08-01 阶段 1A 进行中：
+
+- 现有 `D:\Python310\python.exe` 已确认是 Python 3.10.11，且具备后端测试依赖；通过实际用户 PATH 运行 `npm.cmd run backend:test`，4/4 通过。
+- `npm.cmd exec --workspace @ppt-digital-human/frontend vitest run`：3 个测试文件、4 个断言通过。
+- `npm.cmd run typecheck`：通过。
+- `npm.cmd run lint`：通过，0 warning。
+- `npm.cmd run test`：通过，后端 4/4、unit 1/1、component 3/3。
+- `npm.cmd run build`：通过，Next.js 16.2.11 生成 7 条业务路由。
+- `npm.cmd run routes:check`：通过，6 条业务路由均为 HTTP 200，生产服务已回收。
 
 ## 下一步建议
 
-1. 复核并单独提交本轮规划/交接文档，不与阶段 1A 功能代码混合。
-2. 阶段 1A 先解决标准 Python 3.10+ 可用性，再建立 Vitest/组件测试、根 `test` 和 `routes:check`。
-3. 阶段 1A 通过后单独处理依赖安全告警；随后创建最小共享 Zod Contract。
-4. 只有阶段 1、2 门禁及 T0 进入条件满足后，才开始三页真实产品纵向切片。
+1. 阶段 1A 已通过；等待用户确认是否单独进入阶段 1B 的直接依赖安全收口。
+2. 未获确认不得处理依赖安全升级、共享 Contract 或真实产品集成。
+3. 只有阶段 1、2 门禁及 T0 进入条件满足后，才开始三页真实产品纵向切片。

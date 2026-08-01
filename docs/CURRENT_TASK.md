@@ -1,61 +1,53 @@
 # 当前任务
 
 > 更新时间：2026-08-01。
-> 状态：规划与交接文档已生成，尚未提交；等待用户复核和 Git 提交授权。
+> 状态：阶段 1A“可复现环境与测试保护”已完成并通过门禁；等待用户确认是否进入阶段 1B。上一轮规划与交接文档已作为 `546c6bb` 单独提交。
 
 ## 当前任务目标
 
-为后续 Codex 窗口建立可复用的续接提示词，并把从当前原型到生产化的完整开发过程整理为一份可执行路线图。当前轮次只修改文档，不实现阶段 1A 或其他业务功能。
+在改变业务 Contract 或接入真实 API 前，建立普通开发终端可复现的后端测试和最小前端测试保护。完成本阶段后停止，等待用户确认是否进入阶段 1B。
 
 ## 涉及文件
 
-新建：
-
-- `docs/planning/DEVELOPMENT_ROADMAP.md`：当前执行入口，包含阶段 0～12、门禁、决策截止点和 STOP 条件。
-- `docs/handoffs/NEXT_CODEX_PROMPT.md`：可复制到任何新 Codex 窗口的项目续接提示词。
-
-同步修改：
-
-- `docs/README.md`：增加路线图、提示词索引和一键复制命令。
-- `AGENTS.md`：把开发路线图加入所有 Codex 开始任务前的必读顺序。
-- `docs/IMPLEMENTATION_PLAN.md`：把“目录基线待授权”等过时描述更新为当前事实。
-- `docs/ARCHITECTURE_DECISIONS.md`：把 Git 基线状态更新为已提交并推送。
-- `docs/STATUS.md`：记录当前规划任务和下一阶段。
-- `docs/CURRENT_TASK.md`：记录本次交接点。
+- 根 `package.json`、`package-lock.json` 与 `frontend/package.json`：固化后端、unit 和 component 测试编排，以及 `routes:check` 命令。
+- `frontend/vitest.config.mts`、`frontend/src/test/setup.ts`：按仓库内 Next.js 16 Vitest 指南配置 jsdom、React 与 TypeScript 路径。
+- `frontend/src/lib/api/projects.test.ts`：Mock API adapter 行为测试。
+- `frontend/src/components/feedback/error-state.test.tsx`：错误/重试组件测试。
+- `frontend/src/components/workspace/workspace-actions.test.tsx`：保存和“生成前确认”关键交互测试。
+- `scripts/routes-check.mjs`：只使用 Node 标准库启动生产服务、探测 6 条路由并回收服务。
+- `.gitignore`、`README.md`、`docs/STATUS.md`、`docs/CURRENT_TASK.md`：记录 workspace 依赖忽略、运行方法和阶段状态。
 
 ## 已完成步骤
 
-- 复核 Git 状态、当前任务、项目状态、PRD、真实架构、决策、详细实施计划和本地 Next.js 16 测试指南。
-- 确认当前远程基线为 `main` / `origin/main`，代码提交已同步；本轮开始时工作树干净。
-- 确认下一阶段应为“阶段 1A：可复现环境与测试保护”，而不是直接接真实 API。
-- 新建完整开发执行路线图，覆盖阶段 1A、1B、2、T0、T、3～10、11A～11F 和 12。
-- 新建可复用 Codex 续接提示词，并提供 Windows PowerShell 剪贴板命令。
-- 修正详细实施计划和 ADR 中已经失效的目录基线描述。
+- 复核工作树干净，确认文档基线提交 `546c6bb` 已存在。
+- 阅读仓库内 Next.js 16 Vitest 指南；使用 Vitest、React Testing Library、jsdom、React 插件和 TypeScript 路径插件建立最小测试配置。
+- 确认 `D:\Python310\python.exe` 为 Python 3.10.11，且已安装后端测试依赖；将它加入实际 Windows 用户 PATH，不在项目代码中写入该绝对路径。
+- 使用实际用户 PATH 运行 `npm.cmd run backend:test`，4/4 通过。
+- 新增 API adapter、错误重试组件和关键生成确认交互测试；Vitest 全量直接运行时 3 个测试文件、4 个断言通过。
+- 新增根 `test` 与 `routes:check` 命令；`routes:check` 在 `finally` 中回收直接启动的 Next 生产服务。
+- `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build` 和 `npm.cmd run routes:check` 均已串行通过；根 `test` 覆盖后端 4/4、unit 1/1 与 component 3/3，路由检查验证 6 条业务路由均返回 HTTP 200。
 
 ## 剩余步骤
 
-1. 检查新增 Markdown 本地链接、差异空白和 Git 状态。
-2. 向用户展示文件、复用命令和下一阶段入口。
-3. 未经用户明确要求，不提交本轮文档。
-4. 下一窗口应先处理这组文档的提交授权；文档基线提交后，才开始阶段 1A，避免把规划和功能代码混入一个提交。
+1. 向用户汇报阶段 1A 的变更、验证结果和工作树状态。
+2. 停止并等待用户确认；未经确认不得进入阶段 1B。
 
-## 验证结果
+## 阶段门禁
 
-- 本轮未修改代码，因此不重复宣称代码质量门禁已重新运行。
-- 本地 Next.js 16 文档确认：同步 Server/Client Component 的单元测试可使用 Vitest + React Testing Library；async Server Component 更适合 E2E。
-- 8 个涉及文件的 Markdown 本地链接检查：通过。
-- `git diff --check` 及两个新增文件的尾随空白检查：通过。
-- 最终 Git 状态：6 个已跟踪文档修改、2 个新增文档，均为本轮规划/交接范围；没有代码修改。
-
-## 下一位 Codex 从哪里继续
-
-1. 使用 `docs/handoffs/NEXT_CODEX_PROMPT.md` 作为续接提示词。
-2. 运行 Git 状态检查，确认当前未提交内容应仅是上述规划/交接文档。
-3. 先向用户展示文档提交范围，得到明确授权后单独提交，例如：
-
-```text
-docs: add reusable development roadmap and Codex handoff
+```powershell
+npm.cmd run typecheck
+npm.cmd run lint
+npm.cmd run test
+npm.cmd run build
+npm.cmd run routes:check
 ```
 
-4. 文档提交完成后，按 `docs/planning/DEVELOPMENT_ROADMAP.md` 只执行阶段 1A。
-5. 阶段 1A 完成并通过门禁后停止，不自动进入阶段 1B。
+新增专项测试也必须通过。由于 Codex 当前宿主进程在 PATH 更新前已启动，验证普通终端时需要重开终端；项目命令本身只调用标准 `python`。
+
+## 明确不处理
+
+- 不接真实 API、数据库、队列、对象存储、LLM 或正式 TTS。
+- 不创建 `packages/contracts/`，不进入阶段 2。
+- 不修改页面业务流程或大规模重做 UI。
+- 不批量升级依赖，不运行 `npm audit fix --force`，不进入阶段 1B。
+- 不提交构建产物、缓存、日志、密钥、真实课件或本地环境文件。

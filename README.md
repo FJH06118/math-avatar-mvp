@@ -50,6 +50,14 @@ npm.cmd run build
 # 后端测试
 npm.cmd run backend:test
 
+# 阶段 1A 测试保护
+npm.cmd run test:unit
+npm.cmd run test:components
+npm.cmd run test
+
+# 先完成生产构建，再检查 6 条业务路由并回收服务
+npm.cmd run routes:check
+
 # 后端分阶段运行
 npm.cmd run backend:prepare -- --input "课件.pptx" --job-dir "backend/work/job-001"
 npm.cmd run backend:approve -- --job-dir "backend/work/job-001"
@@ -57,6 +65,9 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 ```
 
 后端安装、环境变量、审核流程、Docker 和输出文件说明见 [`backend/README.md`](backend/README.md)。
+
+运行后端测试前，普通开发终端必须能解析 Python 3.10 或更高版本的 `python`
+命令；不要将任何本机或 Codex 私有解释器绝对路径写入项目脚本。
 
 ## 当前能力边界
 
