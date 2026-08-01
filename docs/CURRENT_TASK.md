@@ -1,67 +1,61 @@
 # 当前任务
 
-> 更新时间：2026-08-01。本文件记录本轮“按确认的提交拆分方案整理并提交工作区改动”的续接点。
-> 状态：已完成，等待下一阶段授权。
+> 更新时间：2026-08-01。
+> 状态：规划与交接文档已生成，尚未提交；等待用户复核和 Git 提交授权。
 
 ## 当前任务目标
 
-检查工作区中未提交的目录重组、依赖、前端移动和后端原型改动，排除构建产物、缓存、日志、密钥和本地环境文件，按功能边界分别提交，并让状态文档与真实代码一致。
+为后续 Codex 窗口建立可复用的续接提示词，并把从当前原型到生产化的完整开发过程整理为一份可执行路线图。当前轮次只修改文档，不实现阶段 1A 或其他业务功能。
 
-## 涉及文件与提交分组
+## 涉及文件
 
-1. `docs: add detailed product and architecture plans`
-   - `docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`
-   - `docs/ARCHITECTURE_DECISIONS.md`
-   - `docs/IMPLEMENTATION_PLAN.md`
-2. `docs: archive prototype handoffs and status`
-   - `docs/HANDOFF.md`
-   - `docs/handoffs/PIPELINE_HANDOFF.md`
-   - `docs/status/高等数学数字人系统-阶段介绍与后续路线.md`
-3. `chore: reorganize repository into workspaces`
-   - 根 workspace 配置、`.gitignore`、锁文件和 `backend/package.json`
-   - 根前端配置/源码/静态资源移动到 `frontend/`
-   - `DEVELOPMENT_PLAN.md` 移动到 `docs/planning/FRONTEND_DEVELOPMENT_PLAN.md`
-4. `feat(backend): add reviewable PPT planning prototype`
-   - `backend/prepare.py`、`backend/approve.py`、`backend/contracts.py`
-   - Python 依赖、环境变量模板和后端单元测试
-5. `feat(backend): add local video generation prototype`
-   - `backend/run.mjs`、`backend/video/*.mjs`
-   - 两个头像源资源
-6. `build(backend): add pipeline runtime packaging and usage docs`
-   - `backend/Dockerfile`
-   - `backend/README.md`
-7. `docs: record repository reorganization status`（已完成）
-   - `docs/STATUS.md`
-   - `docs/CURRENT_TASK.md`
+新建：
+
+- `docs/planning/DEVELOPMENT_ROADMAP.md`：当前执行入口，包含阶段 0～12、门禁、决策截止点和 STOP 条件。
+- `docs/handoffs/NEXT_CODEX_PROMPT.md`：可复制到任何新 Codex 窗口的项目续接提示词。
+
+同步修改：
+
+- `docs/README.md`：增加路线图、提示词索引和一键复制命令。
+- `AGENTS.md`：把开发路线图加入所有 Codex 开始任务前的必读顺序。
+- `docs/IMPLEMENTATION_PLAN.md`：把“目录基线待授权”等过时描述更新为当前事实。
+- `docs/ARCHITECTURE_DECISIONS.md`：把 Git 基线状态更新为已提交并推送。
+- `docs/STATUS.md`：记录当前规划任务和下一阶段。
+- `docs/CURRENT_TASK.md`：记录本次交接点。
 
 ## 已完成步骤
 
-- 运行 `git status --short --untracked-files=all` 并核对全部未提交路径。
-- 对目录移动、依赖变化、前端、后端、配置、文档和被忽略产物完成分类；确认前端移动内容与原文件字节一致。
-- 依次完成前六组独立提交，未提交 `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存、日志、密钥或本地环境文件。
-- 完成 workspace 依赖检查、前端 TypeScript 检查、Lint、生产构建、后端单元测试和视频脚本语法检查。
-- 记录 Docker 和默认 Python 命令在当前环境不可用，不把未验证内容写成已通过。
+- 复核 Git 状态、当前任务、项目状态、PRD、真实架构、决策、详细实施计划和本地 Next.js 16 测试指南。
+- 确认当前远程基线为 `main` / `origin/main`，代码提交已同步；本轮开始时工作树干净。
+- 确认下一阶段应为“阶段 1A：可复现环境与测试保护”，而不是直接接真实 API。
+- 新建完整开发执行路线图，覆盖阶段 1A、1B、2、T0、T、3～10、11A～11F 和 12。
+- 新建可复用 Codex 续接提示词，并提供 Windows PowerShell 剪贴板命令。
+- 修正详细实施计划和 ADR 中已经失效的目录基线描述。
 
 ## 剩余步骤
 
-- 本轮没有剩余实现或提交步骤；最终检查已完成，工作树干净。
-- 下一阶段需等待用户明确授权，并从 `docs/STATUS.md` 的未完成任务和阻塞项开始规划。
+1. 检查新增 Markdown 本地链接、差异空白和 Git 状态。
+2. 向用户展示文件、复用命令和下一阶段入口。
+3. 未经用户明确要求，不提交本轮文档。
+4. 下一窗口应先处理这组文档的提交授权；文档基线提交后，才开始阶段 1A，避免把规划和功能代码混入一个提交。
 
-本轮不继续实现共享契约、真实 API、数据库、队列、对象存储或其他新功能。
+## 验证结果
 
-## 测试结果
+- 本轮未修改代码，因此不重复宣称代码质量门禁已重新运行。
+- 本地 Next.js 16 文档确认：同步 Server/Client Component 的单元测试可使用 Vitest + React Testing Library；async Server Component 更适合 E2E。
+- 8 个涉及文件的 Markdown 本地链接检查：通过。
+- `git diff --check` 及两个新增文件的尾随空白检查：通过。
+- 最终 Git 状态：6 个已跟踪文档修改、2 个新增文档，均为本轮规划/交接范围；没有代码修改。
 
-- `npm.cmd ls --depth=0 --workspaces`：通过。
-- `npm.cmd run typecheck`：通过。
-- `npm.cmd run lint`：通过，0 warning。
-- `npm.cmd run build`：通过，Next.js 16.2.11，7 条 App Router 路由。
-- bundled Python `unittest discover -s backend/tests -v`：4/4 通过。
-- `node --check backend/run.mjs` 及 `backend/video/*.mjs`：通过。
-- `npm.cmd run backend:test`：当前环境缺少 `python` 命令，未能由项目脚本启动；等价测试已通过。
-- `docker --version`：当前环境不可用，未执行容器构建。
+## 下一位 Codex 从哪里继续
 
-## 下一位 Codex 应从哪里继续
+1. 使用 `docs/handoffs/NEXT_CODEX_PROMPT.md` 作为续接提示词。
+2. 运行 Git 状态检查，确认当前未提交内容应仅是上述规划/交接文档。
+3. 先向用户展示文档提交范围，得到明确授权后单独提交，例如：
 
-1. 先阅读根目录 `AGENTS.md`，再按其中顺序阅读 `docs/CURRENT_TASK.md`、`docs/STATUS.md`、`docs/PRD.md`、`docs/ARCHITECTURE.md` 和 `docs/DECISIONS.md`。
-2. 运行 `git status --short --untracked-files=all` 和 `git log --oneline -8`，确认本轮提交已经存在。
-3. 以 `docs/STATUS.md` 的“未完成任务”和“当前阻塞项”为事实，等待用户明确下一阶段；不要把本轮提交解释为生产系统已完成。
+```text
+docs: add reusable development roadmap and Codex handoff
+```
+
+4. 文档提交完成后，按 `docs/planning/DEVELOPMENT_ROADMAP.md` 只执行阶段 1A。
+5. 阶段 1A 完成并通过门禁后停止，不自动进入阶段 1B。

@@ -1,11 +1,11 @@
 # PPT 数字人授课视频生成系统实施计划
 
-> 状态：规划复核完成；阶段 1 仅等待目录重组基线授权  
+> 状态：Active；阶段 0 基线已完成，下一阶段为 1A 可复现环境与测试保护
 > 制定日期：2026-07-30  
-> 最近复核：2026-07-30  
+> 最近复核：2026-08-01
 > 需求依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`（已完整阅读 1705 行）  
 > 架构依据：`docs/ARCHITECTURE_DECISIONS.md`  
-> 当前轮次范围：项目分析、架构与实施计划；不实现业务功能
+> 当前执行入口：`docs/planning/DEVELOPMENT_ROADMAP.md`
 
 ## 1. 结论与执行建议
 
@@ -39,9 +39,11 @@
 章节编号用于保存 PRD 对应关系，实际执行顺序必须是：
 
 ```text
-规划收尾
-→ 阶段 1：安全基线与测试保护
+阶段 0：仓库与文档基线（已完成）
+→ 阶段 1A：可复现环境与测试保护
+→ 阶段 1B：直接依赖安全收口
 → 阶段 2：纵向切片实际需要的最小 Contract
+→ 阶段 T0：真实切片进入条件与基础设施 POC
 → 阶段 T：3 页真实产品 tracer bullet
 → 阶段 3～10：只补现有产品与真实切片暴露的差距
 → 阶段 11A～11F：恢复、覆盖面、规模和质量硬化
@@ -56,11 +58,12 @@
 
 ### 2.1 仓库与目录
 
-当前分支为 `main`，最近提交为：
+当前分支为 `main`。2026-08-01 复核时最近提交为：
 
 ```text
-f4f0dfb Redesign course creation experience
-5571a2f Initial project backup
+6480ea0 docs: finalize current task handoff
+65b2a62 docs: record repository reorganization status
+a14ca50 build(backend): add pipeline runtime packaging and usage docs
 ```
 
 当前目录：
@@ -76,22 +79,13 @@ f4f0dfb Redesign course creation experience
 └── README.md
 ```
 
-文件规模（排除生成物）：
+### 2.2 Git 基线
 
-- 前端约 97 个文件。
-- 后端约 19 个文件。
-- 本计划创建前共有 5 个文档文件。
+目录重组、依赖、前后端原型和上下文文档已按功能拆分提交，并已推送到
+`origin/main`。T-01 的基线授权条件已经满足。
 
-### 2.2 未提交改动
-
-当前存在大规模未提交目录重组：
-
-- 原根目录 `src/`、`public/` 和前端配置在 Git 中显示为删除。
-- 对应内容在 `frontend/` 中显示为未跟踪。
-- 整个 `backend/` 当前显示为未跟踪。
-- `docs/` 的新分类、根 `package.json`、锁文件、README、AGENTS 和 `.gitignore` 均有未提交改动。
-
-这些改动是当前有效工作，后续实现不得覆盖、重置或误删。进入阶段 1 前应先人工确认重组结果，然后建立一个可回退的 Git 基线。禁止用 `git reset --hard` 处理当前状态。
+后续每个窗口仍必须先运行 `git status --short --untracked-files=all`，保留任何已有
+修改。禁止使用 `git reset --hard`、`git clean` 或批量恢复处理来源不明的工作树。
 
 ### 2.3 当前依赖
 
@@ -131,12 +125,11 @@ f4f0dfb Redesign course creation experience
 
 ### 2.4 当前质量基线
 
-2026-07-30 接管轮次已串行执行：
+2026-08-01 最近一轮已串行执行：
 
 ```powershell
 npm.cmd run typecheck
 npm.cmd run lint
-npm.cmd run backend:test
 npm.cmd run build
 ```
 
@@ -145,7 +138,8 @@ npm.cmd run build
 - Next.js 生产构建通过。
 - TypeScript 检查通过。
 - ESLint 以零警告门槛通过。
-- 后端 4 个 Python 单元测试通过。
+- 后端同一组 4 个 Python 单元测试使用 Codex bundled Python 通过；当前系统没有标准
+  `python` 命令，根 `npm.cmd run backend:test` 无法在普通终端复现，这是阶段 1A 的阻塞项。
 - 本地生产服务下 `/`、`/upload`、工作台、解析、生成和结果页 6 条实际路由均返回 HTTP 200；探针服务已回收。
 - 当前没有 `routes:check` 脚本，本轮使用手工生产服务探针；阶段 1 才把它固化为仓库命令。
 
@@ -999,10 +993,13 @@ npm.cmd run routes:check
 
 ### 阶段 1：项目初始化与基础设计系统收口
 
+目录重组和 Git 基线子步骤已经完成。剩余工作按
+`docs/planning/DEVELOPMENT_ROADMAP.md` 拆成阶段 1A（环境/测试）和 1B（依赖安全）。
+
 目标：
 
 - 保留现有设计和页面，不重新搭建前端。
-- 确认并建立目录重组 Git 基线。
+- 保持已经确认并推送的目录重组 Git 基线。
 - 补齐测试框架、基础组件测试和路由检查脚本。
 - 处理直接依赖安全告警中的可兼容升级。
 
@@ -1016,9 +1013,9 @@ npm.cmd run routes:check
 
 内部顺序：
 
-1. 用户确认目录重组后建立可回退 Git 基线。
-2. 先建立并跑通 unit/component/route 测试保护。
-3. 直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
+1. 先让标准开发环境可复现运行 Python 后端测试。
+2. 建立并跑通 unit/component/route 测试保护。
+3. 测试保护通过后进入阶段 1B；直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
 
 不处理：
 
@@ -1424,7 +1421,7 @@ P-02 决定对应的测试 principal/identity
 
 | 风险 | 等级 | 影响 | 缓解 |
 |---|---|---|---|
-| 整个前后端目录尚未被 Git 跟踪 | P0 | 后续修改难以区分移动、删除和覆盖 | 阶段 1 前确认并建立基线 |
+| 标准 Python 命令缺失 | P1 | 后端测试无法由普通开发终端和根 npm 脚本复现 | 阶段 1A 明确 Python 3.10+ 安装与调用方式 |
 | 原页覆盖规则当前会漏掉合并场景的后续页 | P0 | 违反核心产品原则 | Contract、渲染和验证三层硬门 |
 | Agent 输出不是共享 Zod | P0 | 不可控字段和 Schema 漂移 | 阶段 2 先建唯一 Contract |
 | 输出 JSON 含绝对路径 | P0 | 未来 API 泄漏内部结构 | 内部 Asset ID + 签名 URL |
@@ -1465,7 +1462,7 @@ P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变�
 
 | ID | 假设 | 状态 | 证据 | 截止阶段 | 失效动作 |
 |---|---|---|---|---|---|
-| T-01 | 当前 `frontend/` 97 文件、`backend/` 19 文件和大规模目录重组是用户认可的有效基线 | UNVERIFIED | 2026-07-30 `git status` 和文件计数只证明物理现状，不能证明用户授权 | 阶段 1 | 禁止重置、暂存或提交；由用户确认意图和授权后建立基线 |
+| T-01 | `frontend/`、`backend/` 和目录重组是用户认可的有效基线 | VERIFIED | 用户授权拆分提交；相关提交已于 2026-08-01 推送到 `origin/main` | 已关闭 | 后续以 Git 历史为基线，来源不明的工作树改动仍触发 STOP |
 | T-02 | 当前依赖审计为 3 moderate、20 high | VERIFIED | 2026-07-30 官方 npm registry audit | 阶段 1 | 先测试保护，再一次一个直接依赖升级；不运行 force fix |
 | T-03 | Agents SDK 可连接 OpenAI-compatible Chat Completions | VERIFIED | 官方 SDK 支持 `baseURL` 与 `useResponses: false` | 阶段 T | 只说明传输能力；DeepSeek 端到端仍需 T-04 |
 | T-04 | DeepSeek 与选定编排层完整兼容 | UNVERIFIED | 官方 DeepSeek 支持 OpenAI Chat Completions，但当前代码默认模型已停用 | 阶段 T | 真实测试结构化输出、工具、超时和重试；失败则用最小 OpenAI SDK Provider |
@@ -1476,7 +1473,7 @@ P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变�
 
 ### 13.3 STOP 条件
 
-- 目录重组未获用户确认或工作区出现来源不明的重叠改动：不得进入阶段 1 或建立 Git 基线。
+- 工作区出现来源不明或与当前阶段重叠的改动：停止并报告，不得覆盖、重置或清理。
 - P-01 或 P-02 尚未确认：不阻断可逆的阶段 1/2，但不得进入阶段 T。
 - P-08 尚未确认：不阻断供应商中性的阶段 1～11；不得执行阶段 12 的供应商绑定或生产发布。
 - T-07 未解决：不得进入阶段 T，但不阻止纯文档、阶段 1 或阶段 2。
@@ -1509,17 +1506,20 @@ P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变�
 
 ## 15. 建议优先开始的阶段
 
-等待目录重组意图与安全 Git 基线授权确认后，优先执行**阶段 1：项目初始化与基础设计系统收口**。P-01、P-02 在阶段 T 前确认，P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1。
+目录重组与安全 Git 基线已经完成。现在优先执行
+**阶段 1A：可复现环境与测试保护**，随后单独执行阶段 1B 的直接依赖安全收口。
+P-01、P-02 在阶段 T 前确认，P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1A/1B。
 
 原因：
 
 - 当前页面已经很多，重新搭建会覆盖有效工作。
-- 整个 `frontend/`、`backend/` 和文档重组尚未建立 Git 基线。
+- Git 基线已经稳定，可安全添加测试保护而不混入目录移动。
 - 前端没有自动化测试，无法安全进入 Contract 迁移。
+- 当前系统没有标准 Python 命令，根后端测试不可由普通终端复现。
 - 当前依赖有安全告警。
 - 阶段 1 完成后，阶段 2 才能用测试保护最小共享 Zod Schema；随后必须先完成阶段 T 的真实纵向切片，再按证据补阶段 3～10 的差距。
 
-本计划获确认前，不自动开始阶段 1。
+阶段 1A 完成后停止并等待确认，不自动进入阶段 1B。
 
 ## 16. 失败恢复、清理与回滚契约
 
@@ -1677,7 +1677,7 @@ P0 残余风险没有表中指定接受人签字时不得发布。阶段 T 只�
 
 ### 20.2 实施前必须解决
 
-- 当前目录重组是否允许建立安全 Git 基线。
+- 阶段 1A 开始前确认标准 Python 3.10+ 的安装或团队认可的可复现调用方式；不得把 Codex bundled Python 绝对路径写入项目。
 
 ### 20.3 到对应阶段前解决
 
