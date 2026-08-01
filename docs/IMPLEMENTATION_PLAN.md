@@ -1,6 +1,6 @@
 # PPT 数字人授课视频生成系统实施计划
 
-> 状态：Active；阶段 0 基线已完成，下一阶段为 1A 可复现环境与测试保护
+> 状态：Active；阶段 0/1A/1B 已完成，Next 内嵌依赖 3 项 high 已由用户明确风险接受，等待阶段 2 确认
 > 制定日期：2026-07-30  
 > 最近复核：2026-08-01
 > 需求依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`（已完整阅读 1705 行）  
@@ -125,7 +125,7 @@ a14ca50 build(backend): add pipeline runtime packaging and usage docs
 
 ### 2.4 当前质量基线
 
-2026-08-01 最近一轮已串行执行：
+2026-08-01 阶段 1A 最近一轮已串行执行：
 
 ```powershell
 npm.cmd run typecheck
@@ -138,16 +138,15 @@ npm.cmd run build
 - Next.js 生产构建通过。
 - TypeScript 检查通过。
 - ESLint 以零警告门槛通过。
-- 后端同一组 4 个 Python 单元测试使用 Codex bundled Python 通过；当前系统没有标准
-  `python` 命令，根 `npm.cmd run backend:test` 无法在普通终端复现，这是阶段 1A 的阻塞项。
-- 本地生产服务下 `/`、`/upload`、工作台、解析、生成和结果页 6 条实际路由均返回 HTTP 200；探针服务已回收。
-- 当前没有 `routes:check` 脚本，本轮使用手工生产服务探针；阶段 1 才把它固化为仓库命令。
+- 后端同一组 4 个 Python 单元测试通过；普通开发终端已可通过标准 `python` 命令复现，项目代码不依赖 Codex bundled Python 绝对路径。
+- 根 `npm.cmd run test` 已编排后端 4/4、unit 1/1 和 component 3/3 测试。
+- `routes:check` 已验证 `/`、`/upload`、工作台、解析、生成和结果页 6 条实际路由均返回 HTTP 200，探针服务已回收。
 
 注意：`next build` 与 `tsc` 不能在同一个 `.next` 目录并行执行。本次并行检查曾导致 `.next/types` 被构建过程替换而出现假失败；质量门禁应串行。
 
 当前缺口：
 
-- 没有前端 `test` 脚本、组件测试和 E2E 测试。
+- 已有前端 Vitest、React Testing Library、unit/component 测试；尚未建立真实产品流 E2E 测试。
 - 没有 CI。
 - 当前机器没有 Docker，尚未验证重组后的 Docker 镜像构建。
 
@@ -993,8 +992,8 @@ npm.cmd run routes:check
 
 ### 阶段 1：项目初始化与基础设计系统收口
 
-目录重组和 Git 基线子步骤已经完成。剩余工作按
-`docs/planning/DEVELOPMENT_ROADMAP.md` 拆成阶段 1A（环境/测试）和 1B（依赖安全）。
+目录重组和 Git 基线子步骤已经完成；阶段 1A（环境/测试）也已完成。当前按
+`docs/planning/DEVELOPMENT_ROADMAP.md` 执行阶段 1B（依赖安全）风险收口。
 
 目标：
 
@@ -1015,7 +1014,7 @@ npm.cmd run routes:check
 
 1. 先让标准开发环境可复现运行 Python 后端测试。
 2. 建立并跑通 unit/component/route 测试保护。
-3. 测试保护通过后进入阶段 1B；直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
+3. 阶段 1A 测试保护已通过；阶段 1B 中直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
 
 不处理：
 
@@ -1506,20 +1505,19 @@ P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变�
 
 ## 15. 建议优先开始的阶段
 
-目录重组与安全 Git 基线已经完成。现在优先执行
-**阶段 1A：可复现环境与测试保护**，随后单独执行阶段 1B 的直接依赖安全收口。
+目录重组与安全 Git 基线已经完成；阶段 1A 与阶段 1B 已完成，Next 内嵌依赖 3 项 high 已由用户明确风险接受，当前等待阶段 2 确认。
 P-01、P-02 在阶段 T 前确认，P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1A/1B。
 
 原因：
 
 - 当前页面已经很多，重新搭建会覆盖有效工作。
 - Git 基线已经稳定，可安全添加测试保护而不混入目录移动。
-- 前端没有自动化测试，无法安全进入 Contract 迁移。
-- 当前系统没有标准 Python 命令，根后端测试不可由普通终端复现。
+- 阶段 1A 已补齐最小前端自动化测试和可复现后端测试入口。
 - 当前依赖有安全告警。
+- 2026-08-01 官方 audit 从 6 项降至 3 项 high；剩余风险来自稳定 `next@16.2.11` 内嵌 `postcss@8.4.31` 和 `sharp@0.34.5`，不能用 canary 或 `npm audit fix --force` 解决，已由用户明确接受。
 - 阶段 1 完成后，阶段 2 才能用测试保护最小共享 Zod Schema；随后必须先完成阶段 T 的真实纵向切片，再按证据补阶段 3～10 的差距。
 
-阶段 1A 完成后停止并等待确认，不自动进入阶段 1B。
+当前停在阶段 1B 完成后的阶段 2 确认点，不自动进入阶段 2。
 
 ## 16. 失败恢复、清理与回滚契约
 

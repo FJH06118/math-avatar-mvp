@@ -6,7 +6,7 @@
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 已提交代码基线已同步到 `origin/main`；规划与交接文档已于 `546c6bb` 单独提交。
+- 本地 `main` 当前相对 `origin/main` ahead 2，尚未执行 push；规划与交接文档已于 `546c6bb` 单独提交。
 - 当前仓库包含 `frontend/`、`backend/` 和 `docs/` 三个主要工作区；根目录保留工作区级脚本和配置。
 - 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
@@ -37,9 +37,10 @@
 
 ## 正在进行
 
-- 正在执行“阶段 1A：可复现环境与测试保护”；不得直接跳到真实 API 或基础设施建设。
+- 阶段 1A 与阶段 1B 已完成；Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受，当前停在阶段 2 确认点，不得直接进入真实 API 集成。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
-- Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试和 `routes:check` 已加入；阶段 1A 门禁已串行通过，等待用户确认是否进入阶段 1B。
+- Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试和 `routes:check` 已加入；阶段 1A 门禁已串行通过。
+- 阶段 1B 已锁定 `brace-expansion@1.1.18`、`postcss@8.5.23`、`shadcn@4.16.1`、`@modelcontextprotocol/sdk@1.30.0` 和 `@hono/node-server@2.0.12`；官方 audit 从 6 项降至 3 项 high。
 
 ## 未完成任务
 
@@ -67,8 +68,10 @@
 ## 当前阻塞项
 
 - 当前机器没有 Docker 命令，因此 `backend/Dockerfile` 只完成静态审查，未完成容器构建验证。
+- 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
 - 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置。
 - 生产 API、数据库、队列、对象存储和供应商选择仍需产品/架构确认，未视为既定方案。
+- 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
 
@@ -82,7 +85,7 @@
 - `node --check backend/run.mjs backend/video/*.mjs`：通过。
 - `docker --version`：不可用；未进行 Docker 构建。
 
-2026-08-01 阶段 1A 进行中：
+2026-08-01 阶段 1A 已完成（历史验证记录）：
 
 - 现有 `D:\Python310\python.exe` 已确认是 Python 3.10.11，且具备后端测试依赖；通过实际用户 PATH 运行 `npm.cmd run backend:test`，4/4 通过。
 - `npm.cmd exec --workspace @ppt-digital-human/frontend vitest run`：3 个测试文件、4 个断言通过。
@@ -92,8 +95,24 @@
 - `npm.cmd run build`：通过，Next.js 16.2.11 生成 7 条业务路由。
 - `npm.cmd run routes:check`：通过，6 条业务路由均为 HTTP 200，生产服务已回收。
 
+2026-08-01 阶段 1B 依赖审计：
+
+- 官方 `npm audit --registry=https://registry.npmjs.org`：初始 6 项（2 moderate、4 high）；修复后 3 项 high。
+- `npm.cmd ls next sharp postcss brace-expansion shadcn @modelcontextprotocol/sdk @hono/node-server --all`：通过，无 invalid。
+- 未运行 `npm audit fix --force`，未安装 Next canary。
+- 依赖变更后 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build` 和 `npm.cmd run routes:check`：全部通过。
+- 用户于 2026-08-01 明确接受剩余 3 项 Next high 风险；阶段 1B 关闭，未进入阶段 2。
+
+初始接管复核（旧宿主进程，后续已重开 PowerShell）：
+
+- `npm.cmd run typecheck`：通过。
+- `npm.cmd run lint`：通过，0 warning。
+- `npm.cmd run test`：阻塞；`python` 未被当前进程解析，尚未进入后端、unit 或 component 测试。
+- `py -3`：未发现已注册的 Python；直接路径检查确认 `D:\Python310\python.exe` 为 Python 3.10.11。
+- 因测试门禁阻塞，按规则未继续运行本轮的 `npm.cmd run build` 和 `npm.cmd run routes:check`。
+
 ## 下一步建议
 
-1. 阶段 1A 已通过；等待用户确认是否单独进入阶段 1B 的直接依赖安全收口。
-2. 未获确认不得处理依赖安全升级、共享 Contract 或真实产品集成。
+1. 阶段 1B 已完成；等待用户确认是否进入阶段 2 共享 Contract。
+2. 未获确认不得创建 `packages/contracts/` 或进入真实产品集成。
 3. 只有阶段 1、2 门禁及 T0 进入条件满足后，才开始三页真实产品纵向切片。
