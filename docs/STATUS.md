@@ -1,19 +1,14 @@
 # 项目状态
 
-> 更新于 2026-07-30。代码和 Git 状态是事实来源。
+> 更新时间：2026-08-01。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
 
 ## 当前基线
 
-- 分支：`main`
-- 上一代码基线：`f4f0dfb`（`Redesign course creation experience`）
-- 工作树：未清洁。根目录旧前端文件显示为已删除，新的 `frontend/`、`backend/` 和
-  `docs/` 内容大多尚未跟踪，同时根配置文件也有修改。
-- 当前工作：上下文文档已与代码复核，并单独创建文档提交；功能开发保持暂停，等待下一阶段授权。
-- 当前系统形态：前端 Mock 应用与后端本地 CLI 原型并存，尚未集成。
-
-现有脏工作树应视为用户工作成果。本次只暂存并提交 `AGENTS.md`、根
-`README.md` 和六份上下文/索引文档；没有暂存、恢复或提交目录重组、依赖及功能代码，
-也没有借此建立目录重组基线。
+- 分支：`main`。
+- 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
+- 当前仓库包含 `frontend/`、`backend/` 和 `docs/` 三个主要工作区；根目录保留工作区级脚本和配置。
+- 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
+- `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
 
 ## 已完成功能
 
@@ -21,91 +16,74 @@
 
 - Next.js App Router 页面覆盖项目列表、上传、解析进度、三栏审核工作台、生成进度和结果页。
 - 已有加载、空、错误、确认等反馈组件，以及数字人、声音、字幕和教学视觉设置 UI。
-- TanStack Query 与 Mock API 支撑了主要交互演示。
-- 六个主要路由在最近一次生产构建后的本地 smoke test 中均返回 HTTP 200。
+- TanStack Query 与 Mock API 支持主要交互演示。
+- 原根前端已移动到 `frontend/`，前端清单、脚本和配置已按 workspace 结构整理。
 
 ### 后端原型
 
 - PPTX 文本、表格、分组、备注和公式候选解析。
-- 通过 Windows PowerPoint COM 或 LibreOffice 生成原页图。
-- OpenAI 兼容模型规划或确定性规则回退。
-- 人工审核/批准门禁。
-- Edge TTS、SRT 字幕、Sharp 帧合成、FFmpeg H.264/AAC 视频与基础验证。
-- 4 个 Python 契约/解析单元测试。
-- 历史交接记录中有 2 页和 14 页课件的真实 Edge TTS/视频跑通结果；这不是本轮重新生成的结果。
+- Windows PowerPoint COM 或 LibreOffice 原页图片生成。
+- OpenAI 兼容模型规划与确定性规则回退。
+- 人工审核/批准门禁及 Python 契约、解析单元测试。
+- Edge TTS、SRT 字幕、Sharp 帧合成、固定头像叠加、FFmpeg H.264/AAC 视频生成和基础媒体验证。
+- `backend/README.md`、`backend/Dockerfile` 和 `.env.example` 已提供本地运行参考；Docker 尚未在当前环境验证。
 
-### 文档与规划
+### 文档与工程基线
 
-- 详细 PRD、实施计划、架构 ADR、前后端计划和流水线交接资料已经存在。
-- 当前上下文入口、精简 PRD、真实架构、决策、状态和续接任务文档已在本轮建立。
+- 已建立入口文档、精简 PRD、真实架构、决策、状态和当前任务文档。
+- 已提交详细产品 PRD、架构决策、实施计划、历史交接资料和前端计划迁移。
+- 根 workspace 脚本可委托前端检查和后端 CLI 命令；依赖锁文件与 workspace 清单一致。
 
 ## 正在进行
 
-- 当前没有正在开发的功能。
-- 等待用户明确是否授权目录重组基线或下一实施阶段。
-- 不自动进入功能实现，也不继续暂存或提交其他工作树内容。
+- 当前没有正在开发的功能或未完成的提交组。
+- 下一阶段必须由用户明确授权；在授权前不继续扩展产品功能或生产架构。
 
 ## 未完成任务
 
-按当前实施顺序：
-
-1. 经用户确认后，为目录重组建立可回滚的 Git 基线。
-2. 补齐规划中的前端测试命令、最小组件测试和 `routes:check` 门禁。
-3. 创建 `packages/contracts/`，用共享 Zod schema 取代漂移的手写类型/JSON 形状。
-4. 建立真实三页 tracer，修复 stable ID、修订、来源覆盖和多源页面语义。
-5. 以真实 API adapter 替换 Mock client，并增加薄 BFF、私有应用服务和资源授权。
-6. 引入真实持久任务、步骤状态、取消、心跳、幂等、重试与恢复。
-7. 决策并实现数据库、队列和对象存储。
-8. 完整实现上传安全校验、PPT/PPTX 兼容策略和隔离执行。
-9. 补齐页面覆盖、遮挡、黑帧、静音、时长、哈希及严格编码门禁。
-10. 验证生产 LLM/TTS 供应商；解决图片公式 OCR 范围。
-11. 增加契约、集成、黄金媒体和端到端测试。
+1. 创建 `packages/contracts/`，以严格 Zod schema 统一浏览器、Node 和 Python 边界契约。
+2. 用真实 API adapter/BFF 替换 Mock client，并实现认证、授权和稳定业务 ID。
+3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
+4. 根据确认后的架构接入数据库、队列和对象存储；这些技术目前尚未采用。
+5. 完善 PPT/PPTX 安全校验、隔离执行、上传策略及图片公式 OCR 范围。
+6. 补齐多页源页面覆盖、遮挡、黑帧、静音、时长、哈希、编码和最终状态一致性等硬门禁。
+7. 增加前端组件/契约/集成/端到端测试及 `routes:check`；当前项目尚无这些测试命令。
+8. 验证生产 LLM/TTS 供应商、正式交付规格和真实端到端媒体样本。
 
 ## 已知问题
 
-- 多源场景当前可能只使用 `sourceSlides[0]`，会漏掉后续源页。
-- 原页渲染失败时的文本回退字段与解析器形状可能不一致，并且无法保持原版式。
-- 前端项目、任务和进度存在浏览器内存中，刷新即丢失；进度由计时器模拟。
-- Mock 上传只检查扩展名和 100 MB 上限，不读取或传输实际文件内容。
-- 前端审核区重排标题、摘要和公式示意，并非后端生成的真实原页预览。
+- 前端项目、任务和进度只存于浏览器内存，刷新即丢失；上传只检查扩展名和 100 MiB 上限，不读取或传输真实文件。
 - 前端结果页的 `videoUrl` 为空且 `assetsAvailable=false`，没有后端生成的真实视频资源。
-- 解析/生成页挂载后会创建 Mock 任务，缺少真实幂等保护，重复挂载存在重复建任务风险。
-- 前端手写类型、Python 契约和 Node 消费端没有统一 schema。
-- 后端以页码索引关联页面，没有稳定 `slideId`；未知场景类型可能被宽松降级。
-- `approve.py` 不按人工编辑后的场景重算 `sourceSlideCoverage`，覆盖元数据可能陈旧。
-- 后端产物 JSON 可能包含服务端绝对路径。
-- `backend:run` 自动批准，只能作为回归捷径，不能代表人工审核闭环。
-- 原型在同一 job 目录重跑，帧与临时产物没有按 attempt 隔离，存在陈旧文件污染风险。
-- 现有验证对部分编码条件只给警告，且缺少完整覆盖/遮挡/黑帧/静音/哈希门禁。
-- `create-video.mjs` 在最终验证前写入 `result.json.status=completed`，验证失败时产物与 job 状态可能矛盾。
-- 原型视频使用 12 fps；正式交付帧率尚未确认。
-- `.env.example` 和原型代码仍存在 `deepseek-chat` 默认值，与“生产模型无代码默认值”的已确定方向冲突。
-- 图片公式 OCR 未实现。
-- 目前没有前端组件测试、契约测试、集成测试、端到端测试或 `routes:check` 命令。
-- 最近记录的 `npm audit` 为 23 个依赖告警（3 moderate、20 high），尚未逐项处置。
+- 后端仍是本地 V0.1 原型：仅支持 `.pptx`，没有 HTTP 服务、数据库、任务队列或对象存储。
+- 多页场景当前可能只处理 `sourceSlides[0]`；原页渲染失败时的文本回退、`sourceSlideCoverage` 更新和最终结果状态仍有已知缺口。
+- 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
+- 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
+- 默认模型仍可能是 `deepseek-chat`；生产模型、TTS 凭据和供应商尚未确认。
+- 当前没有 OCR、前端测试、契约测试、端到端测试或 `routes:check`。
+- 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
 ## 当前阻塞项
 
-- 目录重组仍未得到“建立并提交基线”的明确授权；本次文档提交不构成该授权。
-- 真实供应商集成需要可用凭据、模型/TTS 选择和兼容性验证。
-- 当前环境未检测到 Docker，未来容器验证暂时无法运行。
-- 数据库、队列、存储、OCR 和若干产品边界仍待确认，但只应在相关实施阶段成为 STOP 条件。
+- 当前机器没有 `python` 或已安装的 Python 3 命令；本轮后端测试使用 Codex 提供的 Python 解释器运行，项目默认 `npm.cmd run backend:test` 无法直接复现。
+- 当前机器没有 Docker 命令，因此 `backend/Dockerfile` 只完成静态审查，未完成容器构建验证。
+- 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置。
+- 生产 API、数据库、队列、对象存储和供应商选择仍需产品/架构确认，未视为既定方案。
 
 ## 最近检查
 
-2026-07-30 在当前代码上已串行通过：
+2026-08-01 已完成：
 
-- `npm.cmd run typecheck`
-- `npm.cmd run lint`（0 warning）
-- `npm.cmd run backend:test`（4 tests）
-- `npm.cmd run build`
-- 生产模式六路由 smoke test（均为 HTTP 200）
-
-本轮文档完成后的复核结果记录在 `docs/CURRENT_TASK.md`。
+- `npm.cmd ls --depth=0 --workspaces`：通过。
+- `npm.cmd run typecheck`：通过。
+- `npm.cmd run lint`：通过，0 warning。
+- `npm.cmd run build`：通过，Next.js 16.2.11 生成 7 条 App Router 路由。
+- Codex bundled Python `unittest discover -s backend/tests -v`：4/4 通过。
+- `node --check backend/run.mjs backend/video/*.mjs`：通过。
+- `docker --version`：不可用；未进行 Docker 构建。
+- `npm.cmd run backend:test`：因环境缺少 `python` 命令未启动；等价测试已用 bundled Python 通过。
 
 ## 下一步建议
 
-1. 等待用户明确授权目录重组基线或下一实施阶段。
-2. 若获授权，单独建立目录重组基线并再次核对状态；不要把后续功能混入该基线。
-3. 再进入实施计划第一个未完成阶段：补测试门禁，随后建立共享契约和真实三页 tracer。
-4. 每个阶段结束后更新本文件和 `docs/CURRENT_TASK.md`，运行串行质量门禁并停下等待确认。
+1. 先由用户确认下一实施阶段和生产边界，再建立对应的 `docs/CURRENT_TASK.md` 任务。
+2. 若进入真实集成，优先创建共享契约和持久任务模型，随后再替换前端 Mock adapter。
+3. 为每个阶段补齐专项测试和媒体硬门禁；未通过门禁前不得把任务标记为完成。
