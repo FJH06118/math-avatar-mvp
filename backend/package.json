@@ -1,0 +1,12 @@
+{
+  "name": "@ppt-digital-human/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "ffprobe-static": "3.1.0",
+    "node-edge-tts": "1.2.10",
+    "sharp": "0.35.3"
+  }
+}

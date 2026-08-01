@@ -14,11 +14,11 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+/frontend/.next/
+/frontend/out/
 
 # production
-/build
+/frontend/build
 
 # misc
 .DS_Store
@@ -32,6 +32,13 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# local backend jobs and generated media
+/backend/work/
+/backend/output/
+__pycache__/
+*.py[cod]
 
 # vercel
 .vercel

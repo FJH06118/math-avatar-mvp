@@ -39,7 +39,7 @@
 ## 分阶段实施
 
 1. 初始化 Next.js、TypeScript、Tailwind CSS、shadcn/ui、依赖和基础设计系统。
-2. 在 `src/types` 定义领域类型，在 `src/lib/api` 建立带延迟、失败注入和任务进度的 Mock API。
+2. 在 `frontend/src/types` 定义领域类型，在 `frontend/src/lib/api` 建立带延迟、失败注入和任务进度的 Mock API。
 3. 实现项目首页、最近项目加载/错误/空状态和删除确认。
 4. 实现 PPT/PPTX 上传校验、上传进度、取消、失败重试和创建项目。
 5. 实现 PPT 解析阶段进度、失败重试、取消和完成跳转。
@@ -52,7 +52,7 @@
 ## 目标文件结构
 
 ```text
-src/
+frontend/src/
 ├─ app/
 │  ├─ projects/[projectId]/
 │  │  ├─ page.tsx
