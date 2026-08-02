@@ -1,6 +1,6 @@
 # 当前真实架构
 
-> 更新于 2026-07-30。本文只描述代码中已经存在的实现；目标架构和候选技术见
+> 更新于 2026-08-02。本文只描述代码中已经存在的实现；目标架构和候选技术见
 > `docs/DECISIONS.md`、`docs/ARCHITECTURE_DECISIONS.md` 与
 > `docs/IMPLEMENTATION_PLAN.md`。
 
@@ -38,7 +38,7 @@ PowerShell / 终端
   `setTimeout`/当前时间推导进度；刷新后数据丢失。
 - 下载：当前结果主要是演示用 `data:` 字幕资源，没有由后端交付的真实视频 URL。
 
-`frontend/src/types/` 目前维护手写业务类型。它们不是共享契约，也没有在网络边界验证真实后端 payload。
+`frontend/src/types/` 目前只重导出 `packages/contracts/` 的 TypeScript 类型；Mock adapter 在返回和主要输入边界运行时调用共享 Zod Schema。真实网络边界尚未接入。
 
 ## 后端
 
@@ -67,7 +67,7 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 | 对象存储/CDN | 没有。 |
 | 公共资源授权 | 没有。后端 JSON 仍可能包含绝对路径。 |
 
-PostgreSQL/Prisma、Redis/BullMQ 和对象存储只出现在目标规划中，尚未采用。
+PostgreSQL/Prisma、PostgreSQL lease worker 和对象存储尚未实现。用户已批准前两者作为 T0 的无 Docker 目标方向，但 PostgreSQL 尚未安装、POC 尚未运行，因此当前事实仍是“没有数据库和任务队列”。Redis/BullMQ 已从 T0 方案移除。
 
 ## 视频生成数据流
 
@@ -92,7 +92,7 @@ PostgreSQL/Prisma、Redis/BullMQ 和对象存储只出现在目标规划中，�
 - 浏览器代码只在 `frontend/`，没有直接导入 `backend/`。
 - PPT、LLM、TTS、Sharp 和 FFmpeg 仅在 `backend/` 使用。
 - Python 负责 PPTX 解析、计划准备和批准；Node.js 负责 CLI 编排和音视频处理。
-- `packages/contracts/` 尚不存在，因此前端类型、Python 契约和 Node 消费端可能漂移。
+- `packages/contracts/` 已存在，统一当前浏览器/BFF/TypeScript worker 计划消费的业务结构；Python 内部模型和 Node CLI JSON 尚未迁移，因此跨语言边界仍可能漂移。
 - 根 `package.json` 只负责编排 frontend/backend workspace 命令，不是业务实现层。
 
 已确定的未来边界是“浏览器 → 薄 BFF → 私有后端应用服务 → 持久 worker”，但这属于目标架构，不是当前实现。
@@ -101,7 +101,7 @@ PostgreSQL/Prisma、Redis/BullMQ 和对象存储只出现在目标规划中，�
 
 以下内容不得在新文档或代码评审中写成现状：
 
-- PostgreSQL、Prisma、Redis、BullMQ 或其他数据库/队列组合。
+- PostgreSQL、Prisma 或 PostgreSQL lease worker；它们只是已批准但尚未通过 POC 的 T0 目标。Redis/BullMQ 不属于当前 T0 方案。
 - Next.js Route Handler BFF、私有后端 HTTP 服务、outbox 和 worker 集群。
 - S3/OSS 等对象存储、签名 URL 和 CDN。
 - Remotion 或其他替代当前 Sharp/FFmpeg 管线的渲染框架。
@@ -109,14 +109,16 @@ PostgreSQL/Prisma、Redis/BullMQ 和对象存储只出现在目标规划中，�
 - 阿里云或其他正式 SLA TTS、特定云部署平台。
 
 仓库中的 `backend/Dockerfile` 只封装现有 CLI，不代表已经存在 HTTP 服务、数据库、
-队列、对象存储或 `docker-compose` 运行环境。
+队列、对象存储或 `docker-compose` 运行环境。Docker Desktop 4.84.0 虽已安装，但其
+WSL2 engine 在当前主机上无法创建 `docker-desktop` 发行版；用户已批准停止 Docker
+修复并改走 ADR-011 的等价本地方案。
 
 ## 文档与代码冲突
 
 | 文档中的目标或旧描述 | 代码事实 |
 | --- | --- |
 | 前端完成上传到生成的端到端流程 | 页面流程存在，但业务数据全部来自 Mock client；后端 CLI 未接入。 |
-| 使用共享 Zod 契约和稳定 ID | `packages/contracts/` 未创建，前端仍有手写类型，后端有独立 Python/JSON 形状。 |
+| 使用共享 Zod 契约和稳定 ID | `packages/contracts/` 已创建并被前端 Mock adapter 使用；Python/Node CLI 仍有独立内部模型和 JSON 形状。 |
 | 真实异步任务、数据库、队列和对象存储 | 当前只有浏览器内存、单进程 CLI 和本地 job 文件。 |
 | 每个非跳过源页完整出现 | 多源场景的渲染路径当前取第一个 `sourceSlides`，存在漏页风险。 |
 | 审核后的覆盖数据与场景一致 | `approve.py` 沿用生成时的 `sourceSlideCoverage`，人工改页后可能陈旧。 |

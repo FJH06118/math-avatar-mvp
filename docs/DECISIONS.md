@@ -38,21 +38,21 @@
 - **决策**：浏览器只调用公开 API；Next.js BFF 只处理会话、范围和公共校验；业务事务和资源授权属于私有后端应用服务；重任务属于 worker。
 - **原因**：隔离密钥和系统工具，支持持久任务、幂等、重试与独立扩展。
 - **替代方案**：浏览器直连模型/FFmpeg；Route Handler 同步完成视频；前端直接导入后端实现。
-- **影响**：该目标边界已确定但尚未实现。具体后端框架、队列和数据库仍待确认。
+- **影响**：该目标边界已确定但尚未实现。具体后端 HTTP 框架仍待确认；数据库和持久 Worker 方向见 D-11，POC 通过前不得写成现状。
 
 ### D-06 共享业务契约以严格 Zod schema 为源
 
 - **决策**：跨前端、API 和 TypeScript worker 的业务契约只能定义在 `packages/contracts/`，类型使用 `z.infer` 生成；所有外部 payload 先按 `unknown` 验证。
 - **原因**：避免手写接口漂移，并把网络、模型、文件和队列边界变成可测试门禁。
 - **替代方案**：各端各自维护 interface；先强制类型断言再使用。
-- **影响**：需引入稳定 project/presentation/slide/task/step/revision/asset ID、乐观 revision、内容哈希和版本快照；页码不是 `slideId`。该包当前尚未创建。
+- **影响**：`packages/contracts/` 已引入稳定 project/presentation/slide/task/step/revision/asset ID、版本化 API 元信息、受控资产引用和严格 Schema；页码不是 `slideId`。Python/Node CLI 的跨语言 JSON 迁移仍留到后续阶段。
 
 ### D-07 长任务必须真实持久化和可恢复
 
 - **决策**：任务与步骤状态持久化；命令幂等、可取消、带心跳，失败只重试失败步骤和失效的下游步骤。
 - **原因**：视频生成耗时长，浏览器计时器或单进程内存不能支撑刷新、崩溃和并发。
 - **替代方案**：前端轮询虚构进度；每次失败从头生成。
-- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；具体数据库、队列和 outbox 技术待确认。
+- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；D-11 已批准 PostgreSQL outbox/lease 方向，但尚无 POC 证据。
 
 ### D-08 模型和 TTS 供应商保持可配置
 
@@ -75,12 +75,19 @@
 - **替代方案**：执行模型生成的代码；只检查文件是否存在。
 - **影响**：需要按任务/尝试隔离临时目录，并补齐 ffprobe、全解码、覆盖、遮挡、黑帧、静音、时长和哈希门禁。
 
+### D-11 T0 采用无 Docker 的 PostgreSQL 持久任务方案
+
+- **决策**：用户已批准在 Windows 普通开发环境中使用原生 PostgreSQL + Prisma + PostgreSQL lease worker；T0 不要求 Docker、Redis 或 BullMQ。
+- **原因**：当前 Docker Desktop 的 WSL2 engine 无法启动；单一 PostgreSQL 可以同时承载领域事务、outbox 和 lease，减少本地依赖及数据库/队列双写故障面。
+- **替代方案**：继续修复 Docker Compose；PostgreSQL + BullMQ/Redis；仅用内存或本地 JSON 模拟队列。
+- **影响**：这是带门禁的方向，不是已实现现状。进入阶段 T 前必须用真实多连接 PostgreSQL 测试证明事务、幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、租约到期接管、取消、Worker kill 和向前迁移。POC 失败时先更新 ADR，不静默加入第二套队列。
+
 ## 待确认
 
 | 事项 | 已知候选或问题 | 确认前的处理 |
 | --- | --- | --- |
-| 数据库与 ORM | PostgreSQL/Prisma 只在规划中提出。 | 不写成既定栈；先做当前阶段需要的契约与持久化设计。 |
-| 任务队列 | Redis/BullMQ 只在规划中提出。 | 不创建空队列层；在异步阶段做 spike 后决策。 |
+| 数据库与 ORM 的 POC 结果 | Windows 原生 PostgreSQL + Prisma 方向已批准，但 PostgreSQL 未安装、migration/事务 POC 未运行。 | 只按 ADR-011 建最小验证；通过前不得写成已实现。 |
+| 持久任务的 POC 结果 | PostgreSQL lease worker 方向已批准；Redis/BullMQ 不再属于 T0 方案。 | 验证 outbox、并发 lease、heartbeat、取消、接管和 Worker kill；失败时停下更新 ADR。 |
 | 后端 HTTP 框架 | 目标边界已定，具体 Python/Node 框架未定。 | CLI 保持适配器身份，不把它描述成服务。 |
 | 渲染实现 | 当前为 Sharp+FFmpeg；Remotion 等仅为候选。 | 先用真实三页样例确定语义和质量缺口。 |
 | 生产 LLM | 供应商、模型、结构化输出兼容性和区域可用性未验证。 | 不使用代码默认生产模型。 |

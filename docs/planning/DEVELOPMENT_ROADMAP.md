@@ -1,20 +1,20 @@
 # 项目开发执行路线图
 
 > 状态：Active
-> 更新日期：2026-08-01
+> 更新日期：2026-08-02
 > 适用范围：从当前已提交原型到可控生产版本的完整开发过程
 > 详细依据：`docs/IMPLEMENTATION_PLAN.md`、`docs/ARCHITECTURE_DECISIONS.md`
 
 ## 1. 当前起点
 
 当前 Git 基线已经完成目录重组、前后端原型、上下文文档和阶段 1A 测试保护提交。
-本地 `main` 相对 `origin/main` ahead 2，尚未执行 push。当前代码仍是两条独立链路：
+本地 `main` 相对 `origin/main` ahead 6，尚未执行 push。当前代码仍是两条独立链路：
 
 - `frontend/`：Next.js 16 + React 19 的完整 Mock 交互原型；没有真实上传、API 或持久化。
 - `backend/`：PPTX 解析、人工批准、Edge TTS、Sharp/FFmpeg 合成和基础验证的本地 CLI 原型。
-- `packages/contracts/`：尚不存在。
+- `packages/contracts/`：阶段 2 已创建，当前提供前端/TypeScript 边界的最小严格 Zod Contract；Python/Node CLI 仍保留内部模型。
 - 数据库、任务队列、对象存储和私有 HTTP 应用服务：尚未采用。
-- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11；当前机器仍没有 Docker，容器构建尚未验证。
+- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker Desktop 4.84.0 已安装，但 WSL2 engine 因 `HCS_E_HYPERV_NOT_INSTALLED` 不可用；用户已批准停止 Docker 修复，T0 改用 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker，当前 PostgreSQL 尚未安装、POC 尚未运行。
 
 现阶段不应该重做已有 UI，也不应该直接横向建设完整云基础设施。执行主线是：先建立可复现测试保护，再建立最小共享契约，然后用固定三页课件打通一条真实纵向链路。
 
@@ -30,8 +30,8 @@
 阶段 0：仓库与文档基线（已完成）
 → 阶段 1A：可复现环境与测试保护（已完成）
 → 阶段 1B：直接依赖安全收口（已完成，残余 Next high 已接受）
-→ 阶段 2：最小共享 Zod Contract
-→ 阶段 T0：真实切片进入条件与基础设施 POC
+→ 阶段 2：最小共享 Zod Contract（已完成，2026-08-01）
+→ 阶段 T0：真实切片进入条件与基础设施 POC（进行中）
 → 阶段 T：三页真实产品纵向切片
 → 阶段 3～10：在真实切片上补产品差距
 → 阶段 11A～11F：恢复、覆盖面、质量与规模硬化
@@ -50,7 +50,7 @@
 
 - 前端移动到 `frontend/`，后端保留在 `backend/`，根目录改为 npm workspaces。
 - 后端规划和视频原型、运行说明、详细产品和架构资料均已分组提交。
-- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 2，未执行 push。
+- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 6，未执行 push。
 - 构建产物、缓存、本地 job、密钥和环境文件未进入 Git。
 
 ### 阶段 1A：可复现环境与测试保护
@@ -116,6 +116,8 @@ npm.cmd run routes:check
 
 ### 阶段 2：最小共享 Zod Contract
 
+状态：已完成（2026-08-01）；完整阶段门禁完成后停止，等待阶段 T0 进入条件确认。
+
 目标：创建 `packages/contracts/`，让浏览器、BFF、TypeScript Worker 和跨进程 JSON 共用唯一可执行契约。
 
 只实现阶段 T 会真实消费的结构：
@@ -146,21 +148,23 @@ Contract 测试必须拒绝未知字段、非法 ID、陈旧 coverage、漏页�
 
 ### 阶段 T0：真实切片进入条件与 POC
 
+状态：进行中（2026-08-02）；无 Docker 的基础设施方向已批准，其余进入条件和 POC 尚未关闭。
+
 目标：只关闭三页真实切片的阻断项，不建设完整平台。
 
 必须先确认：
 
 - P-01：首发评测是否以高等数学优先。推荐：数学优先，Contract 保持通用。
 - P-02：首发用户范围。推荐：内部单用户，使用仅限本地/测试的固定 principal。
-- 可复现服务环境：Docker Compose，或用户批准的等价本地 PostgreSQL/队列方案。
+- 可复现服务环境：已批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker；不依赖 Docker、Redis 或 BullMQ。PostgreSQL 安装和 POC 仍待另行授权与执行。
 - 当前可用的 LLM 模型与合法凭据；删除 `deepseek-chat` 生产默认值。
 - 固定三页 fixture：普通文本、OMML 公式、拥挤图文各一页，并有人工作为真值的原页 PNG 和覆盖区域。
 
 最小 POC：
 
 1. 选择后端 HTTP 框架，只用一个创建任务和一个查询任务端点证明边界；选择前更新 ADR。
-2. 验证 PostgreSQL/Prisma 候选的事务、幂等键、向前迁移和必要唯一约束。
-3. 验证 BullMQ/Redis 候选的重复投递、lease、心跳、取消和 Worker kill；失败时比较 PostgreSQL lease worker，不并行维护两套队列。
+2. 验证 PostgreSQL/Prisma 的事务、幂等键、outbox、向前迁移和必要唯一约束。
+3. 验证 PostgreSQL lease worker 的 outbox 重放、重复投递、`FOR UPDATE SKIP LOCKED` 并发领取、lease、心跳、取消、租约接管和 Worker kill；不并行维护 Redis/BullMQ 第二套队列。
 4. 验证 LLM Provider 的结构化输出、超时、重试和错误分类；只保留通过的最小编排层。
 
 POC 失败时先更新 `docs/ARCHITECTURE_DECISIONS.md` 与本路线图，不静默更换技术。
@@ -278,4 +282,4 @@ npm.cmd run routes:check
 
 ## 8. 下一项可执行任务
 
-等待用户确认是否进入阶段 2：最小共享 Zod Contract。未经确认，不进入共享 Contract 或真实产品集成。
+阶段 2 已完成，阶段 T0 正在进行。基础设施方向已经确认，但 PostgreSQL 未安装且 POC 未运行，P-01/P-02、模型凭据和固定三页 fixture 也未确认；下一项可执行子任务是获得系统安装授权后完成原生 PostgreSQL/Prisma/lease worker POC。上述条件关闭前不进入阶段 T。

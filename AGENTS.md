@@ -20,7 +20,7 @@
 
 - `frontend/`：Next.js 应用和所有浏览器代码。
 - `backend/`：PPT 解析、讲稿规划、TTS、渲染、验证和后端测试。
-- `packages/contracts/`：未来共享 Zod 契约的唯一位置；当前尚未创建。
+- `packages/contracts/`：已创建的共享 Zod 契约 workspace，是跨 TypeScript 业务契约的唯一位置。
 - `docs/`：跨前后端的产品、架构、状态、计划与交接资料。
 
 ## 当前技术栈

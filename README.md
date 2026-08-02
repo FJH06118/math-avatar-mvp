@@ -53,6 +53,7 @@ npm.cmd run backend:test
 # 阶段 1A 测试保护
 npm.cmd run test:unit
 npm.cmd run test:components
+npm.cmd run test:contracts
 npm.cmd run test
 
 # 先完成生产构建，再检查 6 条业务路由并回收服务
@@ -73,7 +74,7 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 
 - 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
 - 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
-- 浏览器上传尚未接入后端。当前实施顺序是先确认目录重组基线、补测试门禁和共享契约，再做真实三页切片；不能直接跳到 Web 集成。
+- 浏览器上传尚未接入后端。当前已完成测试门禁和阶段 2 最小共享 Zod Contract；阶段 T0 已批准使用 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 的无 Docker 方向，但 PostgreSQL/恢复语义 POC、产品决定、模型凭据和三页 fixture 均未关闭，不能直接跳到阶段 T 或完整 Web 集成。
 
 ## 文档入口
 

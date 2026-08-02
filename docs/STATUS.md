@@ -1,13 +1,13 @@
 # 项目状态
 
-> 更新时间：2026-08-01。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+> 更新时间：2026-08-02。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
 
 ## 当前基线
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 本地 `main` 当前相对 `origin/main` ahead 2，尚未执行 push；规划与交接文档已于 `546c6bb` 单独提交。
-- 当前仓库包含 `frontend/`、`backend/` 和 `docs/` 三个主要工作区；根目录保留工作区级脚本和配置。
+- 本地 `main` 当前相对 `origin/main` ahead 6，尚未执行 push；本轮已按用户批准拆分创建阶段 2 Contract 与 T0 文档两个提交，未执行 push。
+- 当前仓库包含 `frontend/`、`backend/`、`packages/contracts/` 和 `docs/` 四个主要工作区；根目录保留工作区级脚本和配置。
 - 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
 
@@ -27,7 +27,7 @@
 - OpenAI 兼容模型规划与确定性规则回退。
 - 人工审核/批准门禁及 Python 契约、解析单元测试。
 - Edge TTS、SRT 字幕、Sharp 帧合成、固定头像叠加、FFmpeg H.264/AAC 视频生成和基础媒体验证。
-- `backend/README.md`、`backend/Dockerfile` 和 `.env.example` 已提供本地运行参考；Docker 尚未在当前环境验证。
+- `backend/README.md`、`backend/Dockerfile` 和 `.env.example` 已提供本地运行参考；Docker Desktop 已安装但 engine 不可用，容器构建仍未验证。
 
 ### 文档与工程基线
 
@@ -35,22 +35,31 @@
 - 已提交详细产品 PRD、架构决策、实施计划、历史交接资料和前端计划迁移。
 - 根 workspace 脚本可委托前端检查和后端 CLI 命令；依赖锁文件与 workspace 清单一致。
 
+### 阶段 2 共享 Contract
+
+- `packages/contracts/` 已创建并加入 npm workspace；Zod schema 是当前跨 TypeScript 业务结构的唯一类型来源。
+- 已覆盖阶段 T 最小消费范围：稳定 ID、Project、Presentation、Slide、LessonPlanRevision、Scene、一个受控 Overlay、Task/TaskStep、Asset、公开 API 错误和下载引用。
+- strict Schema 与跨字段规则拒绝未知字段、非法 ID、未授权 `FULL_REDESIGN`、不完整原页镜头、陈旧 `sourceSlideCoverage`、漏页、未批准 revision 和内部资源路径。
+- Mock API 的主要输入/输出已按共享 Schema 运行时解析；前端领域类型改为重导出共享 `z.infer` 类型。
+- `npm.cmd run test:contracts` 已通过，包含 6 个边界测试。
+
 ## 正在进行
 
-- 阶段 1A 与阶段 1B 已完成；Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受，当前停在阶段 2 确认点，不得直接进入真实 API 集成。
+- 阶段 1A、阶段 1B 与阶段 2 已完成；Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受。阶段 2 全部门禁已通过。阶段 T0 已开始，但只有无 Docker 基础设施方向获得批准，POC 和其他进入条件均未完成，不得进入真实产品集成。
+- 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。该方向为 `Accepted with gate`，当前没有代码或运行证据。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
-- Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试和 `routes:check` 已加入；阶段 1A 门禁已串行通过。
+- Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试、共享 Contract 测试和 `routes:check` 已加入；阶段 1A 与阶段 2 的完整门禁均已通过。
 - 阶段 1B 已锁定 `brace-expansion@1.1.18`、`postcss@8.5.23`、`shadcn@4.16.1`、`@modelcontextprotocol/sdk@1.30.0` 和 `@hono/node-server@2.0.12`；官方 audit 从 6 项降至 3 项 high。
 
 ## 未完成任务
 
-1. 创建 `packages/contracts/`，以严格 Zod schema 统一浏览器、Node 和 Python 边界契约。
+1. 在 T0 确认 P-01/P-02、模型凭据和固定三页 fixture，并完成已批准原生 PostgreSQL/Prisma/lease worker 方案的运行 POC。
 2. 用真实 API adapter/BFF 替换 Mock client，并实现认证、授权和稳定业务 ID。
 3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
-4. 根据确认后的架构接入数据库、队列和对象存储；这些技术目前尚未采用。
+4. 在 T0 POC 通过后按已批准架构接入数据库和 PostgreSQL lease worker；对象存储仍未选择，这些能力目前均未实现。
 5. 完善 PPT/PPTX 安全校验、隔离执行、上传策略及图片公式 OCR 范围。
 6. 补齐多页源页面覆盖、遮挡、黑帧、静音、时长、哈希、编码和最终状态一致性等硬门禁。
-7. 增加契约、集成和端到端测试；阶段 1A 已具备最小前端 unit/component 测试和 `routes:check`，尚未覆盖真实产品流。
+7. 增加集成和端到端测试；当前仍只覆盖 Mock API、共享 Contract 和最小前端 unit/component 测试。
 8. 验证生产 LLM/TTS 供应商、正式交付规格和真实端到端媒体样本。
 
 ## 已知问题
@@ -62,18 +71,31 @@
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
 - 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
 - 默认模型仍可能是 `deepseek-chat`；生产模型、TTS 凭据和供应商尚未确认。
-- 当前没有 OCR、契约测试或端到端测试；阶段 1A 的前端 unit/component 测试与 `routes:check` 已建立。
+- 当前没有 OCR、真实集成或端到端测试；阶段 1A 的前端 unit/component 测试、阶段 2 Contract 测试与 `routes:check` 已建立。
 - 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
 ## 当前阻塞项
 
-- 当前机器没有 Docker 命令，因此 `backend/Dockerfile` 只完成静态审查，未完成容器构建验证。
+- Docker Desktop 4.84.0 已安装，但 WSL2 engine 创建 `docker-desktop` 发行版时报 `HCS_E_HYPERV_NOT_INSTALLED`，engine 当前不可用。用户已停止 Docker 修复并批准等价本地方案，因此 Docker 本身不再是 T0 目标；`backend/Dockerfile` 仍只有静态审查证据。
+- 当前机器没有 `psql`、`pg_isready`、`postgres` 或 PostgreSQL Windows 服务。本轮批准只确认技术方向，系统软件安装尚未单独授权；事务/幂等/outbox/lease/heartbeat/取消/Worker kill/migration POC 均未运行。
+- Windows 组件存储 `DISM /CheckHealth` 报告“可以修复组件存储”；用户于 2026-08-02 明确要求终止正在运行的修复，`DISM` PID 20244 与 `DismHost` PID 8388 已定向强制结束。该次 `RestoreHealth` 未完成，不得视为组件存储已修复。
+- P-01 高等数学优先和 P-02 首发用户范围仍未确认；它们是阶段 T 的 STOP 条件。
 - 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
-- 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置。
-- 生产 API、数据库、队列、对象存储和供应商选择仍需产品/架构确认，未视为既定方案。
+- 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置；这些属于 T0 进入条件。
+- 数据库/任务方向已按 ADR-011 批准但尚未通过 POC；生产 API、对象存储和供应商选择仍需确认。共享 Contract 和已批准方向都不代表这些技术已实现。
 - 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
+
+2026-08-02 阶段 T0 环境事实检查：
+
+- `git status --short --untracked-files=all`、`git branch -vv`、`git log --oneline -10`：已执行；分支为 `main`。提交前相对 `origin/main` ahead 4；经用户批准拆分创建两个提交后为 ahead 6，未 push。
+- Node.js `v24.16.0`、npm `11.13.0`、Python `3.10.11`：可用。
+- Docker Desktop `4.84.0`：CLI/桌面已安装；engine 未启动，日志根错误为 `Wsl/Service/RegisterDistro/CreateVm/HCS/HCS_E_HYPERV_NOT_INSTALLED`。
+- `VirtualMachinePlatform`、`Microsoft-Windows-Subsystem-Linux`、`HypervisorPlatform`：已启用；系统报告 hypervisor 存在。
+- PostgreSQL 命令与 Windows 服务：未发现；没有运行数据库 POC。
+- `DISM /Online /Cleanup-Image /CheckHealth`：组件存储可修复；随后启动的 `RestoreHealth` 经用户明确要求终止，目标 PID 20244/8388 已复核不存在。
+- 本次只是 T0 决策文档更新，未运行或宣称完整阶段门禁通过。
 
 2026-08-01 已完成：
 
@@ -83,7 +105,7 @@
 - `npm.cmd run build`：通过，Next.js 16.2.11 生成 7 条 App Router 路由。
 - Codex bundled Python `unittest discover -s backend/tests -v`：4/4 通过。
 - `node --check backend/run.mjs backend/video/*.mjs`：通过。
-- `docker --version`：不可用；未进行 Docker 构建。
+- 当日 `docker --version`：不可用；这是安装 Docker Desktop 前的历史结果，未进行 Docker 构建。
 
 2026-08-01 阶段 1A 已完成（历史验证记录）：
 
@@ -103,6 +125,16 @@
 - 依赖变更后 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build` 和 `npm.cmd run routes:check`：全部通过。
 - 用户于 2026-08-01 明确接受剩余 3 项 Next high 风险；阶段 1B 关闭，未进入阶段 2。
 
+2026-08-01 阶段 2 共享 Contract：
+
+- `npm.cmd run test:contracts`：6/6 契约边界测试通过。
+- `npm.cmd run typecheck`：通过。
+- `npm.cmd run lint`：通过，0 warning。
+- `npm.cmd run build`：通过，Next.js 16.2.11 生成 7 条 App Router 路由。
+- `npm.cmd install --package-lock-only --ignore-scripts --offline` 与 `npm.cmd install --ignore-scripts --offline`：通过，workspace lockfile 一致。
+- `npm.cmd run test`：通过，后端 4/4、Contract 6/6、unit 1/1、component 3/3。
+- `npm.cmd run routes:check`：通过，6 条业务路由均为 HTTP 200，生产服务已回收。
+
 初始接管复核（旧宿主进程，后续已重开 PowerShell）：
 
 - `npm.cmd run typecheck`：通过。
@@ -113,6 +145,7 @@
 
 ## 下一步建议
 
-1. 阶段 1B 已完成；等待用户确认是否进入阶段 2 共享 Contract。
-2. 未获确认不得创建 `packages/contracts/` 或进入真实产品集成。
-3. 只有阶段 1、2 门禁及 T0 进入条件满足后，才开始三页真实产品纵向切片。
+1. DISM 已按用户要求终止；如果后续系统安装或 Windows 功能出现异常，先重新检查组件存储状态，不自动继续 Docker/WSL 修复。
+2. 获得用户对 Windows 原生 PostgreSQL 系统安装的单独明确授权后，只实施 T0 最小 Prisma/lease worker POC。
+3. 分别确认 P-01、P-02、当前可用模型/合法凭据和固定三页 fixture。
+4. 只有 T0 全部进入条件与专项 POC 有运行证据后，才开始阶段 T；不得直接进入阶段 3。

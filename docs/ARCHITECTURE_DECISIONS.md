@@ -2,7 +2,7 @@
 
 > 状态：Active  
 > 首次记录：2026-07-30  
-> 最近复核：2026-08-01
+> 最近复核：2026-08-02
 > 产品依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`  
 > 实施依据：`docs/IMPLEMENTATION_PLAN.md`
 
@@ -21,13 +21,13 @@
 
 ## 2. 当前事实基线
 
-截至 2026-08-01：
+截至 2026-08-02：
 
 - `frontend/` 是 Next.js 交互原型，业务数据来自浏览器内存 Mock。
 - `backend/` 是本地 CLI 技术验证，可完成基础 PPTX 解析、人工批准、Edge TTS、静态画面、MP4 合成和媒体校验。
-- 两端没有真实 HTTP 业务闭环、PostgreSQL、Redis/Valkey、BullMQ 或 OSS。
+- 两端没有真实 HTTP 业务闭环、PostgreSQL、Redis/Valkey、BullMQ 或 OSS。用户已批准原生 PostgreSQL 等价本地方案，但代码和服务尚未安装或实现。
 - 目录重组、前后端原型和上下文文档已经分组提交并推送；后续以该 Git 历史为迁移基线。
-- 当前实现仍有已知硬缺口：多页场景只渲染第一来源页、批准后沿用可能陈旧的覆盖元数据、没有完整页面覆盖硬门、Agent 输出不是共享 Zod、数字人没有遮挡验证、结果 JSON 含内部路径、视频仍为 12 FPS、非 H.264/AAC 当前只记 warning。
+- 当前实现仍有已知硬缺口：多页场景只渲染第一来源页、批准后沿用可能陈旧的覆盖元数据、没有完整页面覆盖硬门、Python/Node Agent JSON 尚未迁移到共享 TypeScript Contract、数字人没有遮挡验证、结果 JSON 含内部路径、视频仍为 12 FPS、非 H.264/AAC 当前只记 warning。
 
 以上是迁移起点，不代表目标架构。
 
@@ -61,7 +61,7 @@
 ## ADR-002：共享 Zod 是跨 TypeScript 边界的唯一业务 Contract
 
 **状态：Accepted**
-**实现：Not implemented**
+**实现：TypeScript/Mock boundary implemented; cross-language migration pending**
 
 ### 决策
 
@@ -222,7 +222,7 @@
 
 ## ADR-008：用 PostgreSQL/Prisma 与 BullMQ/Redis 作为待验证基础设施候选
 
-**状态：Proposed**
+**状态：Superseded by ADR-011**
 **实现：Not implemented**
 
 ### 决策
@@ -253,6 +253,10 @@ HTTP 创建任务
 ### 重访条件
 
 切片无法满足幂等、恢复或部署约束，或产品部署环境明确禁止这些组件。
+
+### 替代说明
+
+2026-08-02，Docker Desktop 的 WSL2 engine 在当前 Windows 主机上因 `HCS_E_HYPERV_NOT_INSTALLED` 无法创建 `docker-desktop` 发行版。用户明确停止继续修复 Docker，并批准无 Docker 的等价本地方案。为减少本地服务数量和恢复语义的双写风险，ADR-011 以 PostgreSQL lease worker 取代 BullMQ/Redis；本 ADR 保留为历史候选记录。
 
 ## ADR-009：模型与 TTS 都通过服务端 Provider 接入，具体供应商不得渗入 Contract
 
@@ -304,6 +308,49 @@ Provider 能力、服务条款、数据驻留、SLA 或离线评测结果变化�
 ### 重访条件
 
 现有适配器无法满足安全、部署、性能或 Contract 边界，并且替代实现已通过等价金样和回滚验证。
+
+## ADR-011：T0 使用 Windows 原生 PostgreSQL、Prisma 与 PostgreSQL lease worker
+
+**状态：Accepted with gate**
+**实现：Not implemented; POC pending**
+
+### 决策
+
+- T0 的等价本地服务环境使用 Windows 原生 PostgreSQL；不要求 Docker Desktop、WSL2、Redis、Valkey 或 BullMQ。
+- Prisma 负责类型化数据访问和向前迁移。Prisma 无法表达的部分唯一索引和必要约束使用受审查的原始 migration SQL，不用应用层检查替代数据库约束。
+- 同一 PostgreSQL 数据库保存领域事务、任务快照、outbox、step attempt、租约、心跳、取消请求和最终状态，避免数据库与独立队列之间的双写。
+- Worker 使用 `FOR UPDATE SKIP LOCKED` 竞争可执行步骤，以稳定 TaskStep ID/去重键、`leaseOwner`、`leaseExpiresAt`、heartbeat、attempt 和取消状态实现并发领取与崩溃接管。
+- 服务只通过配置的数据库 URL 连接，不依赖 PostgreSQL 安装目录的绝对路径；密码、本地数据目录和环境文件不得提交。
+- Redis/BullMQ 不作为并行 fallback。若本方案 POC 失败，先停止并更新本文和路线图，再选择替代方案。
+
+### 验证门
+
+进入阶段 T 前，最小 POC 必须用可重复的自动化测试证明：
+
+1. 任务创建、领域写入和 outbox 写入属于同一事务。
+2. 相同幂等键和相同 payload 返回同一任务；相同键配不同 payload 被拒绝。
+3. dispatcher 重放 outbox 不会创建重复逻辑步骤。
+4. 两个 Worker 并发时同一 attempt 只能被一个 Worker 领取。
+5. heartbeat 能续租；进程退出或 Worker kill 后，租约到期可由其他 Worker 接管。
+6. 取消与完成竞态只产生一个合法终态；失败 attempt 可按上限重试。
+7. 必要唯一约束和向前 migration 在全新测试库及已有前一版 schema 上都能执行。
+
+仅能提供单连接的嵌入式开发数据库可以辅助单元测试，但不能替代上述多连接、并发 lease 和 Worker kill 门禁。
+
+### 理由
+
+当前 Docker engine 无法启动，而项目路线图允许用户批准等价本地 PostgreSQL/队列方案。把 outbox 和 lease 放在同一数据库内，可以在 T0 用更少的本地服务证明持久任务的核心恢复语义，也避免同时维护 Redis/BullMQ 与 PostgreSQL 两套故障面。
+
+### 后果
+
+- PostgreSQL 尚未安装，以上方向不能写成当前实现；T0 仍处于进行中。
+- 开发和测试需要独立、可清理的数据库。安装系统 PostgreSQL 必须另获用户授权，且不能把本机安装路径写入仓库。
+- T0 只建立证明恢复语义所需的最小表、migration、dispatcher 和 Worker；完整 Repository、业务 API、对象存储和真实产品流水线留给后续明确阶段。
+- 生产部署可以在保持相同任务/租约 Contract 的前提下改用托管 PostgreSQL，但必须重新做容量、备份、故障恢复和连接池验证。
+
+### 重访条件
+
+POC 无法可靠证明并发领取、租约接管、幂等、取消或目标吞吐，或已确认的生产环境不允许所需 PostgreSQL 能力。
 
 ## 3. 尚未接受的产品假设
 
