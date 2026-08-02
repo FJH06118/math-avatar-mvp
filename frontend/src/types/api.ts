@@ -1,26 +1,14 @@
-export interface MockRequestOptions {
-  signal?: AbortSignal;
-  /**
-   * 测试专用失败注入。未来替换真实接口时可删除，不影响业务参数。
-   */
-  fail?: boolean;
-}
+import type { MockRequestOptions } from "./mock-request";
+
+export type {
+  CreateProjectInput,
+  UpdateProjectInput,
+  UpdateSlideScriptInput,
+} from "@ppt-digital-human/contracts";
+
+export type { MockRequestOptions };
 
 export interface UploadPresentationInput extends MockRequestOptions {
   file: File;
   onProgress?: (progress: number) => void;
-}
-
-export interface CreateProjectInput {
-  title: string;
-  uploadedFileId: string;
-  fileName: string;
-}
-
-export interface UpdateProjectInput {
-  title?: string;
-}
-
-export interface UpdateSlideScriptInput {
-  teachingScript: string;
 }

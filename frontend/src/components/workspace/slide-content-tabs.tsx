@@ -46,7 +46,7 @@ export function SlideContentTabs({
   return (
     <section className="min-w-0 border-b border-foreground/15 bg-card p-4 sm:p-6 xl:border-r xl:border-b-0">
       <p className="sr-only" role="status" aria-live="polite">
-        已切换到第 {slide.index + 1} 页：{slide.title}
+          已切换到第 {slide.slideNumber} 页：{slide.title}
       </p>
       <Tabs
         value={activeTab}

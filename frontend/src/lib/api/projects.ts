@@ -5,20 +5,30 @@ import type {
   TeachingSettings,
   UpdateProjectInput,
 } from "@/types";
+import { ProjectIdSchema } from "@ppt-digital-human/contracts";
 
 import {
   getDefaultTeachingSettings,
   mockDb,
 } from "./mock-client";
+import {
+  parseCreateProjectInput,
+  parseProject,
+  parseProjects,
+  parseTeachingSettings,
+  parseUpdateProjectInput,
+} from "./contracts";
 import { requireRecord, simulateRequest } from "./shared";
 
 export async function listProjects(
   options: MockRequestOptions = {},
 ): Promise<Project[]> {
   await simulateRequest(options, 650);
-  return [...mockDb.projects.values()]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map((project) => structuredClone(project));
+  return parseProjects(
+    [...mockDb.projects.values()]
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((project) => structuredClone(project)),
+  );
 }
 
 export async function getProject(
@@ -26,9 +36,8 @@ export async function getProject(
   options: MockRequestOptions = {},
 ): Promise<Project> {
   await simulateRequest(options, 420);
-  return structuredClone(
-    requireRecord(mockDb.projects.get(projectId), "项目"),
-  );
+  const id = ProjectIdSchema.parse(projectId);
+  return parseProject(structuredClone(requireRecord(mockDb.projects.get(id), "项目")));
 }
 
 export async function createProject(
@@ -36,20 +45,23 @@ export async function createProject(
   options: MockRequestOptions = {},
 ): Promise<Project> {
   await simulateRequest(options, 600);
+  const validInput = parseCreateProjectInput(input);
   const timestamp = new Date().toISOString();
   const project: Project = {
     id: crypto.randomUUID(),
-    title: input.title,
+    title: validInput.title,
     status: "parsing",
-    fileName: input.fileName,
+    fileName: validInput.fileName,
     slideCount: 0,
-    uploadedFileId: input.uploadedFileId,
+    uploadedFileId: validInput.uploadedFileId,
     createdAt: timestamp,
     updatedAt: timestamp,
     settings: getDefaultTeachingSettings(),
+    version: 1,
   };
-  mockDb.projects.set(project.id, project);
-  return structuredClone(project);
+  const validatedProject = parseProject(project);
+  mockDb.projects.set(validatedProject.id, validatedProject);
+  return structuredClone(validatedProject);
 }
 
 export async function updateProject(
@@ -58,12 +70,15 @@ export async function updateProject(
   options: MockRequestOptions = {},
 ): Promise<Project> {
   await simulateRequest(options, 380);
-  const project = requireRecord(mockDb.projects.get(projectId), "项目");
-  if (input.title !== undefined) {
-    project.title = input.title;
+  const id = ProjectIdSchema.parse(projectId);
+  const validInput = parseUpdateProjectInput(input);
+  const project = requireRecord(mockDb.projects.get(id), "项目");
+  if (validInput.title !== undefined) {
+    project.title = validInput.title;
   }
+  project.version += 1;
   project.updatedAt = new Date().toISOString();
-  return structuredClone(project);
+  return parseProject(structuredClone(project));
 }
 
 export async function updateTeachingSettings(
@@ -72,10 +87,12 @@ export async function updateTeachingSettings(
   options: MockRequestOptions = {},
 ): Promise<TeachingSettings> {
   await simulateRequest(options, 420);
-  const project = requireRecord(mockDb.projects.get(projectId), "项目");
-  project.settings = structuredClone(settings);
+  const id = ProjectIdSchema.parse(projectId);
+  const project = requireRecord(mockDb.projects.get(id), "项目");
+  project.settings = parseTeachingSettings(settings);
+  project.version += 1;
   project.updatedAt = new Date().toISOString();
-  return structuredClone(project.settings);
+  return parseTeachingSettings(structuredClone(project.settings));
 }
 
 export async function deleteProject(
@@ -83,10 +100,11 @@ export async function deleteProject(
   options: MockRequestOptions = {},
 ): Promise<void> {
   await simulateRequest(options, 480);
-  requireRecord(mockDb.projects.get(projectId), "项目");
-  mockDb.projects.delete(projectId);
+  const id = ProjectIdSchema.parse(projectId);
+  requireRecord(mockDb.projects.get(id), "项目");
+  mockDb.projects.delete(id);
   for (const [slideId, slide] of mockDb.slides) {
-    if (slide.projectId === projectId) {
+    if (slide.projectId === id) {
       mockDb.slides.delete(slideId);
     }
   }

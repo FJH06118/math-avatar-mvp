@@ -1,5 +1,4 @@
 import type {
-  Avatar,
   Job,
   JobStage,
   JobType,
@@ -8,8 +7,18 @@ import type {
   RenderResult,
   TeachingSettings,
   UploadedFile,
-  Voice,
 } from "@/types";
+
+import {
+  parseAvatars,
+  parseJob,
+  parseProjects,
+  parseRenderResult,
+  parseSlide,
+  parseSlides,
+  parseTeachingSettings,
+  parseVoices,
+} from "./contracts";
 
 const DEFAULT_SETTINGS: TeachingSettings = {
   avatarId: "avatar-lin",
@@ -45,6 +54,7 @@ const seedProjects: Project[] = [
     updatedAt: minutesAgo(18),
     uploadedFileId: "file-limit",
     settings: { ...DEFAULT_SETTINGS },
+    version: 1,
   },
   {
     id: "project-derivative",
@@ -57,6 +67,7 @@ const seedProjects: Project[] = [
     uploadedFileId: "file-derivative",
     renderJobId: "seed-render-derivative",
     settings: { ...DEFAULT_SETTINGS, avatarPosition: "left" },
+    version: 1,
   },
 ];
 
@@ -83,7 +94,8 @@ const seedSlides: ParsedSlide[] = [
   {
     id: "slide-limit-1",
     projectId: "project-limit",
-    index: 0,
+    slideNumber: 1,
+    presentationId: "presentation-limit",
     title: "函数极限的直观认识",
     summary: "从函数图像和自变量趋近过程理解极限。",
     extractedText:
@@ -98,12 +110,20 @@ const seedSlides: ParsedSlide[] = [
         status: "valid",
       },
     ],
+    sourceAssetId: "asset-source-limit-1",
+    criticalRegions: [],
+    safeRegions: [],
+    parseConfidence: 0.98,
+    parseWarnings: [],
+    isSkipped: false,
+    revision: 1,
     updatedAt: minutesAgo(18),
   },
   {
     id: "slide-limit-2",
     projectId: "project-limit",
-    index: 1,
+    slideNumber: 2,
+    presentationId: "presentation-limit",
     title: "左右极限",
     summary: "区分从左侧和右侧趋近时的函数行为。",
     extractedText:
@@ -120,12 +140,20 @@ const seedSlides: ParsedSlide[] = [
         message: "建议在讲稿中先解释上标加号和减号表示的趋近方向。",
       },
     ],
+    sourceAssetId: "asset-source-limit-2",
+    criticalRegions: [],
+    safeRegions: [],
+    parseConfidence: 0.94,
+    parseWarnings: [],
+    isSkipped: false,
+    revision: 1,
     updatedAt: minutesAgo(18),
   },
   {
     id: "slide-limit-3",
     projectId: "project-limit",
-    index: 2,
+    slideNumber: 3,
+    presentationId: "presentation-limit",
     title: "极限运算法则",
     summary: "介绍和、差、积、商的极限运算。",
     extractedText:
@@ -141,23 +169,38 @@ const seedSlides: ParsedSlide[] = [
         status: "valid",
       },
     ],
+    sourceAssetId: "asset-source-limit-3",
+    criticalRegions: [],
+    safeRegions: [],
+    parseConfidence: 0.96,
+    parseWarnings: [],
+    isSkipped: false,
+    revision: 1,
     updatedAt: minutesAgo(18),
   },
 ];
 
-function createExtraSlide(index: number): ParsedSlide {
+function createExtraSlide(slideNumber: number): ParsedSlide {
   return {
-    id: `slide-limit-${index + 1}`,
+    id: `slide-limit-${slideNumber}`,
     projectId: "project-limit",
-    index,
+    slideNumber,
+    presentationId: "presentation-limit",
     title: ["两个重要极限", "无穷小量", "函数的连续性", "间断点", "本节小结"][
-      index - 3
+      slideNumber - 4
     ],
     summary: "结合例题巩固本节核心概念与计算方法。",
     extractedText: "本页内容由 Mock API 提供，用于演示逐页解析和讲稿编辑。",
     teachingScript:
       "请先观察页面中的定义与例题。我们会按照条件、结论和常见错误三个层次完成这一部分的讲解。",
     formulas: [],
+    sourceAssetId: `asset-source-limit-${slideNumber}`,
+    criticalRegions: [],
+    safeRegions: [],
+    parseConfidence: 0.9,
+    parseWarnings: [],
+    isSkipped: false,
+    revision: 1,
     updatedAt: minutesAgo(18),
   };
 }
@@ -172,9 +215,9 @@ function ensureProjectSlides(projectId: string): void {
 
   const templates = [...mockDb.slides.values()]
     .filter((slide) => slide.projectId === "project-limit")
-    .sort((a, b) => a.index - b.index);
+    .sort((a, b) => a.slideNumber - b.slideNumber);
   for (const template of templates) {
-    const slide: ParsedSlide = {
+    const slide = parseSlide({
       ...structuredClone(template),
       id: crypto.randomUUID(),
       projectId,
@@ -183,7 +226,7 @@ function ensureProjectSlides(projectId: string): void {
         ...structuredClone(formula),
         id: crypto.randomUUID(),
       })),
-    };
+    });
     mockDb.slides.set(slide.id, slide);
   }
 }
@@ -225,14 +268,17 @@ function createStages(type: JobType): JobStage[] {
 }
 
 export const mockDb = {
-  projects: new Map(seedProjects.map((project) => [project.id, project])),
+  projects: new Map(
+    parseProjects(seedProjects).map((project) => [project.id, project]),
+  ),
   uploads: new Map<string, UploadedFile>(),
   slides: new Map(
-    [...seedSlides, ...Array.from({ length: 5 }, (_, index) => createExtraSlide(index + 3))].map(
-      (slide) => [slide.id, slide],
-    ),
+    parseSlides([
+      ...seedSlides,
+      ...Array.from({ length: 5 }, (_, index) => createExtraSlide(index + 4)),
+    ]).map((slide) => [slide.id, slide]),
   ),
-  avatars: [
+  avatars: parseAvatars([
     {
       id: "avatar-lin",
       name: "林老师",
@@ -251,8 +297,8 @@ export const mockDb = {
       description: "中性专业，适合正式课程",
       genderPresentation: "neutral",
     },
-  ] satisfies Avatar[],
-  voices: [
+  ]),
+  voices: parseVoices([
     {
       id: "voice-qinghe",
       name: "清和",
@@ -274,10 +320,13 @@ export const mockDb = {
       locale: "zh-CN",
       genderPresentation: "neutral",
     },
-  ] satisfies Voice[],
+  ]),
   jobs: new Map<string, MockJobRecord>(),
   renders: new Map(
-    seedRenderResults.map((result) => [result.projectId, result]),
+    seedRenderResults.map((result) => [
+      result.projectId,
+      parseRenderResult(result),
+    ]),
   ),
 };
 
@@ -384,7 +433,7 @@ export function refreshMockJob(record: MockJobRecord): Job {
 }
 
 export function toPublicJob(record: MockJobRecord): Job {
-  return structuredClone({
+  return parseJob(structuredClone({
     id: record.id,
     projectId: record.projectId,
     type: record.type,
@@ -395,7 +444,7 @@ export function toPublicJob(record: MockJobRecord): Job {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     error: record.error,
-  });
+  }));
 }
 
 export function getMockJobRecord(jobId: string): MockJobRecord | undefined {
@@ -415,5 +464,5 @@ export function resetMockJob(record: MockJobRecord): Job {
 }
 
 export function getDefaultTeachingSettings(): TeachingSettings {
-  return { ...DEFAULT_SETTINGS };
+  return parseTeachingSettings({ ...DEFAULT_SETTINGS });
 }

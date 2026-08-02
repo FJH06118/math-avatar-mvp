@@ -1,13 +1,14 @@
 import type { MockRequestOptions, Voice } from "@/types";
 
 import { mockDb } from "./mock-client";
+import { parseVoices } from "./contracts";
 import { simulateRequest } from "./shared";
 
 export async function listVoices(
   options: MockRequestOptions = {},
 ): Promise<Voice[]> {
   await simulateRequest(options, 520);
-  return structuredClone(mockDb.voices);
+  return parseVoices(structuredClone(mockDb.voices));
 }
 
 export async function getVoicePreview(

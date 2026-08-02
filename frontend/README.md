@@ -27,7 +27,7 @@ Windows 用户可双击本目录的 `打开智数讲堂.cmd`。
 - `src/app/`：页面与路由
 - `src/components/`：业务组件和 UI 组件
 - `src/lib/api/`：前端 API 适配层（当前主要使用 Mock API）
-- `src/types/`：前端领域与接口类型
+- `src/types/`：从仓库级 `packages/contracts/` 重导出的前端领域类型，以及浏览器专用 Mock 请求选项
 - `public/`：静态资源
 
 PPT 解析、LLM 调用、TTS 和视频渲染属于后端能力，应放在仓库的 `backend/`，不要放进本目录。

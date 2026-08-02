@@ -3,8 +3,14 @@ import type {
   ParsedSlide,
   UpdateSlideScriptInput,
 } from "@/types";
+import { ProjectIdSchema, SlideIdSchema } from "@ppt-digital-human/contracts";
 
 import { mockDb } from "./mock-client";
+import {
+  parseSlide,
+  parseSlides,
+  parseUpdateSlideScriptInput,
+} from "./contracts";
 import { requireRecord, simulateRequest } from "./shared";
 
 export async function listSlides(
@@ -12,11 +18,14 @@ export async function listSlides(
   options: MockRequestOptions = {},
 ): Promise<ParsedSlide[]> {
   await simulateRequest(options, 620);
-  requireRecord(mockDb.projects.get(projectId), "项目");
-  return [...mockDb.slides.values()]
-    .filter((slide) => slide.projectId === projectId)
-    .sort((a, b) => a.index - b.index)
-    .map((slide) => structuredClone(slide));
+  const id = ProjectIdSchema.parse(projectId);
+  requireRecord(mockDb.projects.get(id), "项目");
+  return parseSlides(
+    [...mockDb.slides.values()]
+      .filter((slide) => slide.projectId === id)
+      .sort((a, b) => a.slideNumber - b.slideNumber)
+      .map((slide) => structuredClone(slide)),
+  );
 }
 
 export async function updateSlideScript(
@@ -25,12 +34,14 @@ export async function updateSlideScript(
   options: MockRequestOptions = {},
 ): Promise<ParsedSlide> {
   await simulateRequest(options, 460);
-  const slide = requireRecord(mockDb.slides.get(slideId), "幻灯片");
-  slide.teachingScript = input.teachingScript;
+  const id = SlideIdSchema.parse(slideId);
+  const validInput = parseUpdateSlideScriptInput(input);
+  const slide = requireRecord(mockDb.slides.get(id), "幻灯片");
+  slide.teachingScript = validInput.teachingScript;
   slide.updatedAt = new Date().toISOString();
   const project = mockDb.projects.get(slide.projectId);
   if (project) {
     project.updatedAt = slide.updatedAt;
   }
-  return structuredClone(slide);
+  return parseSlide(structuredClone(slide));
 }

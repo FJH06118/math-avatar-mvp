@@ -9,7 +9,7 @@ export function SlidePreview({ slide }: { slide: ParsedSlide }) {
         <div className="flex h-full flex-col justify-between gap-4">
           <div className="flex flex-col gap-3">
             <p className="text-sm font-medium text-primary">
-              高等数学 / 第 {slide.index + 1} 页
+              高等数学 / 第 {slide.slideNumber} 页
             </p>
             <h2 className="text-balance text-xl font-semibold tracking-tight sm:text-2xl">
               {slide.title}

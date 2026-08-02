@@ -1,4 +1,5 @@
 import type { MockRequestOptions, RenderResult } from "@/types";
+import { ProjectIdSchema } from "@ppt-digital-human/contracts";
 
 import {
   demoRenderAssets,
@@ -6,6 +7,7 @@ import {
   mockDb,
   refreshMockJob,
 } from "./mock-client";
+import { parseRenderResult } from "./contracts";
 import { MockApiError, requireRecord, simulateRequest } from "./shared";
 
 export async function getRenderResult(
@@ -13,10 +15,11 @@ export async function getRenderResult(
   options: MockRequestOptions = {},
 ): Promise<RenderResult> {
   await simulateRequest(options, 620);
-  const project = requireRecord(mockDb.projects.get(projectId), "项目");
-  const existing = mockDb.renders.get(projectId);
+  const id = ProjectIdSchema.parse(projectId);
+  const project = requireRecord(mockDb.projects.get(id), "项目");
+  const existing = mockDb.renders.get(id);
   if (existing) {
-    return structuredClone(existing);
+    return parseRenderResult(structuredClone(existing));
   }
   if (!project.renderJobId) {
     throw new MockApiError("尚未创建视频生成任务。", "RESULT_NOT_READY");
@@ -31,9 +34,9 @@ export async function getRenderResult(
   }
 
   const timestamp = new Date().toISOString();
-  const result: RenderResult = {
+  const result: RenderResult = parseRenderResult({
     id: crypto.randomUUID(),
-    projectId,
+    projectId: id,
     jobId: job.id,
     title: project.title,
     videoUrl: demoRenderAssets.videoUrl,
@@ -46,9 +49,9 @@ export async function getRenderResult(
     resolution: "1920 × 1080",
     generatedAt: timestamp,
     assetsAvailable: false,
-  };
-  mockDb.renders.set(projectId, result);
-  return structuredClone(result);
+  });
+  mockDb.renders.set(id, result);
+  return parseRenderResult(structuredClone(result));
 }
 
 export async function prepareRenderDownload(

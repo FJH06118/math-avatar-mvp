@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace @ppt-digital-human/frontend",
@@ -14,12 +15,13 @@
     "typecheck": "npm run typecheck --workspace @ppt-digital-human/frontend",
     "test:unit": "npm run test:unit --workspace @ppt-digital-human/frontend",
     "test:components": "npm run test:components --workspace @ppt-digital-human/frontend",
+    "test:contracts": "npm run test --workspace @ppt-digital-human/contracts",
     "backend:prepare": "python -m backend.prepare",
     "backend:approve": "python -m backend.approve",
     "backend:render": "node backend/run.mjs render",
     "backend:run": "node backend/run.mjs run",
     "backend:test": "python -m unittest discover -s backend/tests -v",
-    "test": "npm run backend:test && npm run test:unit && npm run test:components",
+    "test": "npm run backend:test && npm run test:contracts && npm run test:unit && npm run test:components",
     "routes:check": "node scripts/routes-check.mjs"
   }
 }

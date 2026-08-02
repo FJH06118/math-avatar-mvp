@@ -1,4 +1,5 @@
 import type { Job, MockRequestOptions } from "@/types";
+import { ProjectIdSchema, TaskIdSchema } from "@ppt-digital-human/contracts";
 
 import {
   createMockJob,
@@ -15,8 +16,9 @@ export async function createParsingJob(
   options: MockRequestOptions = {},
 ): Promise<Job> {
   await simulateRequest(options, 520);
-  const project = requireRecord(mockDb.projects.get(projectId), "项目");
-  const job = createMockJob(projectId, "parsing", options.fail);
+  const id = ProjectIdSchema.parse(projectId);
+  const project = requireRecord(mockDb.projects.get(id), "项目");
+  const job = createMockJob(id, "parsing", options.fail);
   project.parsingJobId = job.id;
   project.status = "parsing";
   return job;
@@ -27,8 +29,9 @@ export async function createRenderJob(
   options: MockRequestOptions = {},
 ): Promise<Job> {
   await simulateRequest(options, 620);
-  const project = requireRecord(mockDb.projects.get(projectId), "项目");
-  const job = createMockJob(projectId, "rendering", options.fail);
+  const id = ProjectIdSchema.parse(projectId);
+  const project = requireRecord(mockDb.projects.get(id), "项目");
+  const job = createMockJob(id, "rendering", options.fail);
   project.renderJobId = job.id;
   project.status = "rendering";
   return job;
@@ -39,7 +42,8 @@ export async function getJob(
   options: MockRequestOptions = {},
 ): Promise<Job> {
   await simulateRequest(options, 260);
-  const record = requireRecord(getMockJobRecord(jobId), "任务");
+  const id = TaskIdSchema.parse(jobId);
+  const record = requireRecord(getMockJobRecord(id), "任务");
   return refreshMockJob(record);
 }
 
@@ -48,7 +52,8 @@ export async function cancelJob(
   options: MockRequestOptions = {},
 ): Promise<Job> {
   await simulateRequest(options, 360);
-  const record = requireRecord(getMockJobRecord(jobId), "任务");
+  const id = TaskIdSchema.parse(jobId);
+  const record = requireRecord(getMockJobRecord(id), "任务");
   record.status = "cancelled";
   record.updatedAt = new Date().toISOString();
   const project = mockDb.projects.get(record.projectId);
@@ -64,6 +69,7 @@ export async function retryJob(
   options: MockRequestOptions = {},
 ): Promise<Job> {
   await simulateRequest(options, 420);
-  const record = requireRecord(getMockJobRecord(jobId), "任务");
+  const id = TaskIdSchema.parse(jobId);
+  const record = requireRecord(getMockJobRecord(id), "任务");
   return resetMockJob(record);
 }
