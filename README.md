@@ -59,6 +59,10 @@ npm.cmd run test
 # 先完成生产构建，再检查 6 条业务路由并回收服务
 npm.cmd run routes:check
 
+# 阶段 T-A：真实 PostgreSQL + 私有 HTTP 边界
+npm.cmd run test:integration
+npm.cmd run start:app --workspace @ppt-digital-human/backend
+
 # 后端分阶段运行
 npm.cmd run backend:prepare -- --input "课件.pptx" --job-dir "backend/work/job-001"
 npm.cmd run backend:approve -- --job-dir "backend/work/job-001"
@@ -74,7 +78,7 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 
 - 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
 - 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
-- 浏览器上传尚未接入后端。当前已完成测试门禁和阶段 2 最小共享 Zod Contract；阶段 T0 的 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 恢复语义 POC 已通过，但产品决定、模型凭据和三页 fixture 均未关闭，不能直接跳到阶段 T 或完整 Web 集成。
+- 阶段 T 已开始。T-A 已加入 Hono 私有应用服务、Next Route Handler BFF、产品 PostgreSQL migration、本地 HTTP 边界的真实 adapter，以及上传/任务查询的幂等和 scope 集成测试。浏览器页面仍默认使用 Mock；parse Worker、Agent、审核、TTS、渲染、验证和下载闭环尚未接入，不能把 T-A 描述成完整阶段 T。
 
 ## 文档入口
 

@@ -1,12 +1,12 @@
 # 当前真实架构
 
-> 更新于 2026-08-02。本文只描述代码中已经存在的实现；目标架构和候选技术见
+> 更新于 2026-08-03。本文只描述代码中已经存在的实现；目标架构和候选技术见
 > `docs/DECISIONS.md`、`docs/ARCHITECTURE_DECISIONS.md` 与
 > `docs/IMPLEMENTATION_PLAN.md`。
 
 ## 总览
 
-当前存在两条相互独立的链路：
+当前保留 Mock/CLI 两条原型链路，并新增阶段 T-A 的真实产品入口：
 
 ```text
 浏览器
@@ -21,11 +21,19 @@ PowerShell / 终端
        ├─ Python approve.py：人工审核结果规范化与批准
        └─ Node 视频管线：Edge TTS → 字幕 → 帧 → FFmpeg → verify
             └─ 本地 job 目录中的 JSON、图片、音频、字幕和 MP4
+
+浏览器真实 adapter（尚未设为页面默认）
+  └─ Next.js /api/t Route Handlers
+       └─ 固定本地 principal + 内部令牌 + 公共 Zod
+            └─ Hono 私有 application service
+                 ├─ PPTX MIME/大小/ZIP 结构/哈希复核
+                 ├─ Prisma 产品事务 + outbox
+                 └─ Git 忽略的本地 source asset
 ```
 
-前端没有 Route Handler 或真实网络 API，后端没有 HTTP 应用服务。浏览器上传不会触发后端 CLI。
+阶段 T-A 已有真实 Route Handler、私有 HTTP 服务和产品 PostgreSQL 写入，但现有页面仍默认使用 Mock；outbox 尚无产品 dispatcher/Worker，因此上传只创建持久 PARSE 任务，不会触发后端 CLI。
 
-阶段 T0 另有一套独立、可丢弃的本机 PostgreSQL POC：它使用 Prisma、transactional outbox 和 PostgreSQL lease worker 验证恢复语义，但不接入上述浏览器或 CLI 链路，也不构成产品服务。
+阶段 T0 的独立 POC 表继续保留。T-A 在同一可丢弃开发数据库中通过向前 migration 新增产品表；产品代码使用独立的 `PPT_DH_DATABASE_URL` 配置，不导入 T0 store。
 
 ## 前端
 
@@ -34,13 +42,13 @@ PowerShell / 终端
 - UI：Tailwind CSS 4、Base UI/shadcn 风格组件、Motion。
 - 数据与表单：TanStack Query、React Hook Form、Zod。
 - 路由：项目首页、上传、项目审核、解析进度、生成进度和结果页。
-- 数据源：`frontend/src/lib/api/mock-client.ts` 中的浏览器内存 Map。
+- 数据源：页面默认仍是 `frontend/src/lib/api/mock-client.ts`；`real-tracer.ts` 已提供真实上传/任务查询 adapter，留待后续 T 子阶段按 feature flag 接入页面。
 - 上传：Mock 只检查扩展名和 100 MB 上限，不读取或上传文件字节。
 - 任务模拟：`frontend/src/lib/api/shared.ts` 与 Mock client 使用
   `setTimeout`/当前时间推导进度；刷新后数据丢失。
 - 下载：当前结果主要是演示用 `data:` 字幕资源，没有由后端交付的真实视频 URL。
 
-`frontend/src/types/` 目前只重导出 `packages/contracts/` 的 TypeScript 类型；Mock adapter 在返回和主要输入边界运行时调用共享 Zod Schema。真实网络边界尚未接入。
+`frontend/src/types/` 目前只重导出 `packages/contracts/` 的 TypeScript 类型；Mock adapter 与 T-A 真实 adapter/BFF 都在输入输出边界运行共享 Zod Schema。
 
 ## 后端
 
@@ -58,6 +66,7 @@ PowerShell / 终端
 - 进度：`run.mjs` 使用 `spawnSync` 串行执行，并把阶段状态写入 job 目录的
   `job-status.json`。直接运行根 `backend:prepare`/`backend:approve` 不会完整更新该状态。
 - 测试：`backend/tests/` 中有 Python 契约与解析单元测试。
+- 应用服务：`backend/app/` 使用 Hono，当前只实现上传和任务查询；HTTP 请求不运行重任务。
 
 Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有进程内共享类型或正式的跨语言 schema 包。
 
@@ -65,13 +74,13 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 
 | 能力 | 当前实现 |
 | --- | --- |
-| 数据库 | 产品没有数据库。前端项目保存在浏览器内存；后端主链元数据保存在 job 目录 JSON。T0 有独立、可丢弃的 PostgreSQL POC 数据库，不保存产品项目或资产。 |
-| 任务队列 | 产品没有任务队列。CLI 以同步子进程串行运行，不能提供持久排队、租约、心跳、取消或分布式重试。T0 POC 单独实现并测试了 outbox/lease 恢复语义。 |
-| 文件存储 | 本地文件系统。输入、临时文件、原页图、音频、帧、字幕、视频和验证结果都在 job 目录。 |
+| 数据库 | T-A 已持久化最小产品 Project、Asset、Presentation、GenerationTask 和 outbox；页面默认 Mock 与 CLI job JSON 仍并存。 |
+| 任务队列 | 产品已有 PARSE task/outbox 记录，但 dispatcher/lease Worker 尚未接入；T0 POC 仍单独证明恢复语义。 |
+| 文件存储 | T-A 本地适配器把源 PPTX 写入配置资产根，数据库只保存内部 storage key；CLI 的其他产物仍位于 job 目录。 |
 | 对象存储/CDN | 没有。 |
-| 公共资源授权 | 没有。后端 JSON 仍可能包含绝对路径。 |
+| 公共资源授权 | T-A 上传/任务响应经过 scope 和公开投影，不含内部路径；CLI 调试 JSON 仍可能包含绝对路径。 |
 
-PostgreSQL/Prisma 和 PostgreSQL lease worker 尚未接入产品，但 Windows 原生 PostgreSQL 18.4 上的 T0 POC 已通过。对象存储仍未实现；Redis/BullMQ 已从 T0 方案移除。
+PostgreSQL/Prisma 已接入 T-A 上传事务；PostgreSQL lease worker 尚未接入产品任务。对象存储仍未实现；Redis/BullMQ 不属于当前方案。
 
 ## 视频生成数据流
 
@@ -97,17 +106,17 @@ PostgreSQL/Prisma 和 PostgreSQL lease worker 尚未接入产品，但 Windows �
 - 浏览器代码只在 `frontend/`，没有直接导入 `backend/`。
 - PPT、LLM、TTS、Sharp 和 FFmpeg 仅在 `backend/` 使用。
 - Python 负责 PPTX 解析、计划准备和批准；Node.js 负责 CLI 编排和音视频处理。
-- `packages/contracts/` 已存在，统一当前浏览器/BFF/TypeScript worker 计划消费的业务结构；Python 内部模型和 Node CLI JSON 尚未迁移，因此跨语言边界仍可能漂移。
+- `packages/contracts/` 已存在，统一 Mock、真实 adapter、BFF 和 Hono 服务的 T-A 结构；Python 内部模型和 Node CLI JSON 尚未迁移，因此跨语言边界仍可能漂移。
 - 根 `package.json` 只负责编排 frontend/backend workspace 命令，不是业务实现层。
 
-已确定的未来边界是“浏览器 → 薄 BFF → 私有后端应用服务 → 持久 worker”，但这属于目标架构，不是当前实现。
+“浏览器 → 薄 BFF → 私有后端应用服务”已在 T-A 实现最小入口；持久产品 Worker 仍属于下一子阶段。
 
 ## 尚未采用的候选技术
 
 以下内容不得在新文档或代码评审中写成现状：
 
-- 产品 PostgreSQL、Prisma 或 PostgreSQL lease worker；当前只有已通过的独立 T0 POC，Redis/BullMQ 不属于当前 T0 方案。
-- Next.js Route Handler BFF、私有后端 HTTP 服务、outbox 和 worker 集群。
+- 产品 parse/Agent/audio/render/validate lease Worker；T-A 只有产品事务和 outbox，尚未消费任务。
+- 完整 Next.js BFF/API；当前只有 T-A 上传与任务查询两个公开边界。
 - S3/OSS 等对象存储、签名 URL 和 CDN。
 - Remotion 或其他替代当前 Sharp/FFmpeg 管线的渲染框架。
 - OpenAI Agents SDK、多 Agent 编排或固定生产模型。
@@ -124,7 +133,7 @@ WSL2 engine 在当前主机上无法创建 `docker-desktop` 发行版；用户�
 | --- | --- |
 | 前端完成上传到生成的端到端流程 | 页面流程存在，但业务数据全部来自 Mock client；后端 CLI 未接入。 |
 | 使用共享 Zod 契约和稳定 ID | `packages/contracts/` 已创建并被前端 Mock adapter 使用；Python/Node CLI 仍有独立内部模型和 JSON 形状。 |
-| 真实异步任务、数据库、队列和对象存储 | 当前只有浏览器内存、单进程 CLI 和本地 job 文件。 |
+| 真实异步任务、数据库、队列和对象存储 | T-A 已有产品数据库任务/outbox和本地源资产，但无产品 dispatcher/Worker、对象存储或完整异步闭环。 |
 | 每个非跳过源页完整出现 | 多源场景的渲染路径当前取第一个 `sourceSlides`，存在漏页风险。 |
 | 审核后的覆盖数据与场景一致 | `approve.py` 沿用生成时的 `sourceSlideCoverage`，人工改页后可能陈旧。 |
 | 始终保留原页视觉 | 原页渲染失败时存在文本重建回退，不能保证原版式保真。 |

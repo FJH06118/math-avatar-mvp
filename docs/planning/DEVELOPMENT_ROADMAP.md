@@ -1,20 +1,20 @@
 # 项目开发执行路线图
 
 > 状态：Active
-> 更新日期：2026-08-02
+> 更新日期：2026-08-03
 > 适用范围：从当前已提交原型到可控生产版本的完整开发过程
 > 详细依据：`docs/IMPLEMENTATION_PLAN.md`、`docs/ARCHITECTURE_DECISIONS.md`
 
 ## 1. 当前起点
 
 当前 Git 基线已经完成目录重组、前后端原型、上下文文档和阶段 1A 测试保护提交。
-本地 `main` 相对 `origin/main` ahead 6，尚未执行 push。当前代码仍是两条独立链路：
+本地 `main` 相对 `origin/main` ahead 10，尚未执行 push。T-A 变更尚未提交；当前代码保留 Mock/CLI 并新增最小真实入口：
 
 - `frontend/`：Next.js 16 + React 19 的完整 Mock 交互原型；没有真实上传、API 或持久化。
 - `backend/`：PPTX 解析、人工批准、Edge TTS、Sharp/FFmpeg 合成和基础验证的本地 CLI 原型。
 - `packages/contracts/`：阶段 2 已创建，当前提供前端/TypeScript 边界的最小严格 Zod Contract；Python/Node CLI 仍保留内部模型。
 - 数据库、任务队列、对象存储和私有 HTTP 应用服务：尚未采用。
-- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker Desktop 4.84.0 已安装，但 WSL2 engine 因 `HCS_E_HYPERV_NOT_INSTALLED` 不可用；用户已批准停止 Docker 修复。T0 的 Windows 原生 PostgreSQL 18.4 + Prisma + PostgreSQL lease worker POC、P-01/P-02、DeepSeek V4 Flash Provider 预检与自动原页 PNG 导出均已通过专项验证；用户指定的私有 14 页课件已完成离线解析与手工原页 PNG 导出，并确认右下角默认数字人位置。本轮完整串行质量门禁通过且得到用户确认前，阶段 T 不得开始。
+- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker engine 不可用且用户已批准停止修复；T0 的 PostgreSQL/Prisma/lease worker、Provider 与自动原页 PNG 门禁均已关闭。用户已确认进入阶段 T，T-A 已建立 Hono/BFF/产品事务入口；私有 14 页课件的前三页 Git 忽略副本已用于业务切片验证。
 
 现阶段不应该重做已有 UI，也不应该直接横向建设完整云基础设施。执行主线是：先建立可复现测试保护，再建立最小共享契约，然后用固定三页课件打通一条真实纵向链路。
 
@@ -50,7 +50,7 @@
 
 - 前端移动到 `frontend/`，后端保留在 `backend/`，根目录改为 npm workspaces。
 - 后端规划和视频原型、运行说明、详细产品和架构资料均已分组提交。
-- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 6，未执行 push。
+- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 10，未执行 push。
 - 构建产物、缓存、本地 job、密钥和环境文件未进入 Git。
 
 ### 阶段 1A：可复现环境与测试保护
@@ -148,7 +148,7 @@ Contract 测试必须拒绝未知字段、非法 ID、陈旧 coverage、漏页�
 
 ### 阶段 T0：真实切片进入条件与 POC
 
-状态：已完成（2026-08-03）；进入条件、专项测试和完整串行质量门禁均已通过，等待用户确认后才进入阶段 T。
+状态：已完成（2026-08-03）；用户已确认并进入阶段 T。
 
 目标：只关闭三页真实切片的阻断项，不建设完整平台。
 
@@ -170,6 +170,8 @@ Contract 测试必须拒绝未知字段、非法 ID、陈旧 coverage、漏页�
 POC 已通过时记录可重复的专项测试证据；若后续同类 POC 失败，先更新 `docs/ARCHITECTURE_DECISIONS.md` 与本路线图，不静默更换技术。
 
 ### 阶段 T：三页真实产品纵向切片
+
+状态：进行中。T-A「真实上传、BFF、Hono 私有服务与产品持久化边界」已实现并通过专项验证；dispatcher/Worker、Agent、批准、媒体和下载闭环尚未完成。
 
 目标：用一条最薄的真实路径证明浏览器、HTTP、持久任务、现有 CLI 能力和受控下载可以组成产品。
 
@@ -282,4 +284,4 @@ npm.cmd run routes:check
 
 ## 8. 下一项可执行任务
 
-阶段 2 已完成，阶段 T0 正在进行。原生 PostgreSQL/Prisma/lease worker POC、P-01/P-02、DeepSeek V4 Flash Provider 预检、私有 14 页课件的默认右下角数字人位置与自动原页 PNG 均已确认；下一项只可执行本轮串行质量门禁，全部通过并获得用户确认前不进入阶段 T。
+阶段 T-A 完整门禁通过并得到用户确认后，下一项只可执行 T-B：消费产品 outbox，建立 PARSE dispatcher/lease Worker、attempt 隔离、3/3 原页资产登记、真实进度和失败恢复。不得在同一子阶段顺带进入 Agent、批准、TTS、渲染或下载。

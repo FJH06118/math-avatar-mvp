@@ -354,6 +354,32 @@ Provider 能力、服务条款、数据驻留、SLA 或离线评测结果变化�
 
 POC 无法可靠证明并发领取、租约接管、幂等、取消或目标吞吐，或已确认的生产环境不允许所需 PostgreSQL 能力。
 
+## ADR-012：阶段 T application service 使用 Hono
+
+**状态：Accepted（2026-08-03）**
+**实现：T-A minimal boundary implemented**
+
+### 决策
+
+- 私有 application service 使用 Hono 4.12.31 和 `@hono/node-server` 2.0.12，运行在独立 Node/TypeScript 进程中。
+- Next Route Handlers 是公开 BFF，负责公共 Zod 校验、固定内部 principal、内部令牌转发和公共响应复核；它不导入 `backend/**`。
+- application service 重新验证内部鉴别、principal/scope、multipart 元数据和 PPTX 文件结构，并拥有 Prisma 事务、幂等、outbox 和本地资产适配器。
+- LibreOffice、Agent Provider、TTS、Sharp、FFmpeg 和媒体验证不在 Hono/Next HTTP 请求中同步执行，只能由持久 Worker 执行。
+
+### 理由
+
+阶段 T0 已选择 Prisma 与 PostgreSQL lease worker，现有确定性媒体编排也以 Node 为主。Hono 可以直接消费 Web Request/Response API，与 Next BFF 的边界一致；精确版本已在现有锁文件中，不需要为框架 POC联网或批量升级。相比手写 Node 路由，它减少 multipart、错误处理和路由样板；相比新增 Python Web 框架，它避免再引入一套服务依赖和业务事务实现。
+
+### 后果
+
+- Hono 和 node server 成为 backend 直接依赖，版本固定；升级必须运行 Contract、HTTP integration、T0 和完整质量门禁。
+- `PPT_DH_INTERNAL_TOKEN` 只存在于 BFF/server 环境，不使用 `NEXT_PUBLIC_`；阶段 T 固定 principal 仍不得用于生产。
+- T-A 只证明上传、持久事务、幂等和任务查询。Worker、批准、媒体和下载端点仍必须在后续 T 子阶段补齐后才能宣称纵向切片完成。
+
+### 重访条件
+
+实测 multipart/流式上传、长轮询负载或部署环境证明 Hono Node adapter 无法满足阶段 T/生产要求；重访时必须保持相同公共 Contract 和任务恢复语义。
+
 ## 3. 尚未接受的产品假设
 
 以下项目仍是 `Proposed`，只能作为计划建议，不能在用户确认前扩大为不可逆实现：

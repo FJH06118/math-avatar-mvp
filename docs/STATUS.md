@@ -1,12 +1,12 @@
 # 项目状态
 
-> 更新时间：2026-08-02。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+> 更新时间：2026-08-03。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
 
 ## 当前基线
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 本地 `main` 当前相对 `origin/main` ahead 6，尚未执行 push；本轮已按用户批准拆分创建阶段 2 Contract 与 T0 文档两个提交，未执行 push。
+- 本地 `main` 当前相对 `origin/main` ahead 10，尚未执行 push；阶段 T-A 变更仍在工作树中，未经用户要求未 commit/push。
 - 当前仓库包含 `frontend/`、`backend/`、`packages/contracts/` 和 `docs/` 四个主要工作区；根目录保留工作区级脚本和配置。
 - 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
@@ -43,9 +43,18 @@
 - Mock API 的主要输入/输出已按共享 Schema 运行时解析；前端领域类型改为重导出共享 `z.infer` 类型。
 - `npm.cmd run test:contracts` 已通过，包含 6 个边界测试。
 
+### 阶段 T-A 真实产品入口
+
+- Hono 私有 application service 与 Next Route Handler BFF 已实现真实 multipart PPTX 上传和持久任务查询；页面默认 adapter 仍为 Mock。
+- 产品 PostgreSQL migration 新增 Project、Asset、Presentation、GenerationTask、TaskOutbox 和 GenerationTaskStep，不复用 T0 业务表；上传事务同时创建任务快照和 outbox。
+- 上传在 BFF 与 application service 双重验证；私有服务检查大小、MIME、ZIP 中央目录、加密标志、解压规模、PPTX 必需结构和 SHA-256。
+- 同 principal/同幂等键/同 payload 返回同一 task；不同 payload 返回 409；跨 principal 查询返回 404。公共响应扫描未发现路径、storage key、密钥或堆栈。
+- 已从私有 14 页业务课件生成 Git 忽略的前三页副本，源文件未修改；强制 rules planner prepare 得到 3/3 页、3 场景和 3 张 LibreOffice 原页 PNG，无 Provider 调用或渲染错误。
+- `test:integration` 3/3、更新后的 Contract 8/8、前端 unit 2/2、T0 回归 7/7 已通过；完整串行门禁仍在本轮文档更新后执行。
+
 ## 正在进行
 
-- 阶段 1A、阶段 1B、阶段 2 与阶段 T0 均已完成。Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受。T0 的无 Docker 基础设施 POC、P-01/P-02、DeepSeek V4 Flash Provider 预检和自动原页 PNG 导出均有专项运行证据，且本轮串行质量门禁已通过；按 STOP 规则等待用户确认，不进入真实产品集成。
+- 阶段 1A、阶段 1B、阶段 2 与阶段 T0 均已完成；用户已确认进入阶段 T。T-A 真实上传/HTTP/产品持久化边界已实现，整个阶段 T 仍在进行中。
 - 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。PostgreSQL 18.4 已安装为本机服务，最小 POC 代码和运行证据存在，但它不是产品数据库、HTTP 服务或真实 Worker 实现。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
 - Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试、共享 Contract 测试和 `routes:check` 已加入；阶段 1A 与阶段 2 的完整门禁均已通过。
@@ -53,8 +62,8 @@
 
 ## 未完成任务
 
-1. 等待用户确认是否开始阶段 T。自动原页 PNG、DeepSeek V4 Flash Provider 预检与私有 14 页课件的右下角默认数字人位置均已确认；实质遮挡提醒属于阶段 T 实现。
-2. 用真实 API adapter/BFF 替换 Mock client，并实现认证、授权和稳定业务 ID。
+1. 实现 T-B 产品 parse dispatcher/lease Worker，消费 T-A outbox、登记 3/3 原页资产并回写真实进度/失败。
+2. 在内部 feature flag 下把真实 adapter 接入上传/解析页面；正式认证与团队权限仍不属于阶段 T。
 3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
 4. 在 T0 POC 通过后按已批准架构接入数据库和 PostgreSQL lease worker；对象存储仍未选择，这些能力目前均未实现。
 5. 完善 PPT/PPTX 安全校验、隔离执行、上传策略及图片公式 OCR 范围。
@@ -64,9 +73,9 @@
 
 ## 已知问题
 
-- 前端项目、任务和进度只存于浏览器内存，刷新即丢失；上传只检查扩展名和 100 MiB 上限，不读取或传输真实文件。
+- 默认前端项目、任务和进度仍存于浏览器内存，刷新即丢失；T-A 真实 adapter/BFF 已存在但尚未设为页面默认。
 - 前端结果页的 `videoUrl` 为空且 `assetsAvailable=false`，没有后端生成的真实视频资源。
-- 后端主链仍是本地 V0.1 原型：仅支持 `.pptx`，没有 HTTP 服务、产品数据库、产品任务队列或对象存储；T0 的独立 PostgreSQL POC 只验证恢复语义。
+- 后端主链仍是本地 V0.1 CLI；T-A 已有最小 HTTP 服务和产品数据库/outbox，但没有产品 dispatcher/Worker、对象存储或媒体闭环。
 - 多页场景当前可能只处理 `sourceSlides[0]`；原页渲染失败时的文本回退、`sourceSlideCoverage` 更新和最终结果状态仍有已知缺口。
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
 - 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
@@ -82,10 +91,20 @@
 - P-01 高等数学优先、P-02 内部单用户范围与 DeepSeek V4 Flash Provider 预检均已确认；私有 14 页课件已经离线解析并手工导出原页 PNG，右下角默认数字人位置已确认。自动原页 PNG 已用合成三页 fixture 验证；实质遮挡的提醒逻辑仍须在阶段 T 验证。
 - 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
 - 真实端到端验证仍需要 TTS 配置。2026-08-02 的私有 14 页课件离线解析成功，并从交互式桌面 PowerPoint 手工导出十四张 1280×720 PNG；用户确认右下角默认数字人位置，实质遮挡时必须提醒。2026-08-03 的 DeepSeek V4 Flash Provider 预检已通过 JSON 结构化输出与重试分类。当天复测确认受限开发终端不能接管交互式 PowerPoint COM；经用户授权交互式安装官方签名 LibreOffice 26.2.5.2 后，后端改用 `soffice.com` 的独立临时 profile 生成本地 PDF，并用固定 `pypdfium2==5.12.1` 逐页生成 PNG。合成三页 fixture 自动得到 3/3 张 1920×1080 PNG，随后用户指定私有课件自动得到 14/14 张 1920×1080 PNG；两次均为 `renderer=libreoffice`、无 render error，且强制本地 rules planner，未调用 Provider。不再依赖 Codex 私有 `pdftoppm` 包装器。阶段 T 仍需要真实流程的遮挡和媒体门禁验证。
-- 数据库/任务方向已按 ADR-011 批准并通过最小 POC；生产 API、对象存储和供应商选择仍需确认。共享 Contract 和已批准方向都不代表这些技术已实现。
+- 数据库/任务方向已按 ADR-011 批准并通过 POC；T-A 已接入最小产品数据库/API/outbox，产品 dispatcher/Worker、对象存储和供应商选择仍未实现。
 - 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
+
+2026-08-03 阶段 T-A 专项检查：
+
+- Git 事实检查：工作开始时 `main` 相对 `origin/main` ahead 10，工作树干净；未 commit/push。
+- `npm.cmd run test:contracts`：2 个文件、8/8 通过。
+- `npm.cmd run test:unit`：真实 adapter 与既有 adapter 共 2/2 通过。
+- `npm.cmd run test:integration`：使用真实 PostgreSQL/migration 和 HTTP，3/3 通过；随后指定 Git 忽略的私有三页业务切片复跑仍为 3/3。
+- `npm.cmd run t0:test`：7/7 通过，新产品 migration 未破坏 T0 transaction/outbox/lease/recovery 证据。
+- 私有前三页副本强制 `--planner rules` prepare：3 页、3 场景、3 张 PNG，`renderer=libreoffice`、`renderError=null`、`plannerError=null`；未调用 Provider。
+- 完整串行门禁已通过：backend/frontend typecheck、0-warning lint、后端 13/13 + Contract 8/8 + unit 2/2 + component 3/3、Next production build，以及 6-route HTTP 200/服务回收检查。
 
 2026-08-02 阶段 T0 环境事实检查：
 
@@ -148,5 +167,5 @@
 ## 下一步建议
 
 1. DISM 已按用户要求终止；如果后续系统安装或 Windows 功能出现异常，先重新检查组件存储状态，不自动继续 Docker/WSL 修复。
-2. 如用户确认进入阶段 T，必须先重新执行事实检查并读取新的 `docs/CURRENT_TASK.md`；阶段 T 必须在实质遮挡时提醒。
-3. 未经用户确认不得开始阶段 T，更不得直接进入阶段 3。
+2. T-A 完整门禁通过并得到用户确认后，只进入 T-B 产品 PARSE dispatcher/lease Worker；复用 T0 恢复语义，不引入第二套队列。
+3. 未完成整个阶段 T 前不得进入阶段 3；数字人或 Overlay 实质遮挡时仍必须提醒并阻断批准。

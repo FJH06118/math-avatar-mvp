@@ -1,6 +1,6 @@
 # PPT 数字人授课视频生成系统实施计划
 
-> 状态：Active；阶段 0/1A/1B/2/T0 已完成，Next 内嵌依赖 3 项 high 已由用户明确风险接受；等待用户确认后才开始阶段 T
+> 状态：Active；阶段 0/1A/1B/2/T0 已完成，阶段 T 已开始；T-A 真实上传/HTTP/产品持久化边界已实现，完整纵向切片尚未完成
 > 制定日期：2026-07-30  
 > 最近复核：2026-08-02
 > 需求依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`（已完整阅读 1705 行）  
@@ -362,9 +362,8 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
 
 ### 4.3 尚未开始
 
-- 已通过 T0 POC、但尚未接入产品任务流程的持久化与迁移方向（Windows 原生 PostgreSQL/Prisma）。
-- 已通过 T0 POC、但尚未接入产品任务流程的 PostgreSQL outbox/lease worker。
-- Next.js HTTP API 与统一错误响应。
+- T-A 已接入产品 PostgreSQL/Prisma、task/outbox；产品 dispatcher/lease worker 尚未开始。
+- Next.js/Hono 已有 T-A 上传/任务查询与统一错误响应；其余业务 API 尚未开始。
 - 共享 `packages/contracts` 已完成；Python/Node CLI 跨语言边界迁移尚未开始。
 - 生产对象存储资产和签名下载。
 - OpenAI Agents SDK 的模块化单 Agent。
@@ -1061,6 +1060,8 @@ npm.cmd run routes:check
 
 ### 阶段 T：3 页真实产品 tracer bullet
 
+状态：进行中。2026-08-03 完成 T-A：Hono 私有 application service、Next BFF、真实 adapter、产品 migration、multipart PPTX 校验、幂等上传和 scope 任务查询已通过专项测试。私有 14 页课件的前三页 Git 忽略副本已由 rules planner/LibreOffice 验证为 3/3。产品 dispatcher/Worker 与其余纵向链路仍未实现。
+
 目标：
 
 - 用最薄的一条真实路径证明浏览器、HTTP、持久任务、现有媒体流水线和下载边界可以组成产品。
@@ -1095,7 +1096,7 @@ P-02 决定对应的测试 principal/identity
 
 计划修改：
 
-- 阶段 T 需要的最小 Next Route Handler/BFF client、独立 backend application HTTP service、已接受候选的迁移、outbox、Worker 和本地 HTTP asset adapter；候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
+- T-A 已采用 Hono 4.12.31 + `@hono/node-server` 2.0.12 实现最小 Next Route Handler/BFF client、独立 application HTTP service、产品 migration、outbox 和本地 source asset adapter；后续继续补 Worker 与受控下载，候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
 - 现有 Python/Node CLI 外围适配器；CLI 原入口保留用于金样对照。
 - 只增加阶段 T 消费的 Contract、fixture、集成与 E2E 测试。
 - 前端增加一个受内部 feature flag 控制的真实 adapter；Mock adapter 继续用于独立 UI 测试。
@@ -1505,7 +1506,7 @@ P-01/P-02 已在 T0 分别确认；P-03～P-10 仍是 PRD 待确认项，P-11 �
 
 ## 15. 建议优先开始的阶段
 
-目录重组与安全 Git 基线、阶段 1A、阶段 1B 和阶段 2 已完成；Next 内嵌依赖 3 项 high 已由用户明确风险接受。阶段 T0 已完成；基础设施 POC、P-01/P-02、Provider 预检和自动原页 PNG 均有专项证据，完整串行质量门禁也已通过。等待用户确认后才开始阶段 T。
+目录重组与安全 Git 基线、阶段 1A、阶段 1B、阶段 2 和 T0 已完成；Next 内嵌依赖 3 项 high 已由用户明确风险接受。用户已确认进入阶段 T，T-A 已实现真实上传/HTTP/产品持久化边界；后续只在该真实路径上增量完成 Worker、审核、媒体和下载。
 P-01、P-02 已于 T0 确认；P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1A/1B。
 
 原因：
@@ -1517,7 +1518,7 @@ P-01、P-02 已于 T0 确认；P-08 在阶段 12 供应商 POC 前确认，不�
 - 2026-08-01 官方 audit 从 6 项降至 3 项 high；剩余风险来自稳定 `next@16.2.11` 内嵌 `postcss@8.4.31` 和 `sharp@0.34.5`，不能用 canary 或 `npm audit fix --force` 解决，已由用户明确接受。
 - 阶段 1 完成后，阶段 2 才能用测试保护最小共享 Zod Schema；随后必须先完成阶段 T 的真实纵向切片，再按证据补阶段 3～10 的差距。
 
-阶段 2 已完成。阶段 T0 正在进行：PostgreSQL POC、P-01/P-02、DeepSeek V4 Flash Provider 预检和自动原页 PNG 已关闭；用户指定的私有 14 页课件已手工生成原页 PNG，默认右下角数字人区域已确认。仅可完成 T0 串行质量门禁，未经用户确认不自动进入真实产品集成。
+阶段 T 已开始，T-A 已完成实现。下一子阶段是 T-B 产品 PARSE dispatcher/lease Worker；必须先完成 T-A 串行门禁并获得用户确认，不自动进入 Agent、批准、TTS、渲染或下载。
 
 ## 16. 失败恢复、清理与回滚契约
 
@@ -1682,7 +1683,7 @@ P0 残余风险没有表中指定接受人签字时不得发布。阶段 T 只�
 - P-01/P-02 已在 T0 确认；P-03～P-10 按账本截止阶段逐项确认；P-11 在阶段 11B 前确认。
 - P-08 在阶段 12 供应商 POC 前确认。
 - T-04 的完整 Agent 工具调用兼容和 T-06 渲染器仍必须用阶段 T POC 证据关闭；T0 的直接 DeepSeek V4 Flash Provider 预检与 T-05 持久化/队列已由本机 POC 关闭。
-- T-07 Docker 仍为 `REJECTED`，但已由用户批准的 ADR-011 等价环境替代；T0 的自动原页 PNG 已由 LibreOffice `soffice.com` + `pypdfium2` 专项验证关闭。完整 Agent 工具调用兼容与实质遮挡警告仍是阶段 T 的验收要求；T0 串行质量门禁通过且用户确认前不得进入阶段 T。
+- T-07 Docker 仍为 `REJECTED`，但已由 ADR-011 等价环境替代；T0 自动原页 PNG 门禁已关闭。阶段 T 已开始，完整 Agent 工具调用兼容、实质遮挡警告和媒体硬门仍未关闭。
 
 ### 20.4 最终一致性检查
 

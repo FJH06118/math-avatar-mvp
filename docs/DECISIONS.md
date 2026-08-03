@@ -103,13 +103,20 @@
 - **替代方案**：继续要求人工导出 PNG；把 `soffice.exe` 或 Codex bundled `pdftoppm` 当成运行时依赖；默认使用 Office COM。
 - **影响**：T0 合成三页 fixture 已验证 3/3 份 1920×1080 PNG，用户指定私有课件已验证 14/14 份 1920×1080 PNG。LibreOffice 与 PowerPoint 的字体、公式和版式差异仍须在阶段 T/11B 以批准金样和真实课件人工抽查；这不构成阶段 T 的遮挡或媒体门禁通过。
 
+### D-15 阶段 T 私有应用服务采用 Hono
+
+- **决策**：阶段 T 使用 Hono 4.12.31 + `@hono/node-server` 2.0.12 构建独立 Node/TypeScript application service；Next Route Handlers 继续只作为公开 BFF。
+- **原因**：Prisma、PostgreSQL lease worker 和现有媒体编排均已有 Node/TypeScript 边界；Hono 使用 Web Request/Response 语义、依赖小，并且精确版本已存在于当前锁文件。它不会把重任务塞进 Next 或新增另一种业务运行时。
+- **替代方案**：Node `http` 手写路由；Python FastAPI；让 Next Route Handler 直接访问 Prisma/CLI。
+- **影响**：私有服务必须重新验证 principal/scope、Zod 和上传结构；BFF 只转发公共 Contract 与内部鉴别。Hono 选择不改变现有 Python/Node CLI 的适配器身份，也不允许同步运行 LibreOffice、Provider、TTS 或 FFmpeg。
+
 ## 待确认
 
 | 事项 | 已知候选或问题 | 确认前的处理 |
 | --- | --- | --- |
 | 数据库与 ORM 的 POC 结果 | Windows 原生 PostgreSQL 18.4 + Prisma 7.9.1 POC 已通过 migration/事务测试。 | 该结论仅限可丢弃本机 POC；阶段 T 仍须消费同一 Contract，不能写成产品数据库已接入。 |
-| 持久任务的 POC 结果 | PostgreSQL lease worker POC 已通过 outbox、并发 lease、heartbeat、取消、接管、Worker kill 和 retry；Redis/BullMQ 不属于 T0 方案。 | P-01/P-02、DeepSeek V4 Flash Provider 预检和自动原页 PNG 环境均已有专项证据；本轮串行质量门禁通过且用户确认前不进入阶段 T。 |
-| 后端 HTTP 框架 | 目标边界已定，具体 Python/Node 框架未定。 | CLI 保持适配器身份，不把它描述成服务。 |
+| 持久任务的产品接入 | T0 lease worker POC 已通过；T-A 已创建产品 task/outbox，但产品 dispatcher/Worker 尚未接入。 | 下一子阶段只实现 T-B PARSE dispatcher/lease Worker，不并行维护 Redis/BullMQ。 |
+| 后端 HTTP 框架 | Hono 4.12.31 + `@hono/node-server` 2.0.12 已于阶段 T-A 获批并实现最小上传/任务查询边界。 | 后续端点沿用同一私有服务；CLI 保持适配器身份。 |
 | 渲染实现 | 当前为 Sharp+FFmpeg；Remotion 等仅为候选。 | 先用真实三页样例确定语义和质量缺口。 |
 | 生产 LLM | 供应商、模型、结构化输出兼容性和区域可用性未验证。 | 不使用代码默认生产模型。 |
 | 正式 TTS | Edge TTS 用于开发原型；正式 SLA 供应商未定。 | 不把 Edge TTS 写成生产承诺。 |
