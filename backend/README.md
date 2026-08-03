@@ -99,6 +99,33 @@ D:\jobs\calculus-001\output
 
 `verification.json` 的 `status` 必须为 `passed`。
 
+## 2.1 阶段 T-A 私有应用服务
+
+阶段 T-A 在保留上述 CLI 的同时新增了独立 Hono 应用服务。它只同步处理上传边界：
+PPTX 大小、MIME、ZIP 结构、加密标志和哈希校验，以及 Project、Asset、
+Presentation、GenerationTask 和 transactional outbox 持久化。它不会在 HTTP
+请求中运行 LibreOffice、Provider、TTS 或 FFmpeg。
+
+先在被 Git 忽略的 `backend/.env` 配置 `PPT_DH_DATABASE_URL`、
+`PPT_DH_INTERNAL_TOKEN` 和可选的 `PPT_DH_ASSET_ROOT`，应用 migration 后启动：
+
+```powershell
+npm.cmd run t0:generate
+npm.cmd run t0:migrate
+npm.cmd run start:app --workspace @ppt-digital-human/backend
+```
+
+Next BFF 使用 `frontend/.env.local` 中的 `PPT_DH_APP_BASE_URL`、同一内部令牌和
+仅限本机/测试的固定 `PPT_DH_INTERNAL_PRINCIPAL`。令牌没有 `NEXT_PUBLIC_` 前缀，
+不会进入浏览器 bundle。T-A 的专项验证命令为：
+
+```powershell
+npm.cmd run test:integration
+```
+
+产品数据库代码使用 `PPT_DH_DATABASE_URL`；`PPT_DH_T0_DATABASE_URL` 只保留给
+POC/migration 开发环境。公共响应只包含稳定 ID，不返回资产根目录或 `storageKey`。
+
 ## 3. 大模型场景规划
 
 `backend/.env.example` 是变量模板。Python CLI 会读取被 Git 忽略的

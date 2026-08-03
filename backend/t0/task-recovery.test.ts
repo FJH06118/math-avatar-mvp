@@ -76,6 +76,7 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
   assert.deepEqual(applied.rows.map((row) => row.migration_name), [
     "20260802114023_t0_initial",
     "20260802114500_t0_step_partial_keys",
+    "20260803120000_stage_ta_product_boundary",
   ]);
 
   const schema = "t0_forward_migration";

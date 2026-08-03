@@ -89,3 +89,165 @@ model T0TaskStepAttempt {
 
   @@unique([taskStepId, attempt])
 }
+
+enum ProjectLifecycle {
+  DRAFT
+  PARSING
+  READY
+  FAILED
+}
+
+enum PresentationParseLifecycle {
+  PENDING
+  PARSING
+  COMPLETED
+  FAILED
+}
+
+enum AssetLifecycle {
+  AVAILABLE
+  INVALID
+  ORPHANED
+}
+
+enum GenerationTaskStatus {
+  CREATED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum GenerationTaskStage {
+  PARSE
+  PLAN
+  AUDIO
+  PAGE_RENDER
+  COMPOSITE
+  VALIDATE
+}
+
+model Project {
+  id            String           @id
+  principal     String
+  title         String
+  status        ProjectLifecycle @default(DRAFT)
+  version       Int              @default(1)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  assets        Asset[]
+  presentations Presentation[]
+  tasks         GenerationTask[]
+
+  @@index([principal, updatedAt])
+}
+
+model Asset {
+  id          String         @id
+  projectId   String
+  taskId      String?
+  kind        String
+  storageKey  String         @unique
+  sha256      String
+  mimeType    String
+  fileSize    Int
+  lifecycle   AssetLifecycle @default(AVAILABLE)
+  createdAt   DateTime       @default(now())
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        GenerationTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  presentations Presentation[]
+
+  @@unique([projectId, kind, sha256])
+}
+
+model Presentation {
+  id               String                     @id
+  projectId        String
+  sourceAssetId    String
+  originalFileName String
+  sha256           String
+  fileSize         Int
+  mimeType         String
+  slideCount       Int                        @default(0)
+  width            Float?
+  height           Float?
+  aspectRatio      Float?
+  parseStatus      PresentationParseLifecycle @default(PENDING)
+  parserVersion    String
+  revision         Int                        @default(1)
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  project          Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceAsset      Asset                      @relation(fields: [sourceAssetId], references: [id], onDelete: Restrict)
+  tasks            GenerationTask[]
+}
+
+model GenerationTask {
+  id                      String               @id
+  principal               String
+  projectId               String
+  presentationId          String
+  kind                    String
+  idempotencyKey          String
+  inputHash               String
+  configHash              String
+  status                  GenerationTaskStatus @default(CREATED)
+  stage                   GenerationTaskStage  @default(PARSE)
+  progressCompleted       Int                  @default(0)
+  progressTotal           Int                  @default(1)
+  presentationRevision    Int                  @default(1)
+  retryCount              Int                  @default(0)
+  cancellationRequestedAt DateTime?
+  heartbeatAt             DateTime?
+  leaseExpiresAt          DateTime?
+  statusVersion           Int                  @default(1)
+  startedAt               DateTime?
+  completedAt             DateTime?
+  errorCode               String?
+  errorMessage            String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  project                 Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  presentation            Presentation         @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  assets                  Asset[]
+  outbox                  TaskOutbox[]
+  steps                   GenerationTaskStep[]
+
+  @@unique([principal, kind, idempotencyKey])
+  @@index([principal, projectId, updatedAt])
+}
+
+model TaskOutbox {
+  id          String         @id
+  taskId      String
+  eventKey    String         @unique
+  eventType   String
+  payload     Json
+  publishedAt DateTime?
+  createdAt   DateTime       @default(now())
+  task        GenerationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model GenerationTaskStep {
+  id                String               @id
+  taskId            String
+  stage             GenerationTaskStage
+  slideId           String?
+  status            GenerationTaskStatus @default(QUEUED)
+  currentAttempt    Int                  @default(0)
+  inputHash         String
+  outputHash        String?
+  progressCompleted Int                  @default(0)
+  progressTotal     Int                  @default(1)
+  workerId          String?
+  heartbeatAt       DateTime?
+  leaseExpiresAt    DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  errorCode         String?
+  errorMessage      String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  task              GenerationTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
