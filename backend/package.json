@@ -3,10 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "db:generate": "prisma generate --config prisma.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "test:t0": "tsx --test t0/*.test.ts"
+  },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
+    "dotenv": "17.4.2",
     "ffprobe-static": "3.1.0",
     "node-edge-tts": "1.2.10",
+    "pg": "8.22.0",
     "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "prisma": "7.9.1",
+    "tsx": "4.23.2"
   }
 }

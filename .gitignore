@@ -39,6 +39,7 @@ yarn-error.log*
 # local backend jobs and generated media
 /backend/work/
 /backend/output/
+/backend/generated/
 __pycache__/
 *.py[cod]
 

@@ -1,0 +1,91 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum T0TaskStatus {
+  CREATED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum T0StepStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum T0AttemptStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model T0Task {
+  id                      String       @id
+  principal               String
+  kind                    String
+  idempotencyKey          String
+  inputHash               String
+  status                  T0TaskStatus @default(CREATED)
+  cancellationRequestedAt DateTime?
+  statusVersion           Int          @default(0)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  outbox                  T0Outbox[]
+  steps                   T0TaskStep[]
+
+  @@unique([principal, kind, idempotencyKey])
+}
+
+model T0Outbox {
+  id         String   @id
+  taskId     String
+  eventKey   String   @unique
+  eventType  String
+  payload    Json
+  publishedAt DateTime?
+  createdAt  DateTime @default(now())
+  task       T0Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model T0TaskStep {
+  id               String       @id
+  taskId           String
+  stage            String
+  slideId          String?
+  status           T0StepStatus @default(QUEUED)
+  currentAttempt   Int          @default(0)
+  leaseOwner       String?
+  leaseExpiresAt   DateTime?
+  heartbeatAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  task             T0Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attempts         T0TaskStepAttempt[]
+}
+
+model T0TaskStepAttempt {
+  id          String          @id
+  taskStepId  String
+  attempt     Int
+  workerId    String
+  status      T0AttemptStatus @default(RUNNING)
+  startedAt   DateTime        @default(now())
+  heartbeatAt DateTime?
+  completedAt DateTime?
+  taskStep    T0TaskStep      @relation(fields: [taskStepId], references: [id], onDelete: Cascade)
+
+  @@unique([taskStepId, attempt])
+}

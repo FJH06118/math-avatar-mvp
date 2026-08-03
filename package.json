@@ -20,7 +20,11 @@
     "backend:approve": "python -m backend.approve",
     "backend:render": "node backend/run.mjs render",
     "backend:run": "node backend/run.mjs run",
+    "backend:provider:preflight": "python -m backend.provider_preflight",
     "backend:test": "python -m unittest discover -s backend/tests -v",
+    "t0:generate": "npm run db:generate --workspace @ppt-digital-human/backend",
+    "t0:migrate": "npm run db:migrate:deploy --workspace @ppt-digital-human/backend",
+    "t0:test": "npm run t0:generate && npm run t0:migrate && npm run test:t0 --workspace @ppt-digital-human/backend",
     "test": "npm run backend:test && npm run test:contracts && npm run test:unit && npm run test:components",
     "routes:check": "node scripts/routes-check.mjs"
   }
