@@ -8,3 +8,4 @@ export * from "./project";
 export * from "./scene";
 export * from "./slide";
 export * from "./task";
+export * from "./tracer";
