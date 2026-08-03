@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "fixture": "tracer-3.pptx",
+  "source": "Synthetic repository-owned teaching material created for T0.",
+  "sha256": "ff5ee3b5c1f3fc2bc2b71d65142a3d888c73bf164d01b6e5bed38e4adf560c28",
+  "approvalStatus": "APPROVED",
+  "approvedAt": "2026-08-02",
+  "slides": [
+    {
+      "number": 1,
+      "kind": "plain-text",
+      "expectedTitle": "极限：从直观到定义",
+      "proposedOverlaySafeRegion": {
+        "x": 0.74,
+        "y": 0.78,
+        "width": 0.2,
+        "height": 0.14
+      }
+    },
+    {
+      "number": 2,
+      "kind": "omml-formula",
+      "expectedOmmlText": "limx→0 sin x / x = 1",
+      "proposedOverlaySafeRegion": {
+        "x": 0.74,
+        "y": 0.77,
+        "width": 0.2,
+        "height": 0.15
+      }
+    },
+    {
+      "number": 3,
+      "kind": "crowded-text-and-diagram",
+      "expectedTitle": "连续性的图像判定",
+      "proposedOverlaySafeRegion": null,
+      "proposedAvatarPolicy": "HIDE"
+    }
+  ],
+  "reviewInstructions": [
+    "Confirm each rendered PNG matches the intended source page.",
+    "Confirm the page-specific proposed safe region does not obscure title, formula, diagram, key text, or subtitle-safe space.",
+    "For the crowded third page, confirm the default policy to hide the avatar rather than cover source content.",
+    "Approved on 2026-08-02 as the T0 three-page fixture baseline."
+  ]
+}

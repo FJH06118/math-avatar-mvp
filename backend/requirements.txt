@@ -1,3 +1,4 @@
 python-pptx==1.0.2
 openai>=1.78.0,<2
+pypdfium2==5.12.1
 pywin32>=306; platform_system == "Windows"
