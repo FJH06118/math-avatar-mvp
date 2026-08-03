@@ -25,7 +25,7 @@
 
 - `frontend/` 是 Next.js 交互原型，业务数据来自浏览器内存 Mock。
 - `backend/` 是本地 CLI 技术验证，可完成基础 PPTX 解析、人工批准、Edge TTS、静态画面、MP4 合成和媒体校验。
-- 两端没有真实 HTTP 业务闭环、PostgreSQL、Redis/Valkey、BullMQ 或 OSS。用户已批准原生 PostgreSQL 等价本地方案，但代码和服务尚未安装或实现。
+- 两端没有真实 HTTP 业务闭环、产品 PostgreSQL、Redis/Valkey、BullMQ 或 OSS。Windows 原生 PostgreSQL 18.4 的 Prisma/outbox/lease worker POC 已通过，但它未接入产品链路。
 - 目录重组、前后端原型和上下文文档已经分组提交并推送；后续以该 Git 历史为迁移基线。
 - 当前实现仍有已知硬缺口：多页场景只渲染第一来源页、批准后沿用可能陈旧的覆盖元数据、没有完整页面覆盖硬门、Python/Node Agent JSON 尚未迁移到共享 TypeScript Contract、数字人没有遮挡验证、结果 JSON 含内部路径、视频仍为 12 FPS、非 H.264/AAC 当前只记 warning。
 
@@ -278,7 +278,7 @@ HTTP 创建任务
 ### 当前证据
 
 - OpenAI Agents SDK 文档说明 `OpenAIProvider` 支持 OpenAI-compatible `baseURL`，且 `useResponses: false` 选择 Chat Completions。
-- DeepSeek 官方文档在 2026-04-24 宣布 `deepseek-chat` 和 `deepseek-reasoner` 于 2026-07-24 停用；当前代码和 `.env.example` 仍使用该旧默认值，真实 LLM 路径在修复前视为阻断。
+- DeepSeek 官方文档在 2026-04-24 宣布 `deepseek-chat` 和 `deepseek-reasoner` 于 2026-07-24 停用。2026-08-03 已改为本机配置的 `deepseek-v4-flash`，并以无课件 JSON 请求通过 Provider 预检；完整 Agent 工具调用兼容性仍在阶段 T 验证。
 
 ### 重访条件
 
@@ -311,8 +311,8 @@ Provider 能力、服务条款、数据驻留、SLA 或离线评测结果变化�
 
 ## ADR-011：T0 使用 Windows 原生 PostgreSQL、Prisma 与 PostgreSQL lease worker
 
-**状态：Accepted with gate**
-**实现：Not implemented; POC pending**
+**状态：Accepted with gate（T0 POC passed）**
+**实现：POC passed; product integration not implemented**
 
 ### 决策
 
@@ -337,14 +337,16 @@ Provider 能力、服务条款、数据驻留、SLA 或离线评测结果变化�
 
 仅能提供单连接的嵌入式开发数据库可以辅助单元测试，但不能替代上述多连接、并发 lease 和 Worker kill 门禁。
 
+2026-08-02 运行证据：Windows 原生 PostgreSQL 18.4 服务与可丢弃应用/shadow 数据库就绪；`npm.cmd run t0:test` 以 Prisma 7.9.1 通过 7/7。测试覆盖 transactional task/outbox、同键幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、真实子进程 kill 后租约接管、取消/完成竞态、retry 上限，以及 fresh/forward migration 与部分唯一索引。该结果只关闭 T-05，不关闭 P-01、P-02、Provider 或 fixture 门禁，也不代表阶段 T 已开始。
+
 ### 理由
 
 当前 Docker engine 无法启动，而项目路线图允许用户批准等价本地 PostgreSQL/队列方案。把 outbox 和 lease 放在同一数据库内，可以在 T0 用更少的本地服务证明持久任务的核心恢复语义，也避免同时维护 Redis/BullMQ 与 PostgreSQL 两套故障面。
 
 ### 后果
 
-- PostgreSQL 尚未安装，以上方向不能写成当前实现；T0 仍处于进行中。
-- 开发和测试需要独立、可清理的数据库。安装系统 PostgreSQL 必须另获用户授权，且不能把本机安装路径写入仓库。
+- PostgreSQL 18.4 和最小 POC 已安装并通过，但上述方向仍不能写成产品实现；T0 仍处于进行中。
+- 开发和测试需要独立、可清理的数据库。本轮系统 PostgreSQL 安装已获用户授权；后续系统安装仍须单独授权，且不能把本机安装路径写入仓库。
 - T0 只建立证明恢复语义所需的最小表、migration、dispatcher 和 Worker；完整 Repository、业务 API、对象存储和真实产品流水线留给后续明确阶段。
 - 生产部署可以在保持相同任务/租约 Contract 的前提下改用托管 PostgreSQL，但必须重新做容量、备份、故障恢复和连接池验证。
 

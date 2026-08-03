@@ -23,7 +23,7 @@ PPTX
 - Windows 10/11
 - Node.js 20 或更高版本
 - Python 3.10 或更高版本
-- Microsoft PowerPoint（Windows 本机导出原页面）
+- Microsoft PowerPoint（Windows 本机导出原页面）或 LibreOffice（无头自动导出回退）
 - 能访问 Edge TTS 的网络
 
 安装依赖：
@@ -33,8 +33,9 @@ npm.cmd install --registry=https://registry.npmjs.org
 python -m pip install -r backend\requirements.txt
 ```
 
-如果未安装 PowerPoint，可使用下方 Docker 方案；容器会用 LibreOffice
-渲染页面。
+如果 PowerPoint COM 不可用于当前终端，请安装 LibreOffice。后端会使用
+`soffice.com` 生成本地 PDF，并用随 Python 依赖安装的 `pypdfium2` 渲染每页
+PNG；不依赖 Codex 私有运行时或桌面 Office 会话。
 
 ## 2. 推荐流程：先审核，再生成
 
@@ -100,14 +101,22 @@ D:\jobs\calculus-001\output
 
 ## 3. 大模型场景规划
 
-`backend/.env.example` 是变量模板。当前版本不会自动加载 `.env.local`，
-请在运行命令的同一个终端中设置环境变量。密钥不要写入源码、README 或提交到 Git：
+`backend/.env.example` 是变量模板。Python CLI 会读取被 Git 忽略的
+`backend/.env`，但同名的终端环境变量优先。密钥不要写入源码、README 或提交到 Git：
 
 ```powershell
-$env:DEEPSEEK_API_KEY = "你新创建的密钥"
+$env:LLM_API_KEY = "你新创建的密钥"
 $env:LLM_BASE_URL = "https://api.deepseek.com"
-$env:LLM_MODEL = "deepseek-chat"
+$env:LLM_MODEL = "deepseek-v4-flash"
 ```
+
+可在不发送课件内容的前提下执行 Provider 预检：
+
+```powershell
+npm.cmd run backend:provider:preflight
+```
+
+该命令验证密钥、模型、JSON 结构化输出、超时/限流/服务端错误的重试分类；它不会输出密钥。
 
 存在密钥时，解析器会把整套课件的结构化文本一次性提交给模型，让模型从
 全局规划场景，并允许拆页或合并相邻页。模型返回内容仍会经过页码、场景、

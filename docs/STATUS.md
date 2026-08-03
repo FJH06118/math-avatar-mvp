@@ -45,15 +45,15 @@
 
 ## 正在进行
 
-- 阶段 1A、阶段 1B 与阶段 2 已完成；Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受。阶段 2 全部门禁已通过。阶段 T0 已开始，但只有无 Docker 基础设施方向获得批准，POC 和其他进入条件均未完成，不得进入真实产品集成。
-- 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。该方向为 `Accepted with gate`，当前没有代码或运行证据。
+- 阶段 1A、阶段 1B、阶段 2 与阶段 T0 均已完成。Next 内嵌依赖剩余 3 项 high 已由用户于 2026-08-01 明确风险接受。T0 的无 Docker 基础设施 POC、P-01/P-02、DeepSeek V4 Flash Provider 预检和自动原页 PNG 导出均有专项运行证据，且本轮串行质量门禁已通过；按 STOP 规则等待用户确认，不进入真实产品集成。
+- 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。PostgreSQL 18.4 已安装为本机服务，最小 POC 代码和运行证据存在，但它不是产品数据库、HTTP 服务或真实 Worker 实现。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
 - Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试、共享 Contract 测试和 `routes:check` 已加入；阶段 1A 与阶段 2 的完整门禁均已通过。
 - 阶段 1B 已锁定 `brace-expansion@1.1.18`、`postcss@8.5.23`、`shadcn@4.16.1`、`@modelcontextprotocol/sdk@1.30.0` 和 `@hono/node-server@2.0.12`；官方 audit 从 6 项降至 3 项 high。
 
 ## 未完成任务
 
-1. 在 T0 确认 P-01/P-02、模型凭据和固定三页 fixture，并完成已批准原生 PostgreSQL/Prisma/lease worker 方案的运行 POC。
+1. 等待用户确认是否开始阶段 T。自动原页 PNG、DeepSeek V4 Flash Provider 预检与私有 14 页课件的右下角默认数字人位置均已确认；实质遮挡提醒属于阶段 T 实现。
 2. 用真实 API adapter/BFF 替换 Mock client，并实现认证、授权和稳定业务 ID。
 3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
 4. 在 T0 POC 通过后按已批准架构接入数据库和 PostgreSQL lease worker；对象存储仍未选择，这些能力目前均未实现。
@@ -66,23 +66,23 @@
 
 - 前端项目、任务和进度只存于浏览器内存，刷新即丢失；上传只检查扩展名和 100 MiB 上限，不读取或传输真实文件。
 - 前端结果页的 `videoUrl` 为空且 `assetsAvailable=false`，没有后端生成的真实视频资源。
-- 后端仍是本地 V0.1 原型：仅支持 `.pptx`，没有 HTTP 服务、数据库、任务队列或对象存储。
+- 后端主链仍是本地 V0.1 原型：仅支持 `.pptx`，没有 HTTP 服务、产品数据库、产品任务队列或对象存储；T0 的独立 PostgreSQL POC 只验证恢复语义。
 - 多页场景当前可能只处理 `sourceSlides[0]`；原页渲染失败时的文本回退、`sourceSlideCoverage` 更新和最终结果状态仍有已知缺口。
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
 - 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
-- 默认模型仍可能是 `deepseek-chat`；生产模型、TTS 凭据和供应商尚未确认。
+- DeepSeek V4 Flash 已完成本机 Provider 预检；正式 TTS 凭据、供应商与完整 Agent 工具调用兼容性尚未确认。
 - 当前没有 OCR、真实集成或端到端测试；阶段 1A 的前端 unit/component 测试、阶段 2 Contract 测试与 `routes:check` 已建立。
 - 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
 ## 当前阻塞项
 
 - Docker Desktop 4.84.0 已安装，但 WSL2 engine 创建 `docker-desktop` 发行版时报 `HCS_E_HYPERV_NOT_INSTALLED`，engine 当前不可用。用户已停止 Docker 修复并批准等价本地方案，因此 Docker 本身不再是 T0 目标；`backend/Dockerfile` 仍只有静态审查证据。
-- 当前机器没有 `psql`、`pg_isready`、`postgres` 或 PostgreSQL Windows 服务。本轮批准只确认技术方向，系统软件安装尚未单独授权；事务/幂等/outbox/lease/heartbeat/取消/Worker kill/migration POC 均未运行。
+- PostgreSQL 18.4 与 `postgresql-x64-18` Windows 服务已安装并运行。`npm.cmd run t0:test` 已通过 7/7，覆盖 transaction/outbox、幂等、outbox 重放、并发 lease、heartbeat、Worker kill 接管、取消竞态、重试上限和 migration；该证据只关闭 T-05，不关闭其他 T0 入口条件。
 - Windows 组件存储 `DISM /CheckHealth` 报告“可以修复组件存储”；用户于 2026-08-02 明确要求终止正在运行的修复，`DISM` PID 20244 与 `DismHost` PID 8388 已定向强制结束。该次 `RestoreHealth` 未完成，不得视为组件存储已修复。
-- P-01 高等数学优先和 P-02 首发用户范围仍未确认；它们是阶段 T 的 STOP 条件。
+- P-01 高等数学优先、P-02 内部单用户范围与 DeepSeek V4 Flash Provider 预检均已确认；私有 14 页课件已经离线解析并手工导出原页 PNG，右下角默认数字人位置已确认。自动原页 PNG 已用合成三页 fixture 验证；实质遮挡的提醒逻辑仍须在阶段 T 验证。
 - 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
-- 真实端到端验证还需要可用的示例课件、PowerPoint/LibreOffice、FFmpeg、模型和 TTS 配置；这些属于 T0 进入条件。
-- 数据库/任务方向已按 ADR-011 批准但尚未通过 POC；生产 API、对象存储和供应商选择仍需确认。共享 Contract 和已批准方向都不代表这些技术已实现。
+- 真实端到端验证仍需要 TTS 配置。2026-08-02 的私有 14 页课件离线解析成功，并从交互式桌面 PowerPoint 手工导出十四张 1280×720 PNG；用户确认右下角默认数字人位置，实质遮挡时必须提醒。2026-08-03 的 DeepSeek V4 Flash Provider 预检已通过 JSON 结构化输出与重试分类。当天复测确认受限开发终端不能接管交互式 PowerPoint COM；经用户授权交互式安装官方签名 LibreOffice 26.2.5.2 后，后端改用 `soffice.com` 的独立临时 profile 生成本地 PDF，并用固定 `pypdfium2==5.12.1` 逐页生成 PNG。合成三页 fixture 自动得到 3/3 张 1920×1080 PNG，随后用户指定私有课件自动得到 14/14 张 1920×1080 PNG；两次均为 `renderer=libreoffice`、无 render error，且强制本地 rules planner，未调用 Provider。不再依赖 Codex 私有 `pdftoppm` 包装器。阶段 T 仍需要真实流程的遮挡和媒体门禁验证。
+- 数据库/任务方向已按 ADR-011 批准并通过最小 POC；生产 API、对象存储和供应商选择仍需确认。共享 Contract 和已批准方向都不代表这些技术已实现。
 - 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
@@ -93,7 +93,9 @@
 - Node.js `v24.16.0`、npm `11.13.0`、Python `3.10.11`：可用。
 - Docker Desktop `4.84.0`：CLI/桌面已安装；engine 未启动，日志根错误为 `Wsl/Service/RegisterDistro/CreateVm/HCS/HCS_E_HYPERV_NOT_INSTALLED`。
 - `VirtualMachinePlatform`、`Microsoft-Windows-Subsystem-Linux`、`HypervisorPlatform`：已启用；系统报告 hypervisor 存在。
-- PostgreSQL 命令与 Windows 服务：未发现；没有运行数据库 POC。
+- PostgreSQL 18.4：原生服务 `postgresql-x64-18` 正在运行；应用与 shadow 测试数据库均为可丢弃本机资源，连接串未纳入 Git。
+- `npm.cmd run t0:test`：通过，7/7；使用 Prisma 7.9.1 和 PostgreSQL 多连接验证 transaction/outbox、同键幂等、outbox 重放、`FOR UPDATE SKIP LOCKED`、heartbeat、子进程 kill 接管、取消/完成竞态、retry 上限与 fresh/forward migration。
+- 本轮完整串行门禁：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build`、`npm.cmd run routes:check` 均通过；`test` 包含后端 4/4、Contract 6/6、前端 unit 1/1 和 component 3/3，路由检查的 6 条业务路由均为 HTTP 200 且服务已回收。
 - `DISM /Online /Cleanup-Image /CheckHealth`：组件存储可修复；随后启动的 `RestoreHealth` 经用户明确要求终止，目标 PID 20244/8388 已复核不存在。
 - 本次只是 T0 决策文档更新，未运行或宣称完整阶段门禁通过。
 
@@ -146,6 +148,5 @@
 ## 下一步建议
 
 1. DISM 已按用户要求终止；如果后续系统安装或 Windows 功能出现异常，先重新检查组件存储状态，不自动继续 Docker/WSL 修复。
-2. 获得用户对 Windows 原生 PostgreSQL 系统安装的单独明确授权后，只实施 T0 最小 Prisma/lease worker POC。
-3. 分别确认 P-01、P-02、当前可用模型/合法凭据和固定三页 fixture。
-4. 只有 T0 全部进入条件与专项 POC 有运行证据后，才开始阶段 T；不得直接进入阶段 3。
+2. 如用户确认进入阶段 T，必须先重新执行事实检查并读取新的 `docs/CURRENT_TASK.md`；阶段 T 必须在实质遮挡时提醒。
+3. 未经用户确认不得开始阶段 T，更不得直接进入阶段 3。

@@ -14,7 +14,7 @@
 - `backend/`：PPTX 解析、人工批准、Edge TTS、Sharp/FFmpeg 合成和基础验证的本地 CLI 原型。
 - `packages/contracts/`：阶段 2 已创建，当前提供前端/TypeScript 边界的最小严格 Zod Contract；Python/Node CLI 仍保留内部模型。
 - 数据库、任务队列、对象存储和私有 HTTP 应用服务：尚未采用。
-- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker Desktop 4.84.0 已安装，但 WSL2 engine 因 `HCS_E_HYPERV_NOT_INSTALLED` 不可用；用户已批准停止 Docker 修复，T0 改用 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker，当前 PostgreSQL 尚未安装、POC 尚未运行。
+- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker Desktop 4.84.0 已安装，但 WSL2 engine 因 `HCS_E_HYPERV_NOT_INSTALLED` 不可用；用户已批准停止 Docker 修复。T0 的 Windows 原生 PostgreSQL 18.4 + Prisma + PostgreSQL lease worker POC、P-01/P-02、DeepSeek V4 Flash Provider 预检与自动原页 PNG 导出均已通过专项验证；用户指定的私有 14 页课件已完成离线解析与手工原页 PNG 导出，并确认右下角默认数字人位置。本轮完整串行质量门禁通过且得到用户确认前，阶段 T 不得开始。
 
 现阶段不应该重做已有 UI，也不应该直接横向建设完整云基础设施。执行主线是：先建立可复现测试保护，再建立最小共享契约，然后用固定三页课件打通一条真实纵向链路。
 
@@ -31,7 +31,7 @@
 → 阶段 1A：可复现环境与测试保护（已完成）
 → 阶段 1B：直接依赖安全收口（已完成，残余 Next high 已接受）
 → 阶段 2：最小共享 Zod Contract（已完成，2026-08-01）
-→ 阶段 T0：真实切片进入条件与基础设施 POC（进行中）
+→ 阶段 T0：真实切片进入条件与基础设施 POC（已完成，2026-08-03）
 → 阶段 T：三页真实产品纵向切片
 → 阶段 3～10：在真实切片上补产品差距
 → 阶段 11A～11F：恢复、覆盖面、质量与规模硬化
@@ -148,17 +148,17 @@ Contract 测试必须拒绝未知字段、非法 ID、陈旧 coverage、漏页�
 
 ### 阶段 T0：真实切片进入条件与 POC
 
-状态：进行中（2026-08-02）；无 Docker 的基础设施方向已批准，其余进入条件和 POC 尚未关闭。
+状态：已完成（2026-08-03）；进入条件、专项测试和完整串行质量门禁均已通过，等待用户确认后才进入阶段 T。
 
 目标：只关闭三页真实切片的阻断项，不建设完整平台。
 
 必须先确认：
 
-- P-01：首发评测是否以高等数学优先。推荐：数学优先，Contract 保持通用。
-- P-02：首发用户范围。推荐：内部单用户，使用仅限本地/测试的固定 principal。
-- 可复现服务环境：已批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker；不依赖 Docker、Redis 或 BullMQ。PostgreSQL 安装和 POC 仍待另行授权与执行。
-- 当前可用的 LLM 模型与合法凭据；删除 `deepseek-chat` 生产默认值。
-- 固定三页 fixture：普通文本、OMML 公式、拥挤图文各一页，并有人工作为真值的原页 PNG 和覆盖区域。
+- P-01：已确认首发评测以高等数学优先，Contract 保持通用。
+- P-02：已确认首发面向内部单用户，使用仅限本地/测试的固定 principal。
+- 可复现服务环境：已批准并用 Windows 原生 PostgreSQL 18.4 + Prisma + PostgreSQL lease worker POC 验证；不依赖 Docker、Redis 或 BullMQ。该证据不等于阶段 T 的产品数据库或 Worker 已实现。
+- DeepSeek V4 Flash Provider 预检：本机忽略配置、官方 OpenAI-compatible 地址、模型选择、JSON 结构化输出及超时/连接/限流/5xx 重试分类已于 2026-08-03 验证。完整 Agent 工具调用兼容性仍在阶段 T 验证。
+- 阶段 T 业务验证课件：用户指定本机私有 14 页高等数学 PPTX；离线规则解析成功并从交互式桌面 PowerPoint 导出十四张原页 PNG。源文件保留在仓库外，PNG 位于被 Git 忽略的工作目录；两者均不提交 Git。用户确认右下角默认数字人区域；若实质遮挡标题、公式、图表、关键文本或字幕安全区，阶段 T 必须提示用户，不能静默覆盖。受限终端的 PowerPoint COM 不可用；T0 已通过 LibreOffice `soffice.com` + `pypdfium2` 自动导出合成 fixture 的完整 3/3 原页 PNG。既有三页合成 fixture 仅保留为回归测试证据，不代表阶段 T 的私有业务输入。
 
 最小 POC：
 
@@ -167,7 +167,7 @@ Contract 测试必须拒绝未知字段、非法 ID、陈旧 coverage、漏页�
 3. 验证 PostgreSQL lease worker 的 outbox 重放、重复投递、`FOR UPDATE SKIP LOCKED` 并发领取、lease、心跳、取消、租约接管和 Worker kill；不并行维护 Redis/BullMQ 第二套队列。
 4. 验证 LLM Provider 的结构化输出、超时、重试和错误分类；只保留通过的最小编排层。
 
-POC 失败时先更新 `docs/ARCHITECTURE_DECISIONS.md` 与本路线图，不静默更换技术。
+POC 已通过时记录可重复的专项测试证据；若后续同类 POC 失败，先更新 `docs/ARCHITECTURE_DECISIONS.md` 与本路线图，不静默更换技术。
 
 ### 阶段 T：三页真实产品纵向切片
 
@@ -282,4 +282,4 @@ npm.cmd run routes:check
 
 ## 8. 下一项可执行任务
 
-阶段 2 已完成，阶段 T0 正在进行。基础设施方向已经确认，但 PostgreSQL 未安装且 POC 未运行，P-01/P-02、模型凭据和固定三页 fixture 也未确认；下一项可执行子任务是获得系统安装授权后完成原生 PostgreSQL/Prisma/lease worker POC。上述条件关闭前不进入阶段 T。
+阶段 2 已完成，阶段 T0 正在进行。原生 PostgreSQL/Prisma/lease worker POC、P-01/P-02、DeepSeek V4 Flash Provider 预检、私有 14 页课件的默认右下角数字人位置与自动原页 PNG 均已确认；下一项只可执行本轮串行质量门禁，全部通过并获得用户确认前不进入阶段 T。

@@ -52,7 +52,7 @@
 - **决策**：任务与步骤状态持久化；命令幂等、可取消、带心跳，失败只重试失败步骤和失效的下游步骤。
 - **原因**：视频生成耗时长，浏览器计时器或单进程内存不能支撑刷新、崩溃和并发。
 - **替代方案**：前端轮询虚构进度；每次失败从头生成。
-- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；D-11 已批准 PostgreSQL outbox/lease 方向，但尚无 POC 证据。
+- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；D-11 的 PostgreSQL outbox/lease 方向已通过 T0 POC 验证，但尚未接入产品任务流程。
 
 ### D-08 模型和 TTS 供应商保持可配置
 
@@ -80,14 +80,35 @@
 - **决策**：用户已批准在 Windows 普通开发环境中使用原生 PostgreSQL + Prisma + PostgreSQL lease worker；T0 不要求 Docker、Redis 或 BullMQ。
 - **原因**：当前 Docker Desktop 的 WSL2 engine 无法启动；单一 PostgreSQL 可以同时承载领域事务、outbox 和 lease，减少本地依赖及数据库/队列双写故障面。
 - **替代方案**：继续修复 Docker Compose；PostgreSQL + BullMQ/Redis；仅用内存或本地 JSON 模拟队列。
-- **影响**：这是带门禁的方向，不是已实现现状。进入阶段 T 前必须用真实多连接 PostgreSQL 测试证明事务、幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、租约到期接管、取消、Worker kill 和向前迁移。POC 失败时先更新 ADR，不静默加入第二套队列。
+- **影响**：这是带门禁的方向，不等于阶段 T 的产品实现。2026-08-02 的真实多连接 PostgreSQL POC 已用 `npm.cmd run t0:test` 通过事务、幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、租约到期接管、取消、Worker kill、重试上限和向前迁移；HTTP、产品数据模型和真实 Worker 仍未实现。若后续 POC 失败，先更新 ADR，不静默加入第二套队列。
+
+### D-12 首发评测范围为高等数学优先，Contract 保持通用
+
+- **决策**：首发评测以高等数学课件为重点，不承诺所有学科同等效果；跨学科业务 Contract 不为数学专用字段收窄。
+- **原因**：现有金样、公式和教学审核风险均以数学内容为主，需要先在可评测的窄范围内建立真实证据。
+- **替代方案**：从首版即承诺全学科同等质量。
+- **影响**：T0 与阶段 T 的 fixture、Prompt 预检和人工审核优先验证数学场景。未来扩大学科范围时，先补数据集、Prompt、指标和范围决策。
+
+### D-13 首发用户为内部单用户
+
+- **决策**：阶段 T 仅在本机/测试环境面向内部单用户，使用固定 principal；该 principal 不得作为生产身份方案。
+- **原因**：当前没有账号、权限或租户隔离实现，先用受限身份边界验证真实纵向切片。
+- **替代方案**：首版支持个人账号或机构团队。
+- **影响**：阶段 T 不建设正式登录、团队权限或计费。若转向个人账号或机构团队，必须先修订范围并增加最小 identity，机构分支还需 `tenantId`、隔离与越权测试。
+
+### D-14 无头原页渲染优先 LibreOffice
+
+- **决策**：在普通 Windows 开发终端中，默认使用 LibreOffice `soffice.com`、每次独立临时 profile 和 `pypdfium2==5.12.1` 完成 PPTX → PDF → 逐页 PNG；仅 LibreOffice 不可用时才回退 Windows PowerPoint COM。
+- **原因**：受限开发终端无法创建或接管交互式 PowerPoint COM，会稳定返回“指定的登录会话不存在”。`soffice.com` 是控制台启动器，可避免 GUI 启动器留下无窗口进程；`pypdfium2` 是固定的项目 Python 依赖，替代路径/编码不可靠的 Codex 私有 `pdftoppm` 包装器。
+- **替代方案**：继续要求人工导出 PNG；把 `soffice.exe` 或 Codex bundled `pdftoppm` 当成运行时依赖；默认使用 Office COM。
+- **影响**：T0 合成三页 fixture 已验证 3/3 份 1920×1080 PNG，用户指定私有课件已验证 14/14 份 1920×1080 PNG。LibreOffice 与 PowerPoint 的字体、公式和版式差异仍须在阶段 T/11B 以批准金样和真实课件人工抽查；这不构成阶段 T 的遮挡或媒体门禁通过。
 
 ## 待确认
 
 | 事项 | 已知候选或问题 | 确认前的处理 |
 | --- | --- | --- |
-| 数据库与 ORM 的 POC 结果 | Windows 原生 PostgreSQL + Prisma 方向已批准，但 PostgreSQL 未安装、migration/事务 POC 未运行。 | 只按 ADR-011 建最小验证；通过前不得写成已实现。 |
-| 持久任务的 POC 结果 | PostgreSQL lease worker 方向已批准；Redis/BullMQ 不再属于 T0 方案。 | 验证 outbox、并发 lease、heartbeat、取消、接管和 Worker kill；失败时停下更新 ADR。 |
+| 数据库与 ORM 的 POC 结果 | Windows 原生 PostgreSQL 18.4 + Prisma 7.9.1 POC 已通过 migration/事务测试。 | 该结论仅限可丢弃本机 POC；阶段 T 仍须消费同一 Contract，不能写成产品数据库已接入。 |
+| 持久任务的 POC 结果 | PostgreSQL lease worker POC 已通过 outbox、并发 lease、heartbeat、取消、接管、Worker kill 和 retry；Redis/BullMQ 不属于 T0 方案。 | P-01/P-02、DeepSeek V4 Flash Provider 预检和自动原页 PNG 环境均已有专项证据；本轮串行质量门禁通过且用户确认前不进入阶段 T。 |
 | 后端 HTTP 框架 | 目标边界已定，具体 Python/Node 框架未定。 | CLI 保持适配器身份，不把它描述成服务。 |
 | 渲染实现 | 当前为 Sharp+FFmpeg；Remotion 等仅为候选。 | 先用真实三页样例确定语义和质量缺口。 |
 | 生产 LLM | 供应商、模型、结构化输出兼容性和区域可用性未验证。 | 不使用代码默认生产模型。 |
@@ -98,14 +119,12 @@
 
 ### 待确认的产品决策
 
-1. 是否以高等数学作为首发评测重点，而非承诺全学科同等效果。
-2. 首发用户是内部单用户、个人教师还是机构团队。
-3. 单视频最大时长。
-4. 是否允许上传自定义数字人。
-5. 是否支持 9:16 和 1:1；16:9 已确认。
-6. 是否需要背景音乐和品牌片头。
-7. L2 数学风险是否强制人工确认；确认前不得自动进入最终生成，L3 始终人工确认。
-8. 是否必须部署在中国大陆，以及相应供应商方向。
-9. 项目包仅含版本化元数据，还是包含完整离线复现工程。
-10. 是否需要用量计费和团队权限。
-11. 是否批准把图片公式 OCR 从完整 Web MVP 延期；当前未获批准。
+1. 单视频最大时长。
+2. 是否允许上传自定义数字人。
+3. 是否支持 9:16 和 1:1；16:9 已确认。
+4. 是否需要背景音乐和品牌片头。
+5. L2 数学风险是否强制人工确认；确认前不得自动进入最终生成，L3 始终人工确认。
+6. 是否必须部署在中国大陆，以及相应供应商方向。
+7. 项目包仅含版本化元数据，还是包含完整离线复现工程。
+8. 是否需要用量计费和团队权限。
+9. 是否批准把图片公式 OCR 从完整 Web MVP 延期；当前未获批准。

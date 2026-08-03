@@ -74,7 +74,7 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 
 - 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
 - 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
-- 浏览器上传尚未接入后端。当前已完成测试门禁和阶段 2 最小共享 Zod Contract；阶段 T0 已批准使用 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 的无 Docker 方向，但 PostgreSQL/恢复语义 POC、产品决定、模型凭据和三页 fixture 均未关闭，不能直接跳到阶段 T 或完整 Web 集成。
+- 浏览器上传尚未接入后端。当前已完成测试门禁和阶段 2 最小共享 Zod Contract；阶段 T0 的 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 恢复语义 POC 已通过，但产品决定、模型凭据和三页 fixture 均未关闭，不能直接跳到阶段 T 或完整 Web 集成。
 
 ## 文档入口
 

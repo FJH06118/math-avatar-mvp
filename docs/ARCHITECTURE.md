@@ -25,6 +25,8 @@ PowerShell / 终端
 
 前端没有 Route Handler 或真实网络 API，后端没有 HTTP 应用服务。浏览器上传不会触发后端 CLI。
 
+阶段 T0 另有一套独立、可丢弃的本机 PostgreSQL POC：它使用 Prisma、transactional outbox 和 PostgreSQL lease worker 验证恢复语义，但不接入上述浏览器或 CLI 链路，也不构成产品服务。
+
 ## 前端
 
 - 位置：`frontend/`
@@ -45,8 +47,10 @@ PowerShell / 终端
 - 位置：`backend/`
 - 入口：`backend/run.mjs` 提供 `prepare`、`approve`、`render` 和完整 `run` CLI；
   根 package scripts 的 `backend:prepare`/`backend:approve` 则直接调用 Python。
-- Python 部分：`python-pptx` 解析 PPTX；Windows PowerPoint COM 或 LibreOffice
-  生成原页图片；可调用 OpenAI 兼容 Chat Completions 接口，也可走本地规则回退。
+- Python 部分：`python-pptx` 解析 PPTX；默认使用 LibreOffice `soffice.com`
+  在独立临时 profile 中生成 PDF，再由 `pypdfium2` 逐页生成原页 PNG；Windows
+  PowerPoint COM 只在 LibreOffice 不可用时回退。可调用 OpenAI 兼容 Chat
+  Completions 接口，也可用 `--planner rules` 强制本地规则回退。
 - 审核门禁：`backend/approve.py` 把人工审核后的计划规范化为已批准输入；完整
   `backend:run` 会自动批准，只适合回归，不是人工审核闭环。
 - Node.js 部分：Edge TTS 生成语音和 SRT；Sharp 生成页面框架、固定位置数字人开闭口帧；
@@ -61,19 +65,20 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 
 | 能力 | 当前实现 |
 | --- | --- |
-| 数据库 | 没有。前端项目保存在浏览器内存；后端元数据保存在 job 目录 JSON。 |
-| 任务队列 | 没有。CLI 以同步子进程串行运行，不能提供持久排队、租约、心跳、取消或分布式重试。 |
+| 数据库 | 产品没有数据库。前端项目保存在浏览器内存；后端主链元数据保存在 job 目录 JSON。T0 有独立、可丢弃的 PostgreSQL POC 数据库，不保存产品项目或资产。 |
+| 任务队列 | 产品没有任务队列。CLI 以同步子进程串行运行，不能提供持久排队、租约、心跳、取消或分布式重试。T0 POC 单独实现并测试了 outbox/lease 恢复语义。 |
 | 文件存储 | 本地文件系统。输入、临时文件、原页图、音频、帧、字幕、视频和验证结果都在 job 目录。 |
 | 对象存储/CDN | 没有。 |
 | 公共资源授权 | 没有。后端 JSON 仍可能包含绝对路径。 |
 
-PostgreSQL/Prisma、PostgreSQL lease worker 和对象存储尚未实现。用户已批准前两者作为 T0 的无 Docker 目标方向，但 PostgreSQL 尚未安装、POC 尚未运行，因此当前事实仍是“没有数据库和任务队列”。Redis/BullMQ 已从 T0 方案移除。
+PostgreSQL/Prisma 和 PostgreSQL lease worker 尚未接入产品，但 Windows 原生 PostgreSQL 18.4 上的 T0 POC 已通过。对象存储仍未实现；Redis/BullMQ 已从 T0 方案移除。
 
 ## 视频生成数据流
 
 1. CLI 接收 PPTX 路径和 job 目录。
 2. `prepare.py` 校验基本输入，使用 `python-pptx` 提取页面结构、文本、表格、备注和公式候选。
-3. PowerPoint COM 或 LibreOffice 尝试把源 PPTX 渲染成完整页面图片。
+3. LibreOffice `soffice.com` 在任务临时 profile 中把源 PPTX 转为 PDF，`pypdfium2`
+   逐页生成完整页面 PNG；仅 LibreOffice 不可用时才尝试 Windows PowerPoint COM。
 4. 配置了模型凭据时调用 OpenAI 兼容接口生成结构化教学计划；否则使用确定性规则回退。
 5. 系统写出草稿，等待人工修改和显式批准。
 6. `approve.py` 生成审核后的计划文件。
@@ -101,7 +106,7 @@ PostgreSQL/Prisma、PostgreSQL lease worker 和对象存储尚未实现。用户
 
 以下内容不得在新文档或代码评审中写成现状：
 
-- PostgreSQL、Prisma 或 PostgreSQL lease worker；它们只是已批准但尚未通过 POC 的 T0 目标。Redis/BullMQ 不属于当前 T0 方案。
+- 产品 PostgreSQL、Prisma 或 PostgreSQL lease worker；当前只有已通过的独立 T0 POC，Redis/BullMQ 不属于当前 T0 方案。
 - Next.js Route Handler BFF、私有后端 HTTP 服务、outbox 和 worker 集群。
 - S3/OSS 等对象存储、签名 URL 和 CDN。
 - Remotion 或其他替代当前 Sharp/FFmpeg 管线的渲染框架。
@@ -126,4 +131,4 @@ WSL2 engine 在当前主机上无法创建 `docker-desktop` 发行版；用户�
 | 公共响应不暴露服务端路径 | 后端现有产物 JSON 可能包含绝对 `videoPath` 等本地路径。 |
 | 完整生产媒体门禁 | 当前有 ffprobe/解码检查，但部分编码条件只是警告，页面覆盖、遮挡、黑帧、静音和哈希门禁不完整。 |
 | 验证通过后才标记完成 | `create-video.mjs` 在 `verify.mjs` 之前把 `result.json.status` 写成 `completed`；job 状态会在验证失败时改为 failed，但产物状态可能矛盾。 |
-| 生产模型由服务端配置且无代码默认值 | 现有原型仍带有 `deepseek-chat` 默认值；该默认值不是已确认的生产决策。 |
+| 生产模型由服务端配置且无代码默认值 | Python CLI 从被 Git 忽略的 `backend/.env` 或显式进程环境读取模型；配置密钥时 `LLM_MODEL` 为必填，代码不再内置生产模型名。 |
