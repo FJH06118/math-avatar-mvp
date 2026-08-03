@@ -1,6 +1,7 @@
 export * from "./avatars";
 export * from "./jobs";
 export * from "./projects";
+export * from "./real-tracer";
 export * from "./renders";
 export { getUserFacingErrorMessage } from "./shared";
 export * from "./slides";
