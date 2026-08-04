@@ -38,7 +38,7 @@
 - **决策**：浏览器只调用公开 API；Next.js BFF 只处理会话、范围和公共校验；业务事务和资源授权属于私有后端应用服务；重任务属于 worker。
 - **原因**：隔离密钥和系统工具，支持持久任务、幂等、重试与独立扩展。
 - **替代方案**：浏览器直连模型/FFmpeg；Route Handler 同步完成视频；前端直接导入后端实现。
-- **影响**：该目标边界已确定但尚未实现。具体后端 HTTP 框架仍待确认；数据库和持久 Worker 方向见 D-11，POC 通过前不得写成现状。
+- **影响**：阶段 T-A 已实现 Next BFF/Hono 与产品事务边界，T-B 已实现 PARSE Worker，T-C 已实现严格 PLAN/批准，T-D 已实现句级 AUDIO Worker 与真实字幕时间轴。视频、验证和下载仍未实现，不能把局部纵向链路写成完整产品闭环。
 
 ### D-06 共享业务契约以严格 Zod schema 为源
 
@@ -52,7 +52,7 @@
 - **决策**：任务与步骤状态持久化；命令幂等、可取消、带心跳，失败只重试失败步骤和失效的下游步骤。
 - **原因**：视频生成耗时长，浏览器计时器或单进程内存不能支撑刷新、崩溃和并发。
 - **替代方案**：前端轮询虚构进度；每次失败从头生成。
-- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；D-11 的 PostgreSQL outbox/lease 方向已通过 T0 POC 验证，但尚未接入产品任务流程。
+- **影响**：完成状态必须晚于最终验证。MVP 前端使用轮询，不把 WebSocket/SSE 作为前置条件；T-B 已把 PostgreSQL outbox/lease 接入产品 PARSE 任务流程并验证 heartbeat、租约接管、取消与失败隔离，后续步骤仍须沿用同一语义。
 
 ### D-08 模型和 TTS 供应商保持可配置
 
@@ -80,7 +80,7 @@
 - **决策**：用户已批准在 Windows 普通开发环境中使用原生 PostgreSQL + Prisma + PostgreSQL lease worker；T0 不要求 Docker、Redis 或 BullMQ。
 - **原因**：当前 Docker Desktop 的 WSL2 engine 无法启动；单一 PostgreSQL 可以同时承载领域事务、outbox 和 lease，减少本地依赖及数据库/队列双写故障面。
 - **替代方案**：继续修复 Docker Compose；PostgreSQL + BullMQ/Redis；仅用内存或本地 JSON 模拟队列。
-- **影响**：这是带门禁的方向，不等于阶段 T 的产品实现。2026-08-02 的真实多连接 PostgreSQL POC 已用 `npm.cmd run t0:test` 通过事务、幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、租约到期接管、取消、Worker kill、重试上限和向前迁移；HTTP、产品数据模型和真实 Worker 仍未实现。若后续 POC 失败，先更新 ADR，不静默加入第二套队列。
+- **影响**：2026-08-02 的真实多连接 PostgreSQL POC 已用 `npm.cmd run t0:test` 通过事务、幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、租约到期接管、取消、Worker kill、重试上限和向前迁移；T-A/T-B 已进一步实现产品数据模型、HTTP 边界和 PARSE Worker。Agent、媒体等后续 Worker 尚未实现；若后续证据失败，先更新 ADR，不静默加入第二套队列。
 
 ### D-12 首发评测范围为高等数学优先，Contract 保持通用
 
@@ -110,13 +110,38 @@
 - **替代方案**：Node `http` 手写路由；Python FastAPI；让 Next Route Handler 直接访问 Prisma/CLI。
 - **影响**：私有服务必须重新验证 principal/scope、Zod 和上传结构；BFF 只转发公共 Contract 与内部鉴别。Hono 选择不改变现有 Python/Node CLI 的适配器身份，也不允许同步运行 LibreOffice、Provider、TTS 或 FFmpeg。
 
+### D-16 阶段 T-D 使用句级 AUDIO step 与 Edge TTS 子进程
+
+- **决策**：AUDIO task 冻结所有 current approved revision 的逐句文本和语音参数；每个 narration 使用稳定 step 与独立 attempt。Edge TTS 仅作为开发适配器，在可终止的子进程中运行；正式 Provider 保持未定。
+- **原因**：句级边界允许只重试失败句，并让输入哈希、音频资产和字幕 cue 可追踪。子进程边界能在取消或租约丢失时终止网络合成，避免迟到结果覆盖终态。
+- **影响**：同一 AUDIO task 串行领取句子以确保最终时间轴原子收口；MP3 必须通过解码、时长和非静音校验才登记。T-D 不拼接视频，也不构成 Edge TTS 的生产 SLA 承诺。
+
+### D-17 阶段 T-E 使用右侧面板的逐页 Sharp/FFmpeg 渲染
+
+- **决策**：每个源页形成独立 PAGE_RENDER step；原页完整 contain 到 1500×844 区域，数字人放在不与原页相交的右侧面板。阶段 T 只渲染 highlightBox/arrow，输出 25 或 30 FPS 的 1920×1080 H.264/AAC `yuv420p` 分页 MP4。
+- **原因**：页级边界允许只重试失败页；独立数字人面板在缺少可靠元素几何时仍能严格避免遮挡标题、公式、图表与字幕安全区。
+- **影响**：T-E 不做最终视频交付；完整解码、Fast Start、黑帧、静音、页面覆盖和最终状态属于 T-F 硬门。
+
+### D-18 阶段 T-F 将合成候选与验证终态分离
+
+- **决策**：COMPOSITE 只生成内容寻址的候选 MP4；独立 VALIDATE step 通过全部硬门后才把 `MediaOutput` 标记为 `VALIDATED` 并结束任务。失败候选标记 `REJECTED`，对应 Asset 标记 `INVALID`。
+- **原因**：FFmpeg 成功退出只证明文件生成，不证明完整解码、正确编码/封装、时长、非静音、页面覆盖或遮挡安全。
+- **影响**：T-G 只能签发或流式读取 `VALIDATED` 资产；不能用文件存在、任务合成完成或客户端判断替代服务端验证记录。
+
+### D-19 阶段 T-G 使用项目范围内的本地 HTTP 交付
+
+- **决策**：阶段 T 不提前绑定对象存储或公共签名 URL；Hono 在每次读取时校验 principal、验证终态、Asset 生命周期、大小和 SHA-256，Next BFF 只转发 Range/ETag 与公开响应头。
+- **原因**：这足以验证浏览器 HTTP 下载、范围请求、完整性和跨项目拒绝，同时不引入尚未确定的云厂商与正式认证架构。
+- **影响**：公开清单只含稳定 asset ID 和同源 BFF URL；阶段 9/生产部署可在保持 Contract 的前提下替换存储 adapter。真实 adapter 必须显式用 `stage-t` flag 开启，默认 Mock 不变。
+
 ## 待确认
 
 | 事项 | 已知候选或问题 | 确认前的处理 |
 | --- | --- | --- |
-| 数据库与 ORM 的 POC 结果 | Windows 原生 PostgreSQL 18.4 + Prisma 7.9.1 POC 已通过 migration/事务测试。 | 该结论仅限可丢弃本机 POC；阶段 T 仍须消费同一 Contract，不能写成产品数据库已接入。 |
-| 持久任务的产品接入 | T0 lease worker POC 已通过；T-A 已创建产品 task/outbox，但产品 dispatcher/Worker 尚未接入。 | 下一子阶段只实现 T-B PARSE dispatcher/lease Worker，不并行维护 Redis/BullMQ。 |
-| 后端 HTTP 框架 | Hono 4.12.31 + `@hono/node-server` 2.0.12 已于阶段 T-A 获批并实现最小上传/任务查询边界。 | 后续端点沿用同一私有服务；CLI 保持适配器身份。 |
+| 数据库与 ORM 的产品接入 | Windows 原生 PostgreSQL 18.4 + Prisma 7.9.1 已通过 T0 POC；T-A/T-B 已用于产品上传事务、outbox、PARSE task/step/attempt、Slide 和 Asset。 | 后续阶段沿用向前迁移和相同 Contract，不另建第二套产品存储。 |
+| 持久任务的产品接入 | T-B～T-F 已实现产品 PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE dispatcher/lease Worker、attempt、真实进度、取消与失败恢复。 | T-G 只增加受控交付，不并行维护 Redis/BullMQ。 |
+| 后端 HTTP 框架 | Hono 4.12.31 + `@hono/node-server` 2.0.12 已实现上传、任务、规划、修订和批准边界。 | 后续端点沿用同一私有服务；CLI 保持适配器身份。 |
+| 阶段 T 单 Agent Provider | 用户已授权私有三页提取文本/备注/公式候选外发；DeepSeek V4 Flash 在 strict Prompt 修正后通过 3/3 真实 PLAN Worker。 | 保持 OpenAI-compatible、Provider-neutral；不发送 PPTX/PNG/路径，不把当前模型写成生产绑定。 |
 | 渲染实现 | 当前为 Sharp+FFmpeg；Remotion 等仅为候选。 | 先用真实三页样例确定语义和质量缺口。 |
 | 生产 LLM | 供应商、模型、结构化输出兼容性和区域可用性未验证。 | 不使用代码默认生产模型。 |
 | 正式 TTS | Edge TTS 用于开发原型；正式 SLA 供应商未定。 | 不把 Edge TTS 写成生产承诺。 |

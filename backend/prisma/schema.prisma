@@ -138,6 +138,8 @@ model Project {
   updatedAt     DateTime         @updatedAt
   assets        Asset[]
   presentations Presentation[]
+  slides        Slide[]
+  lessonPlans   LessonPlan[]
   tasks         GenerationTask[]
 
   @@index([principal, updatedAt])
@@ -157,6 +159,13 @@ model Asset {
   project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task        GenerationTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
   presentations Presentation[]
+  renderedSlides Slide[]
+  audioSegments AudioSegment[]
+  audioTimelines AudioTimelineRecord[]
+  pageFrames RenderedPage[] @relation("RenderedPageFrame")
+  pageVideos RenderedPage[] @relation("RenderedPageVideo")
+  finalVideos MediaOutput[] @relation("MediaOutputVideo")
+  mediaCaptions MediaOutput[] @relation("MediaOutputCaptions")
 
   @@unique([projectId, kind, sha256])
 }
@@ -181,6 +190,88 @@ model Presentation {
   project          Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sourceAsset      Asset                      @relation(fields: [sourceAssetId], references: [id], onDelete: Restrict)
   tasks            GenerationTask[]
+  slides           Slide[]
+  lessonPlans      LessonPlan[]
+}
+
+model Slide {
+  id              String       @id
+  projectId       String
+  presentationId  String
+  slideNumber     Int
+  title           String
+  slideType       String
+  extractedText   String
+  notes           String
+  formulaJson     Json
+  renderAssetId   String?
+  parseConfidence Float        @default(1)
+  parseWarnings   Json
+  revision        Int          @default(1)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  presentation    Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  renderAsset     Asset?       @relation(fields: [renderAssetId], references: [id], onDelete: SetNull)
+  lessonPlan      LessonPlan?
+
+  @@unique([presentationId, slideNumber])
+  @@index([projectId, slideNumber])
+}
+
+model LessonPlan {
+  id              String       @id
+  projectId       String
+  presentationId  String
+  slideId         String       @unique
+  currentRevision Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  presentation    Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  slide           Slide        @relation(fields: [slideId], references: [id], onDelete: Cascade)
+  revisions       LessonPlanRevision[]
+
+  @@index([projectId, presentationId])
+}
+
+model LessonPlanRevision {
+  id              String     @id
+  lessonPlanId    String
+  slideId         String
+  revision        Int
+  payload         Json
+  inputHash       String
+  outputHash      String
+  modelProvider   String
+  modelName       String
+  promptVersion   String
+  schemaVersion   String
+  createdBy       String
+  approvalStatus  String     @default("pending")
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  lessonPlan      LessonPlan @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  scenes          PlannedScene[]
+  audioSegments   AudioSegment[]
+  renderedPages   RenderedPage[]
+
+  @@unique([lessonPlanId, revision])
+  @@index([slideId, createdAt])
+}
+
+model PlannedScene {
+  id          String             @id
+  revisionId  String
+  slideId     String
+  sceneOrder  Int
+  payload     Json
+  createdAt   DateTime           @default(now())
+  revision    LessonPlanRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@unique([revisionId, sceneOrder])
+  @@index([slideId])
 }
 
 model GenerationTask {
@@ -213,9 +304,126 @@ model GenerationTask {
   assets                  Asset[]
   outbox                  TaskOutbox[]
   steps                   GenerationTaskStep[]
+  audioSegments           AudioSegment[]
+  subtitleCues            SubtitleCue[]
+  audioTimeline           AudioTimelineRecord?
+  renderedPages           RenderedPage[]
+  mediaOutput             MediaOutput?
 
   @@unique([principal, kind, idempotencyKey])
   @@index([principal, projectId, updatedAt])
+}
+
+model AudioSegment {
+  id             String             @id
+  taskId         String
+  projectId      String
+  presentationId String
+  revisionId     String
+  slideId        String
+  narrationId    String
+  slideOrder     Int
+  segmentOrder   Int
+  displayText    String
+  spokenText     String
+  durationMs     Int
+  assetId        String
+  sha256         String
+  voice          String
+  rate           String
+  pitch          String
+  inputHash      String
+  createdAt      DateTime           @default(now())
+  task           GenerationTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  revision       LessonPlanRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  asset          Asset              @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  subtitleCue    SubtitleCue?
+
+  @@unique([taskId, narrationId])
+  @@index([taskId, slideOrder, segmentOrder])
+  @@index([projectId, presentationId])
+}
+
+model SubtitleCue {
+  id             String         @id
+  taskId         String
+  audioSegmentId String         @unique
+  cueIndex       Int
+  startMs        Int
+  endMs          Int
+  text           String
+  createdAt      DateTime       @default(now())
+  task           GenerationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  audioSegment   AudioSegment   @relation(fields: [audioSegmentId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, cueIndex])
+  @@index([taskId, startMs])
+}
+
+model AudioTimelineRecord {
+  id              String         @id
+  taskId          String         @unique
+  srtAssetId      String
+  totalDurationMs Int
+  createdAt       DateTime       @default(now())
+  task            GenerationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  srtAsset        Asset          @relation(fields: [srtAssetId], references: [id], onDelete: Restrict)
+}
+
+model RenderedPage {
+  id              String             @id
+  taskId          String
+  slideId         String
+  revisionId      String
+  pageOrder       Int
+  durationMs      Int
+  fps             Int
+  width           Int
+  height          Int
+  frameAssetId    String
+  videoAssetId    String
+  frameSha256     String
+  videoSha256     String
+  avatarPlacement String
+  overlayType     String?
+  inputHash       String
+  createdAt       DateTime           @default(now())
+  task            GenerationTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  revision        LessonPlanRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  frameAsset      Asset              @relation("RenderedPageFrame", fields: [frameAssetId], references: [id], onDelete: Restrict)
+  videoAsset      Asset              @relation("RenderedPageVideo", fields: [videoAssetId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, slideId])
+  @@unique([taskId, pageOrder])
+  @@index([taskId, pageOrder])
+}
+
+model MediaOutput {
+  id              String         @id
+  taskId          String         @unique
+  renderTaskId    String
+  audioTaskId     String
+  videoAssetId    String
+  captionsAssetId String
+  totalDurationMs Int
+  fps             Int
+  status          String
+  inputHash       String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  task            GenerationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  videoAsset      Asset          @relation("MediaOutputVideo", fields: [videoAssetId], references: [id], onDelete: Restrict)
+  captionsAsset   Asset          @relation("MediaOutputCaptions", fields: [captionsAssetId], references: [id], onDelete: Restrict)
+  validation      MediaValidationRecord?
+}
+
+model MediaValidationRecord {
+  id        String      @id
+  outputId  String      @unique
+  status    String
+  report    Json
+  createdAt DateTime    @default(now())
+  output    MediaOutput @relation(fields: [outputId], references: [id], onDelete: Cascade)
 }
 
 model TaskOutbox {
@@ -250,4 +458,21 @@ model GenerationTaskStep {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   task              GenerationTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attempts          TaskStepAttempt[]
+}
+
+model TaskStepAttempt {
+  id          String               @id
+  taskStepId  String
+  attempt     Int
+  workerId    String
+  status      GenerationTaskStatus @default(RUNNING)
+  startedAt   DateTime             @default(now())
+  heartbeatAt DateTime?
+  completedAt DateTime?
+  errorCode   String?
+  errorMessage String?
+  taskStep    GenerationTaskStep   @relation(fields: [taskStepId], references: [id], onDelete: Cascade)
+
+  @@unique([taskStepId, attempt])
 }

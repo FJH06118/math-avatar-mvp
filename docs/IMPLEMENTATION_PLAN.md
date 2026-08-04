@@ -1,6 +1,6 @@
 # PPT 数字人授课视频生成系统实施计划
 
-> 状态：Active；阶段 0/1A/1B/2/T0 已完成，阶段 T 已开始；T-A 真实上传/HTTP/产品持久化边界已实现，完整纵向切片尚未完成
+> 状态：Active；阶段 0/1A/1B/2/T0 与阶段 T 的 T-A～T-G 已完成；等待阶段 3 授权
 > 制定日期：2026-07-30  
 > 最近复核：2026-08-02
 > 需求依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`（已完整阅读 1705 行）  
@@ -13,7 +13,7 @@
 
 - `frontend/` 已经形成阶段 3～9 的较完整交互 Mock 原型，正常路由、主要页面和大部分 UI 状态都存在。
 - `backend/` 已经形成可本地运行的 V0.1 命令行技术验证，能够完成 PPTX 基础解析、讲稿审核、Edge TTS、静态数字人合成和 ffprobe 验证。
-- 共享 Zod Contract 已建立并接入前端 Mock 边界，但两端尚未通过真实 HTTP API、数据库、持久 Worker 和对象存储连成产品闭环。
+- 共享 Zod Contract 已建立；T-A/T-B/T-C 已接通真实 HTTP、产品 PostgreSQL、PARSE/PLAN Worker、严格单 Agent 与显式批准，但音频、媒体、下载和对象存储尚未组成完整产品闭环。
 
 因此不应重新生成整套页面，也不应马上横向铺开数据库、对象存储和全部 Worker。阶段 1/2 已完成；阶段 T0 已通过 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 的最小恢复 POC。第一个真实产品里程碑仍采用一条 tracer bullet：
 
@@ -43,7 +43,7 @@
 → 阶段 1A：可复现环境与测试保护（已完成）
 → 阶段 1B：直接依赖安全收口（已完成）
 → 阶段 2：纵向切片实际需要的最小 Contract（已完成）
-→ 阶段 T0：真实切片进入条件与基础设施 POC（进行中）
+→ 阶段 T0：真实切片进入条件与基础设施 POC（已完成）
 → 阶段 T：3 页真实产品 tracer bullet
 → 阶段 3～10：只补现有产品与真实切片暴露的差距
 → 阶段 11A～11F：恢复、覆盖面、规模和质量硬化
@@ -122,7 +122,7 @@ T0 POC 已安装（仅限可丢弃本机环境，尚未接入产品）：
 外部服务时效检查：
 
 - OpenAI Agents SDK 官方文档确认 `OpenAIProvider` 支持 OpenAI-compatible `baseURL`，并可用 `useResponses: false` 选择 Chat Completions；这只证明接口方向可行，不证明 DeepSeek 的结构化输出、工具流、超时和重试完全兼容。
-- DeepSeek 官方更新日志说明 `deepseek-chat` 与 `deepseek-reasoner` 已于 2026-07-24 停用。2026-08-03 已删除代码/示例中的旧模型默认值，改为被 Git 忽略的本机配置或显式进程环境；`deepseek-v4-flash` 已通过不含课件的 JSON 结构化 Provider 预检。阶段 T 仍须验证完整 Agent 工具调用兼容性。
+- DeepSeek 官方更新日志说明 `deepseek-chat` 与 `deepseek-reasoner` 已于 2026-07-24 停用。2026-08-03 已删除代码/示例中的旧模型默认值，改为被 Git 忽略的本机配置或显式进程环境；`deepseek-v4-flash` 已通过不含课件的 JSON 结构化 Provider 预检。阶段 T 采用已通过严格 Contract 的最小 Provider 路径，完整 Agent 工具调用兼容性留到阶段 11C，不能倒推成阶段 T 已验证能力。
 
 ### 2.4 当前质量基线
 
@@ -362,8 +362,8 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
 
 ### 4.3 尚未开始
 
-- T-A 已接入产品 PostgreSQL/Prisma、task/outbox；产品 dispatcher/lease worker 尚未开始。
-- Next.js/Hono 已有 T-A 上传/任务查询与统一错误响应；其余业务 API 尚未开始。
+- T-A/T-B 已接入产品 PostgreSQL/Prisma、task/outbox、PARSE dispatcher/lease Worker、attempt、Slide 和原页 Asset。
+- Next.js/Hono 已有上传、任务查询/取消、规划、修订、批准与统一错误响应；音频、媒体和下载 API 尚未开始。
 - 共享 `packages/contracts` 已完成；Python/Node CLI 跨语言边界迁移尚未开始。
 - 生产对象存储资产和签名下载。
 - OpenAI Agents SDK 的模块化单 Agent。
@@ -1060,7 +1060,7 @@ npm.cmd run routes:check
 
 ### 阶段 T：3 页真实产品 tracer bullet
 
-状态：进行中。2026-08-03 完成 T-A：Hono 私有 application service、Next BFF、真实 adapter、产品 migration、multipart PPTX 校验、幂等上传和 scope 任务查询已通过专项测试。私有 14 页课件的前三页 Git 忽略副本已由 rules planner/LibreOffice 验证为 3/3。产品 dispatcher/Worker 与其余纵向链路仍未实现。
+状态：进行中。2026-08-03 完成 T-A 上传边界与 T-B 产品 PARSE Worker；2026-08-04 完成 T-C 产品 PLAN Worker、严格单 Agent、3/3 LessonPlanRevision/PlannedScene、用户修订和显式批准。私有 14 页课件的前三页 Git 忽略副本已由真实 Python/LibreOffice 与获授权的 DeepSeek V4 Flash 严格链路验证。音频、媒体和下载仍未实现。
 
 目标：
 
@@ -1096,7 +1096,7 @@ P-02 决定对应的测试 principal/identity
 
 计划修改：
 
-- T-A 已采用 Hono 4.12.31 + `@hono/node-server` 2.0.12 实现最小 Next Route Handler/BFF client、独立 application HTTP service、产品 migration、outbox 和本地 source asset adapter；后续继续补 Worker 与受控下载，候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
+- T-A/T-B/T-C 已采用 Hono 4.12.31 + `@hono/node-server` 2.0.12 实现 Next BFF、独立 application service、产品 migration、outbox、PARSE/PLAN lease Worker、本地资产适配器、严格 Agent 和批准边界；后续继续补音频、媒体与受控下载，候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
 - 现有 Python/Node CLI 外围适配器；CLI 原入口保留用于金样对照。
 - 只增加阶段 T 消费的 Contract、fixture、集成与 E2E 测试。
 - 前端增加一个受内部 feature flag 控制的真实 adapter；Mock adapter 继续用于独立 UI 测试。
@@ -1465,7 +1465,7 @@ P-01/P-02 已在 T0 分别确认；P-03～P-10 仍是 PRD 待确认项，P-11 �
 | T-01 | `frontend/`、`backend/` 和目录重组是用户认可的有效基线 | VERIFIED | 用户授权拆分提交；相关提交已于 2026-08-01 推送到 `origin/main` | 已关闭 | 后续以 Git 历史为基线，来源不明的工作树改动仍触发 STOP |
 | T-02 | 当前依赖审计为 3 moderate、20 high | VERIFIED | 2026-07-30 官方 npm registry audit | 阶段 1 | 先测试保护，再一次一个直接依赖升级；不运行 force fix |
 | T-03 | Agents SDK 可连接 OpenAI-compatible Chat Completions | VERIFIED | 官方 SDK 支持 `baseURL` 与 `useResponses: false` | 阶段 T | 只说明传输能力；DeepSeek 端到端仍需 T-04 |
-| T-04 | DeepSeek 与选定编排层完整兼容 | UNVERIFIED | DeepSeek V4 Flash 已通过直接 OpenAI Chat Completions 的 JSON 结构化预检和重试分类；完整 Agent 工具调用尚未验证 | 阶段 T | 真实测试工具调用、任务级超时和重试；失败则用最小 OpenAI SDK Provider |
+| T-04 | DeepSeek 与选定编排层完整兼容 | DEFERRED | DeepSeek V4 Flash 已通过直接 OpenAI Chat Completions 的 JSON 结构化预检和重试分类；阶段 T 已采用最小 Provider fallback，完整 Agent 工具调用尚未验证 | 阶段 11C | 真实测试工具调用、任务级超时和重试；失败则继续使用最小 OpenAI-compatible Provider |
 | T-05 | Windows 原生 PostgreSQL/Prisma + PostgreSQL lease worker 满足任务恢复语义 | VERIFIED（T0 POC） | PostgreSQL 18.4 + Prisma 7.9.1，`npm.cmd run t0:test` 7/7 通过 | 已在 T0 关闭 | 仅证明可丢弃本机 POC；阶段 T 继续使用同一语义并追加真实产品 Worker/资产测试 |
 | T-06 | Remotion 比现有 Sharp/FFmpeg 更适合目标动画 | UNVERIFIED | 尚未安装、未做性能或许可验证 | 阶段 11E | 先用现有栈完成 T；失败时保留 Scene Contract，比较最小替代 |
 | T-07 | 当前机器可运行 Docker Compose | REJECTED / NO LONGER REQUIRED FOR T0 | Docker Desktop 4.84.0 已安装，但 WSL2 engine 返回 `HCS_E_HYPERV_NOT_INSTALLED`；用户于 2026-08-02 批准 ADR-011 等价本地方案 | 已由 ADR-011 替代 | 不再修复 Docker；阶段 T 由 T-05 的原生 PostgreSQL POC 作为环境门 |
@@ -1506,7 +1506,7 @@ P-01/P-02 已在 T0 分别确认；P-03～P-10 仍是 PRD 待确认项，P-11 �
 
 ## 15. 建议优先开始的阶段
 
-目录重组与安全 Git 基线、阶段 1A、阶段 1B、阶段 2 和 T0 已完成；Next 内嵌依赖 3 项 high 已由用户明确风险接受。用户已确认进入阶段 T，T-A 已实现真实上传/HTTP/产品持久化边界；后续只在该真实路径上增量完成 Worker、审核、媒体和下载。
+目录重组与安全 Git 基线、阶段 1A、阶段 1B、阶段 2 和 T0 已完成；Next 内嵌依赖 3 项 high 已由用户明确风险接受。用户已确认进入阶段 T，T-A 已实现真实上传/HTTP/产品持久化边界，T-B 已实现产品 PARSE Worker；后续只在该真实路径上增量完成 Agent、审核、媒体和下载。
 P-01、P-02 已于 T0 确认；P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1A/1B。
 
 原因：
@@ -1518,7 +1518,7 @@ P-01、P-02 已于 T0 确认；P-08 在阶段 12 供应商 POC 前确认，不�
 - 2026-08-01 官方 audit 从 6 项降至 3 项 high；剩余风险来自稳定 `next@16.2.11` 内嵌 `postcss@8.4.31` 和 `sharp@0.34.5`，不能用 canary 或 `npm audit fix --force` 解决，已由用户明确接受。
 - 阶段 1 完成后，阶段 2 才能用测试保护最小共享 Zod Schema；随后必须先完成阶段 T 的真实纵向切片，再按证据补阶段 3～10 的差距。
 
-阶段 T 已开始，T-A 已完成实现。下一子阶段是 T-B 产品 PARSE dispatcher/lease Worker；必须先完成 T-A 串行门禁并获得用户确认，不自动进入 Agent、批准、TTS、渲染或下载。
+阶段 T 的 T-A～T-G 已完成实现与三页 HTTP 上传到下载纵切验收。停止等待用户确认提交拆分与是否进入阶段 3；不得自动推进。
 
 ## 16. 失败恢复、清理与回滚契约
 

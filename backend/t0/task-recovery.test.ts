@@ -77,6 +77,12 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
     "20260802114023_t0_initial",
     "20260802114500_t0_step_partial_keys",
     "20260803120000_stage_ta_product_boundary",
+    "20260803173000_stage_tb_parse_worker",
+    "20260804103000_stage_tc_lesson_plan",
+    "20260804153000_stage_td_audio",
+    "20260804154500_stage_td_sentence_steps",
+    "20260804170000_stage_te_page_render",
+    "20260804180000_stage_tf_media_validation",
   ]);
 
   const schema = "t0_forward_migration";
@@ -93,13 +99,60 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
       new URL("../prisma/migrations/20260802114500_t0_step_partial_keys/migration.sql", import.meta.url),
       "utf8",
     );
+    const stageTaSql = await readFile(
+      new URL("../prisma/migrations/20260803120000_stage_ta_product_boundary/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTbSql = await readFile(
+      new URL("../prisma/migrations/20260803173000_stage_tb_parse_worker/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTcSql = await readFile(
+      new URL("../prisma/migrations/20260804103000_stage_tc_lesson_plan/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTdAudioSql = await readFile(
+      new URL("../prisma/migrations/20260804153000_stage_td_audio/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTdStepsSql = await readFile(
+      new URL("../prisma/migrations/20260804154500_stage_td_sentence_steps/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTeSql = await readFile(
+      new URL("../prisma/migrations/20260804170000_stage_te_page_render/migration.sql", import.meta.url),
+      "utf8",
+    );
+    const stageTfSql = await readFile(
+      new URL("../prisma/migrations/20260804180000_stage_tf_media_validation/migration.sql", import.meta.url),
+      "utf8",
+    );
     await client.query(initialSql);
     await client.query(partialKeysSql);
+    await client.query(stageTaSql);
+    await client.query(stageTbSql);
+    await client.query(stageTcSql);
+    await client.query(stageTdAudioSql);
+    await client.query(stageTdStepsSql);
+    await client.query(stageTeSql);
+    await client.query(stageTfSql);
     const indexes = await client.query<{ indexname: string }>(
       "SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() ORDER BY indexname",
     );
     assert(indexes.rows.some((row) => row.indexname === "T0TaskStep_task_stage_without_slide_key"));
     assert(indexes.rows.some((row) => row.indexname === "T0TaskStep_task_stage_with_slide_key"));
+    assert(indexes.rows.some((row) => row.indexname === "Slide_presentationId_slideNumber_key"));
+    assert(indexes.rows.some((row) => row.indexname === "GenerationTaskStep_task_stage_slide_input_key"));
+    const productTables = await client.query<{ tablename: string }>(
+      "SELECT tablename FROM pg_tables WHERE schemaname = current_schema()",
+    );
+    assert(productTables.rows.some((row) => row.tablename === "TaskStepAttempt"));
+    assert(productTables.rows.some((row) => row.tablename === "LessonPlanRevision"));
+    assert(productTables.rows.some((row) => row.tablename === "AudioSegment"));
+    assert(productTables.rows.some((row) => row.tablename === "AudioTimelineRecord"));
+    assert(productTables.rows.some((row) => row.tablename === "RenderedPage"));
+    assert(productTables.rows.some((row) => row.tablename === "MediaOutput"));
+    assert(productTables.rows.some((row) => row.tablename === "MediaValidationRecord"));
   } finally {
     await client.query("RESET search_path");
     await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);

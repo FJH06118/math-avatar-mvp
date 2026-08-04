@@ -20,6 +20,7 @@
     "backend:approve": "python -m backend.approve",
     "backend:render": "node backend/run.mjs render",
     "backend:run": "node backend/run.mjs run",
+    "backend:worker": "npm run start:worker --workspace @ppt-digital-human/backend",
     "backend:provider:preflight": "python -m backend.provider_preflight",
     "backend:tracer:slice": "python -m backend.tools.create_tracer_slice",
     "backend:test": "python -m unittest discover -s backend/tests -v",

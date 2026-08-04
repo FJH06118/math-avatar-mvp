@@ -8,13 +8,13 @@
 ## 1. 当前起点
 
 当前 Git 基线已经完成目录重组、前后端原型、上下文文档和阶段 1A 测试保护提交。
-本地 `main` 相对 `origin/main` ahead 10，尚未执行 push。T-A 变更尚未提交；当前代码保留 Mock/CLI 并新增最小真实入口：
+本地 `main` 相对 `origin/main` ahead 14，尚未执行 push。T-A 已按四个提交固化，T-B/T-C 变更尚未提交；当前代码保留 Mock/CLI 并新增最小真实入口：
 
 - `frontend/`：Next.js 16 + React 19 的完整 Mock 交互原型；没有真实上传、API 或持久化。
 - `backend/`：PPTX 解析、人工批准、Edge TTS、Sharp/FFmpeg 合成和基础验证的本地 CLI 原型。
 - `packages/contracts/`：阶段 2 已创建，当前提供前端/TypeScript 边界的最小严格 Zod Contract；Python/Node CLI 仍保留内部模型。
-- 数据库、任务队列、对象存储和私有 HTTP 应用服务：尚未采用。
-- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker engine 不可用且用户已批准停止修复；T0 的 PostgreSQL/Prisma/lease worker、Provider 与自动原页 PNG 门禁均已关闭。用户已确认进入阶段 T，T-A 已建立 Hono/BFF/产品事务入口；私有 14 页课件的前三页 Git 忽略副本已用于业务切片验证。
+- T-A/T-B/T-C 已采用产品 PostgreSQL/Prisma、Hono 私有应用服务、outbox、PARSE/PLAN lease Worker、严格单 Agent 与显式批准；当前仍无对象存储、Redis/BullMQ、音频/媒体 Worker 或完整下载闭环。
+- 普通开发终端已可通过标准 `python` 命令调用 Python 3.10.11。Docker engine 不可用且用户已批准停止修复；T0 的 PostgreSQL/Prisma/lease worker、Provider 与自动原页 PNG 门禁均已关闭。用户已确认进入阶段 T，T-A 建立 Hono/BFF/产品事务入口，T-B 建立 PARSE Worker；私有 14 页课件的前三页 Git 忽略副本已用于业务切片验证。
 
 现阶段不应该重做已有 UI，也不应该直接横向建设完整云基础设施。执行主线是：先建立可复现测试保护，再建立最小共享契约，然后用固定三页课件打通一条真实纵向链路。
 
@@ -50,7 +50,7 @@
 
 - 前端移动到 `frontend/`，后端保留在 `backend/`，根目录改为 npm workspaces。
 - 后端规划和视频原型、运行说明、详细产品和架构资料均已分组提交。
-- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 10，未执行 push。
+- 跨会话上下文文档已建立；本地 `main` 当前相对 `origin/main` ahead 14，未执行 push。
 - 构建产物、缓存、本地 job、密钥和环境文件未进入 Git。
 
 ### 阶段 1A：可复现环境与测试保护
@@ -171,7 +171,7 @@ POC 已通过时记录可重复的专项测试证据；若后续同类 POC 失�
 
 ### 阶段 T：三页真实产品纵向切片
 
-状态：进行中。T-A「真实上传、BFF、Hono 私有服务与产品持久化边界」已实现并通过专项验证；dispatcher/Worker、Agent、批准、媒体和下载闭环尚未完成。
+状态：完成。T-A～T-G 已实现；三页 HTTP 上传到受控 MP4/SRT/元数据下载纵切已通过，完整根门禁记录见 `docs/STATUS.md`。
 
 目标：用一条最薄的真实路径证明浏览器、HTTP、持久任务、现有 CLI 能力和受控下载可以组成产品。
 
@@ -284,4 +284,4 @@ npm.cmd run routes:check
 
 ## 8. 下一项可执行任务
 
-阶段 T-A 完整门禁通过并得到用户确认后，下一项只可执行 T-B：消费产品 outbox，建立 PARSE dispatcher/lease Worker、attempt 隔离、3/3 原页资产登记、真实进度和失败恢复。不得在同一子阶段顺带进入 Agent、批准、TTS、渲染或下载。
+阶段 T 已完成。停止并等待用户确认提交拆分与下一阶段；不得自动进入阶段 3。

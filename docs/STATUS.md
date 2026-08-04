@@ -6,7 +6,7 @@
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 本地 `main` 当前相对 `origin/main` ahead 10，尚未执行 push；阶段 T-A 变更仍在工作树中，未经用户要求未 commit/push。
+- 本地 `main` 当前相对 `origin/main` ahead 14，尚未执行 push；T-A 已按四个提交收口，T-B/T-C 变更仍在工作树中。
 - 当前仓库包含 `frontend/`、`backend/`、`packages/contracts/` 和 `docs/` 四个主要工作区；根目录保留工作区级脚本和配置。
 - 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
@@ -52,9 +52,59 @@
 - 已从私有 14 页业务课件生成 Git 忽略的前三页副本，源文件未修改；强制 rules planner prepare 得到 3/3 页、3 场景和 3 张 LibreOffice 原页 PNG，无 Provider 调用或渲染错误。
 - `test:integration` 3/3、更新后的 Contract 8/8、前端 unit 2/2、T0 回归 7/7 已通过；完整串行门禁仍在本轮文档更新后执行。
 
+### 阶段 T-B 产品 PARSE Worker
+
+- 产品 outbox dispatcher、PostgreSQL lease Worker、heartbeat、租约接管、不可变 TaskStepAttempt、排队/运行中取消均已实现。
+- Python/LibreOffice 在 attempt 隔离目录运行；`parsed-deck.json` 先通过严格 Zod，再检查页数、PNG 数量和 1920×1080 格式。
+- stable Slide、内容哈希 `SLIDE_RENDER` Asset 和每页真实进度已持久化；私有三页业务切片得到 3/3 Slide/Asset、Task SUCCEEDED、Presentation COMPLETED。
+- 漏页注入是非重试硬失败，错误码为 `ORIGINAL_PAGE_COUNT_MISMATCH`，不登记 Slide/原页 Asset，也不生成文本回退页。
+- `test:integration` 已扩展为 9/9；`t0:test` 7/7 同时验证四个 migration 的 fresh/forward 应用。
+
+### 阶段 T-C 单 Agent、修订与批准
+
+- strict `stage-tc-agent-v1` Contract 要求逐页精确覆盖，拒绝未知字段、重复/漏页、跨页 Overlay；Provider payload 一律先按 `unknown` 验证。
+- 第五个向前 migration 已持久化 LessonPlan、不可变 LessonPlanRevision、PlannedScene 及批准审计；PLAN task/outbox/lease Worker 沿用 T-B 恢复语义。
+- Hono/Next BFF/真实 adapter 已提供创建 PLAN task、读取当前修订、用户新修订和显式批准边界；页面默认仍为 Mock。
+- 用户于 2026-08-04 批准仅外发私有三页的提取文本、备注和公式候选；真实 DeepSeek V4 Flash 在两次旧结构被 strict 拒绝后，通过修正后的唯一模板生成 3/3 Revision/Scene。PPTX、PNG、路径和 storage key 未外发。
+- 专项验证：Contract 12/12；T-A～T-C integration 11/11；T0 7/7，含五个 migration fresh/forward。
+
+### 阶段 T-D 逐句音频与真实字幕时间轴
+
+- strict AUDIO Contract 已覆盖创建请求、逐句音频、SubtitleCue 与 AudioTimeline；TaskKind 包含 `AUDIO`。
+- 第六、七个向前 migration 持久化 AudioSegment、SubtitleCue、AudioTimelineRecord，并允许同一 slide 拥有多个句级 AUDIO step。
+- AUDIO task 只消费所有 current 且已批准的 revision，并冻结 revision/narration、展示/朗读文本、voice/rate/pitch 与输入哈希。后续修订不改变已创建任务。
+- dispatcher/lease Worker 支持句级稳定 step、heartbeat、接管、取消和只重试失败句；Edge TTS 在可终止子进程中运行。
+- MP3 经大小、音频流、实际时长和非静音检查后才登记内容寻址 Asset；最终事务生成连续无重叠 SubtitleCue、SRT 与 AudioTimelineRecord。
+- Hono、Next BFF 和真实 adapter 已提供 AUDIO 创建与时间轴读取；页面默认仍为 Mock。
+- 专项验证：Contract 14/14；T-A～T-D integration 13/13；T0 7/7，含七个 migration fresh/forward；公开占位句真实 Edge TTS 验证 1/1，未外发项目私密数据。
+
+### 阶段 T-E 分页视频渲染
+
+- Render Contract 与第八个向前 migration 已增加 RenderedPage、25/30 FPS、PAGE_FRAME/PAGE_VIDEO Asset 和逐页 lineage。
+- GENERATE/PAGE_RENDER task 冻结成功 AUDIO task、current approved revision、原页/音频哈希、Overlay、时长、FPS 与渲染器版本；后续修订不影响已创建任务。
+- 每页稳定 lease step 支持 heartbeat、接管、取消和只重试失败页；Sharp/FFmpeg 真实生成 1920×1080 H.264/AAC `yuv420p` 分页视频。
+- 原页在 1500×844 区域完整 contain，数字人位于独立右侧面板；highlightBox/arrow 之外的 Overlay 在阶段 T 硬拒绝。
+- 专项验证 2/2：3/3 真实分页视频、第二页单页重试、活动取消无半成品。
+
+### 阶段 T-F 最终合成与媒体硬验证
+
+- 新增 strict 合成/最终媒体 Contract、第九个向前 migration、`MediaOutput` 与不可变 `MediaValidationRecord`。
+- COMPOSITE 成功只登记候选视频并转入独立 VALIDATE step；验证完成前任务保持非终态，硬门失败会拒绝候选并使任务失败。
+- 真实 FFmpeg 合成固定为 1920×1080、25/30 FPS、H.264/AAC、`yuv420p`、Fast Start，并烧录全局 SRT。
+- 媒体硬门覆盖完整解码、编码/像素/FPS/尺寸、时长、非静音、黑帧、3/3 页面图像覆盖及右侧数字人面板不遮挡原页/字幕安全区。
+- 专项验证 2/2；全量后端 integration 为 17 通过、1 个外部 Edge 用例按设计跳过；T0 7/7 验证九个 migration。
+
+### 阶段 T-G 受控交付与纵向验收
+
+- strict Delivery Contract 输出 MP4、SRT 与项目元数据清单；公开 URL 只指向同源 `/api/t/...` BFF，不含后端地址、磁盘路径或 storage key。
+- Hono/BFF 支持全量、单 Range 206、ETag/304、大小/哈希校验和公开响应头白名单；仅 `SUCCEEDED + VALIDATED + AVAILABLE` 的项目内资产可读，跨 principal 统一 404。
+- 显式 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 提供真实 tracer adapter；默认/`mock` 保持既有 Mock 页面，CLI 不受影响。
+- 三页 E2E 1/1：HTTP 上传真实 PPTX fixture，依次完成 Python 解析、本地严格 Agent、显式批准、有效音频、真实分页渲染、最终合成、媒体硬门及 MP4/SRT/元数据下载。
+- 全量 backend integration 为 18 通过、1 个需显式外发的 Edge 用例跳过，共 19 个；Contract 19/19；T0 7/7。
+
 ## 正在进行
 
-- 阶段 1A、阶段 1B、阶段 2 与阶段 T0 均已完成；用户已确认进入阶段 T。T-A 真实上传/HTTP/产品持久化边界已实现，整个阶段 T 仍在进行中。
+- 阶段 1A、阶段 1B、阶段 2、阶段 T0 与阶段 T 的 T-A～T-G 均已完成；阶段 T 专项与最终五项根门禁全部通过。
 - 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。PostgreSQL 18.4 已安装为本机服务，最小 POC 代码和运行证据存在，但它不是产品数据库、HTTP 服务或真实 Worker 实现。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
 - Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试、共享 Contract 测试和 `routes:check` 已加入；阶段 1A 与阶段 2 的完整门禁均已通过。
@@ -62,7 +112,7 @@
 
 ## 未完成任务
 
-1. 实现 T-B 产品 parse dispatcher/lease Worker，消费 T-A outbox、登记 3/3 原页资产并回写真实进度/失败。
+1. 阶段 T 最终五项门禁通过后停止，等待用户决定提交拆分及是否进入阶段 3；不自动继续。
 2. 在内部 feature flag 下把真实 adapter 接入上传/解析页面；正式认证与团队权限仍不属于阶段 T。
 3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
 4. 在 T0 POC 通过后按已批准架构接入数据库和 PostgreSQL lease worker；对象存储仍未选择，这些能力目前均未实现。
@@ -75,11 +125,11 @@
 
 - 默认前端项目、任务和进度仍存于浏览器内存，刷新即丢失；T-A 真实 adapter/BFF 已存在但尚未设为页面默认。
 - 前端结果页的 `videoUrl` 为空且 `assetsAvailable=false`，没有后端生成的真实视频资源。
-- 后端主链仍是本地 V0.1 CLI；T-A 已有最小 HTTP 服务和产品数据库/outbox，但没有产品 dispatcher/Worker、对象存储或媒体闭环。
+- 后端主链仍保留本地 V0.1 CLI；产品侧已有上传、数据库/outbox、PARSE/PLAN/AUDIO Worker 和批准边界，但没有对象存储、视频或下载闭环。
 - 多页场景当前可能只处理 `sourceSlides[0]`；原页渲染失败时的文本回退、`sourceSlideCoverage` 更新和最终结果状态仍有已知缺口。
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
-- 视频验证目前不是完整硬门禁，尚未覆盖全量页面、遮挡、黑帧、静音、哈希和 Fast Start 等要求。
-- DeepSeek V4 Flash 已完成本机 Provider 预检；正式 TTS 凭据、供应商与完整 Agent 工具调用兼容性尚未确认。
+- T-F 产品路径已把页面覆盖、遮挡、黑帧、静音、编码、完整解码与 Fast Start 设为硬门；旧 Python/Node CLI 的基础验证器仍保留原有不足，不能作为产品交付证据。
+- DeepSeek V4 Flash 已完成本机 Provider 预检；Edge TTS 开发适配器已用公开占位句验证，正式 TTS 供应商/SLA 与完整 Agent 工具调用兼容性尚未确认。
 - 当前没有 OCR、真实集成或端到端测试；阶段 1A 的前端 unit/component 测试、阶段 2 Contract 测试与 `routes:check` 已建立。
 - 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
@@ -90,8 +140,8 @@
 - Windows 组件存储 `DISM /CheckHealth` 报告“可以修复组件存储”；用户于 2026-08-02 明确要求终止正在运行的修复，`DISM` PID 20244 与 `DismHost` PID 8388 已定向强制结束。该次 `RestoreHealth` 未完成，不得视为组件存储已修复。
 - P-01 高等数学优先、P-02 内部单用户范围与 DeepSeek V4 Flash Provider 预检均已确认；私有 14 页课件已经离线解析并手工导出原页 PNG，右下角默认数字人位置已确认。自动原页 PNG 已用合成三页 fixture 验证；实质遮挡的提醒逻辑仍须在阶段 T 验证。
 - 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
-- 真实端到端验证仍需要 TTS 配置。2026-08-02 的私有 14 页课件离线解析成功，并从交互式桌面 PowerPoint 手工导出十四张 1280×720 PNG；用户确认右下角默认数字人位置，实质遮挡时必须提醒。2026-08-03 的 DeepSeek V4 Flash Provider 预检已通过 JSON 结构化输出与重试分类。当天复测确认受限开发终端不能接管交互式 PowerPoint COM；经用户授权交互式安装官方签名 LibreOffice 26.2.5.2 后，后端改用 `soffice.com` 的独立临时 profile 生成本地 PDF，并用固定 `pypdfium2==5.12.1` 逐页生成 PNG。合成三页 fixture 自动得到 3/3 张 1920×1080 PNG，随后用户指定私有课件自动得到 14/14 张 1920×1080 PNG；两次均为 `renderer=libreoffice`、无 render error，且强制本地 rules planner，未调用 Provider。不再依赖 Codex 私有 `pdftoppm` 包装器。阶段 T 仍需要真实流程的遮挡和媒体门禁验证。
-- 数据库/任务方向已按 ADR-011 批准并通过 POC；T-A 已接入最小产品数据库/API/outbox，产品 dispatcher/Worker、对象存储和供应商选择仍未实现。
+- 三页 HTTP 上传到受控下载闭环已通过；完整 E2E 使用本地严格 Agent 与本地有效音频，真实 DeepSeek、私有课件切片和公开占位句 Edge TTS 保留为独立授权证据。正式 TTS SLA、完整页面接线、对象存储签名及生产部署仍未完成。
+- 数据库/任务方向已按 ADR-011 接入产品；T-A～T-D 已实现 API/outbox/PARSE/PLAN/AUDIO Worker。对象存储、视频/媒体 Worker 和正式供应商选择仍未实现。
 - 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
@@ -105,6 +155,26 @@
 - `npm.cmd run t0:test`：7/7 通过，新产品 migration 未破坏 T0 transaction/outbox/lease/recovery 证据。
 - 私有前三页副本强制 `--planner rules` prepare：3 页、3 场景、3 张 PNG，`renderer=libreoffice`、`renderError=null`、`plannerError=null`；未调用 Provider。
 - 完整串行门禁已通过：backend/frontend typecheck、0-warning lint、后端 13/13 + Contract 8/8 + unit 2/2 + component 3/3、Next production build，以及 6-route HTTP 200/服务回收检查。
+
+2026-08-03 阶段 T-B 专项检查：
+
+- T-A 已创建四个本地提交，提交后工作树干净且 `main` ahead 14；未 push。
+- `npm.cmd run test:integration`：私有前三页业务切片 9/9，通过真实 parse Worker 3/3、outbox replay、lease takeover、queued/active cancel 和漏页硬失败。
+- `npm.cmd run t0:test`：7/7，通过四个 migration 的 fresh/forward 应用并保留真实 Worker kill 等 T0 证据。
+- 完整串行质量门禁已全部通过：backend/frontend typecheck；lint 0 warning；后端 13/13、Contract 10/10、unit 2/2、component 3/3；Next production build；6/6 路由检查且服务回收。
+
+2026-08-04 阶段 T-C 专项检查：
+
+- 产品 migration 已应用；`t0:test` 7/7，五个 migration fresh/forward 与原恢复语义通过。
+- 合成与私有三页切片的 `test:integration` 均为 11/11；真实 Provider 成功持久化 3/3 Revision/Scene，修订、陈旧冲突和批准断言通过。
+- Contract 4 文件 12/12；完整串行质量门禁全部通过：backend/frontend typecheck、lint 0 warning、后端 13/13、Contract 12/12、unit 2/2、component 3/3、Next production build、6/6 路由检查与服务回收。
+
+2026-08-04 阶段 T-D 专项检查：
+
+- 两个 T-D migration 已应用；`t0:test` 7/7，七个 migration fresh/forward 与原恢复语义通过。
+- `test:integration` 13/13；批准门禁、快照冻结、4 个句级 step、单句重试、取消、音频资产、SRT 和真实时长字幕断言通过。
+- Contract 5 文件 14/14；公开占位句真实 Edge TTS 解码/时长/非静音验证 1/1，未外发项目私密数据。
+- 完整串行质量门禁已全部通过：backend/frontend typecheck、lint 0 warning、后端 13/13、Contract 14/14、unit 2/2、component 3/3、Next production build（包含两个 T-D BFF 路由）、6/6 路由检查与服务回收。
 
 2026-08-02 阶段 T0 环境事实检查：
 
@@ -167,5 +237,5 @@
 ## 下一步建议
 
 1. DISM 已按用户要求终止；如果后续系统安装或 Windows 功能出现异常，先重新检查组件存储状态，不自动继续 Docker/WSL 修复。
-2. T-A 完整门禁通过并得到用户确认后，只进入 T-B 产品 PARSE dispatcher/lease Worker；复用 T0 恢复语义，不引入第二套队列。
+2. T-C 完整门禁通过并得到用户确认后，只进入 T-D AUDIO Worker/真实字幕时间轴；不顺带进入视频渲染、验证或下载。
 3. 未完成整个阶段 T 前不得进入阶段 3；数字人或 Overlay 实质遮挡时仍必须提醒并阻断批准。

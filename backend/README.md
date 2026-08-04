@@ -126,6 +126,41 @@ npm.cmd run test:integration
 产品数据库代码使用 `PPT_DH_DATABASE_URL`；`PPT_DH_T0_DATABASE_URL` 只保留给
 POC/migration 开发环境。公共响应只包含稳定 ID，不返回资产根目录或 `storageKey`。
 
+阶段 T-B 在同一产品数据库上增加 PARSE dispatcher/lease Worker。Worker 从
+transactional outbox 创建稳定步骤，使用 `FOR UPDATE SKIP LOCKED`、heartbeat、
+租约过期接管和不可变 attempt 调用现有 Python/LibreOffice 适配器：
+
+阶段 T-C 在相同 dispatcher/lease 语义上增加 PLAN Worker。它从已持久化 Slide 构造
+最小不可信输入，调用服务端 OpenAI-compatible Provider，把响应先按 `unknown` 通过
+`stage-tc-agent-v1` strict Contract，再在单一事务内写入 LessonPlanRevision、
+PlannedScene 和任务终态。用户编辑创建新 revision，显式批准只作用于 current revision；
+Provider、Prompt、模型、Schema 与哈希均保留审计。Worker 从 `backend/.env` 或显式进程
+环境读取 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`，公共响应不返回凭据或课件正文。
+
+阶段 T-D 增加 AUDIO Worker。创建任务时必须让每页 current LessonPlanRevision 均已显式
+批准；服务把 revision、narration、`spokenText`、voice/rate/pitch 和输入哈希冻结进 outbox。
+dispatcher 为每句创建稳定 step，Worker 只重试失败句。Edge TTS 在独立子进程运行，取消或
+失租会终止进程树；MP3 通过 ffprobe 解码/时长与 FFmpeg 非静音检查后才登记为
+`AUDIO_SEGMENT`。最后一句成功时按实际时长生成 SubtitleCue、SRT 和 AudioTimelineRecord。
+当前 HTTP/BFF 端点为 `POST /v1/projects/:projectId/audio`、`GET /v1/tasks/:taskId/audio`
+及对应 `/api/t/...` 路由；公共响应只暴露稳定 asset ID，不返回 storage key。
+
+阶段 T-E 增加 GENERATE/PAGE_RENDER Worker。任务冻结成功 AUDIO task、current approved
+revision、原页/音频哈希、Overlay、时长、25/30 FPS 和渲染器版本；dispatcher 为每页创建
+稳定 step。Sharp 将原页完整 contain 到 1500×844 区域，数字人使用独立右侧面板，避免与
+原页和字幕安全区相交；阶段 T 只接受 highlightBox/arrow。FFmpeg 生成 1920×1080、
+H.264/AAC、`yuv420p` 分页 MP4，并登记 PAGE_FRAME/PAGE_VIDEO 与 RenderedPage。
+
+```powershell
+npm.cmd run backend:worker
+```
+
+Worker attempt 默认隔离在 `backend/work/t-attempts`，源资产和登记后的原页位于
+`backend/work/t-assets`。两者均被 Git 忽略。`parsed-deck.json`、页数和每张
+1920×1080 PNG 必须全部通过严格 Contract 后才登记 Slide/Asset；渲染错误、漏页或
+非 PNG 不会回退为重排文本页。`POST /api/t/tasks/:taskId/cancel` 可请求取消，运行中
+适配器会在 heartbeat 边界终止进程树。
+
 ## 3. 大模型场景规划
 
 `backend/.env.example` 是变量模板。Python CLI 会读取被 Git 忽略的
@@ -207,3 +242,13 @@ docker run --rm `
 Docker 使用 LibreOffice 渲染 PPT 页面，并使用系统 FFmpeg 和 Noto CJK
 字体。正式制作仍建议走“prepare → 人工审核 → approve → render”，不要
 跳过数学内容审核。
+
+阶段 T-F 增加 COMPOSITE/VALIDATE Worker。COMPOSITE 将已验证的分页视频与全局 SRT 合成为
+H.264/AAC、`yuv420p`、Fast Start MP4，但任务仍保持非终态；VALIDATE 完成完整解码、编码、
+时长、非静音、黑帧、逐页图像覆盖与安全布局硬门后，才登记可交付的 `VALIDATED`
+MediaOutput。失败候选会被拒绝且不能通过媒体读取端点取得。
+
+阶段 T-G 增加 DeliveryRepository 与受控 HTTP 内容端点。只有验证成功且生命周期可用的最终
+MP4/SRT 才能读取；每次请求重新检查 principal、项目范围、大小和 SHA-256，并支持 Range、
+ETag/304。项目元数据由验证终态确定性生成。公开清单只返回同源 BFF URL，不返回后端地址、
+storage key 或磁盘路径。

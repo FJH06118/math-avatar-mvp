@@ -59,9 +59,10 @@ npm.cmd run test
 # 先完成生产构建，再检查 6 条业务路由并回收服务
 npm.cmd run routes:check
 
-# 阶段 T-A：真实 PostgreSQL + 私有 HTTP 边界
+# 阶段 T-A～T-G：真实 PostgreSQL、私有 HTTP、可恢复 Worker 与受控交付
 npm.cmd run test:integration
 npm.cmd run start:app --workspace @ppt-digital-human/backend
+npm.cmd run backend:worker
 
 # 后端分阶段运行
 npm.cmd run backend:prepare -- --input "课件.pptx" --job-dir "backend/work/job-001"
@@ -78,7 +79,7 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 
 - 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
 - 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
-- 阶段 T 已开始。T-A 已加入 Hono 私有应用服务、Next Route Handler BFF、产品 PostgreSQL migration、本地 HTTP 边界的真实 adapter，以及上传/任务查询的幂等和 scope 集成测试。浏览器页面仍默认使用 Mock；parse Worker、Agent、审核、TTS、渲染、验证和下载闭环尚未接入，不能把 T-A 描述成完整阶段 T。
+- 阶段 T 已完成。T-A～T-F 建立上传、解析、规划/批准、音频、逐页渲染、最终合成与独立媒体硬验证；T-G 加入项目范围内的 MP4/SRT/元数据全量与 Range 下载。浏览器页面默认仍使用 Mock，真实 tracer adapter 仅在显式 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 时启用；逐屏产品接线属于阶段 3～10。
 
 ## 文档入口
 

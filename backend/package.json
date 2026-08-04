@@ -7,9 +7,10 @@
     "db:generate": "prisma generate --config prisma.config.ts",
     "db:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
     "start:app": "tsx app/server.ts",
+    "start:worker": "tsx app/worker.ts",
     "typecheck": "tsc --noEmit",
     "test:t0": "tsx --test t0/*.test.ts",
-    "test:integration": "tsx --test app/*.integration.test.ts"
+    "test:integration": "tsx --test --test-concurrency=1 app/*.integration.test.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",

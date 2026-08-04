@@ -1,74 +1,45 @@
 # 当前任务
 
-> 更新时间：2026-08-03。
-> 状态：阶段 T 已开始；首个明确子阶段 T-A「真实上传、BFF、私有 HTTP 与产品持久化边界」已实现并通过专项验证。整个阶段 T 尚未完成，本轮按子阶段 STOP 等待确认后再进入 T-B。
+> 更新时间：2026-08-04。状态：阶段 T 已完成，专项与最终阶段门禁全部通过。T-A 已提交；T-B～T-G 变更保留在工作树，尚未提交或推送。
 
 ## 当前阶段与本轮唯一目标
 
-当前阶段为阶段 T「三页真实产品纵向切片」。本轮唯一目标 T-A 是建立最薄的真实入口：
+阶段 T-G 的唯一目标已经实现：只有通过 T-F 媒体硬门的资产才能经受控 HTTP 下载，并用三页样本完成从 HTTP 上传到 MP4/SRT/项目元数据下载的真实纵向验收。
 
 ```text
-浏览器真实 adapter
-→ Next.js Route Handler BFF
-→ Hono 私有 application service
-→ PPTX 双重校验
-→ PostgreSQL/Prisma 产品 Project、Asset、Presentation、GenerationTask + outbox
-→ 真实任务查询
+HTTP upload 三页 PPTX
+→ PostgreSQL task/outbox/lease
+→ Python parse → strict Agent → explicit approval
+→ AUDIO → PAGE_RENDER → COMPOSITE → VALIDATE
+→ VALIDATED MediaOutput
+→ scoped delivery manifest
+→ full/range MP4 + SRT + metadata
 ```
 
-T-A 不运行 LibreOffice、Agent、TTS、Sharp 或 FFmpeg；这些耗时能力必须由后续
-持久 Worker 消费 outbox，不得进入 HTTP 请求。
+## T-G 已实现
 
-## 本轮完成内容
+- strict `DeliveryManifest`/`DeliveryMetadata` Contract；清单只含稳定 ID、哈希、大小与同源 BFF URL，不含磁盘路径或 storage key。
+- 私有 Hono 新增交付清单、元数据和资产内容端点；每次读取均重新检查 internal token、principal、项目范围、任务成功状态、`MediaOutput=VALIDATED`、Asset 生命周期、文件大小和 SHA-256。
+- 下载支持 `Content-Length`、`Content-Type`、`Content-Disposition`、`ETag`、`If-None-Match`、单 Range 206 与无效范围 416；跨 principal 统一返回 404。
+- Next BFF 仅转发 Range/ETag 请求头与公开响应头，不向浏览器暴露内部 token、principal、后端地址或存储键。
+- `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 可显式启用真实 tracer adapter；默认值与 `mock` 都保持现有 Mock 前端，CLI 不受影响。
 
-- 用户已批准 Hono 4.12.31 + `@hono/node-server` 2.0.12 作为私有 Node/TypeScript HTTP 服务；版本已成为 backend 直接依赖，没有联网安装或批量升级。
-- 新增产品 migration，T0 POC 表保持不变；产品 Project、Asset、Presentation、GenerationTask、TaskOutbox 和 GenerationTaskStep 使用稳定 ID、scope、幂等键、输入哈希和向前 migration。
-- `POST /v1/projects` 接收 multipart PPTX，重新检查 100 MiB 上限、文件名、MIME、ZIP 中央目录、加密标志、解压规模和 PPTX 必需结构，并计算 SHA-256。
-- 项目、源资产、课件、解析任务和 outbox 在同一数据库事务中创建；同 principal/同 key/同 payload 返回原任务，不同 payload 返回 409。
-- `GET /v1/tasks/:taskId` 按固定内部 principal 查询；另一 principal 得到 404。公共 Contract 和集成测试扫描确认响应不含 `storageKey`、磁盘路径、密钥或堆栈。
-- Next BFF 使用 server-only 环境配置转发固定 principal 和内部令牌；浏览器真实 adapter 输入输出均经过共享 Zod。现有 Mock adapter 和 CLI 原入口未删除，真实 adapter 尚未切为页面默认。
-- `PresentationSchema` 现在允许 pending 阶段未知页数/尺寸；只有 completed 状态强制至少一页并具备完整几何数据。
-- backend 新增独立 TypeScript 类型门禁；T0 旧 POC 继续由 7/7 运行测试保护。
-- 用户批准从私有 14 页课件提取前三页。通用切片工具已生成 Git 忽略副本，源文件未修改；强制 rules planner 的 prepare 得到 3 页、3 场景、3 张原页，`renderer=libreoffice`、`renderError=null`、`plannerError=null`，没有向 Provider 发送内容。
+## 阶段 T 证据
 
-## 已确认的文档冲突及处理
-
-- 旧路线图要求 T0 先选择 HTTP 框架，但 T0 实际完成时该选择仍为空。用户在进入 T 后显式批准 Hono；决策现记录为阶段 T-A，而不是追写成 T0 已完成事项。
-- 阶段 T 要求三页真实业务切片，而已确认私有输入为 14 页。用户批准保留原件并提取前三页到 Git 忽略目录；合成 `tracer-3.pptx` 继续只作公开回归 fixture。
-- `docs/STATUS.md`/路线图仍有 ahead 6 和“等待进入 T”的旧描述；本轮同步按 Git 事实更新为 ahead 10、T 已开始。
-
-## 预计后续 T-B 范围
-
-T-B 只应从 T-A 的 outbox 开始，实现产品 parse dispatcher/lease worker：
-
-- outbox 重放创建稳定 PARSE step；Worker 领取、heartbeat、取消和租约接管复用已通过的 T0 语义。
-- Worker 在 attempt 隔离目录调用现有 Python/LibreOffice 适配器，登记 3/3 原页 Asset 和真实进度。
-- 原页失败必须让任务失败，不得用重排文本页冒充。
-- 前端轮询真实任务和页面重载幂等行为加入专项测试。
-
-T-B 不自动进入 Agent、审核、TTS、渲染或下载闭环；这些属于后续 T 子阶段。
+- `stage-tg.e2e.integration.test.ts`：1/1；真实三页 fixture 从 HTTP 上传到 MP4/SRT/元数据全量与 Range 下载，3/3 页面、一个 highlight Overlay、媒体硬门、哈希、ETag 和跨 principal 404 全部通过。
+- 全量 backend integration：18 通过、1 个外部 Edge 用例按设计跳过，共 19 个；T0：7/7；Contract：19/19。
+- 真实 DeepSeek V4 Flash、私有课件前三页与公开占位句 Edge TTS 的既有授权验证证据继续有效。本次完整纵切使用本地严格 Agent 与本地有效音频 fixture，未再次外发课件或讲稿。
+- 现有多页面产品 UI 默认仍为 Mock；阶段 T 提供了显式真实 adapter 与完整 BFF/API 纵切，项目管理、审核页、任务页和结果页逐屏接线属于阶段 3～10，不在阶段 T 内重做。
 
 ## 明确不处理
 
-- 不接正式认证、团队/租户、对象存储、生产供应商或部署。
-- 不引入 Redis/BullMQ、Remotion、JS PPT 主解析器、多 Agent、OCR 或完整 Overlay 白名单。
-- 不把真实 adapter 设为页面默认，不重做现有 UI。
-- 不执行 Git commit、push、系统软件安装或外部部署。
-- 不把 T-A 标记为整个阶段 T 完成，也不进入阶段 3。
+- 不建设匿名公共 URL、正式认证/团队权限、对象存储签名、链接过期、Redis/BullMQ、生产部署或正式 TTS SLA。
+- 不进入阶段 3～10，不大规模修改现有页面业务流程。
+- 不提交或 push T-B～T-G 工作树，除非用户再次明确要求。
 
-## 本轮专项与阶段门禁
+## 阶段 T 最终门禁
 
-已取得的专项证据：
-
-```powershell
-npm.cmd run test:contracts                 # 8/8
-npm.cmd run test:unit                      # 2/2
-npm.cmd run test:integration               # 3/3，含私有三页切片 HTTP 上传
-npm.cmd run t0:test                        # 7/7
-npm.cmd run backend:prepare -- --input <private-slice> --job-dir <ignored-job> --planner rules
-```
-
-文档更新后已严格串行运行：
+更新本文件与 `docs/STATUS.md` 后严格串行运行：
 
 ```powershell
 npm.cmd run typecheck
@@ -78,9 +49,14 @@ npm.cmd run build
 npm.cmd run routes:check
 ```
 
-最终结果：全部退出码为 0。`typecheck` 同时覆盖 backend T-A 与 frontend；Lint
-为 0 warning；`test` 包含后端 13/13、Contract 8/8、unit 2/2 和 component
-3/3；Next 16.2.11 production build 成功并生成两个动态 BFF 路由；
-`routes:check` 的 6 条业务页面均为 HTTP 200 且服务已回收。
+专项命令：
 
-最后仍需运行 `git status --short --untracked-files=all`，然后停止等待用户确认。
+```powershell
+npm.cmd run test:t0 --workspace @ppt-digital-human/backend
+npm.cmd run test:integration --workspace @ppt-digital-human/backend
+npm.cmd exec --workspace @ppt-digital-human/backend -- tsx --test app/stage-tg.e2e.integration.test.ts
+```
+
+门禁全部通过后运行 `git status --short --untracked-files=all`，汇报并停止等待用户确认。下一阶段不自动开始，未经再次明确要求不 commit/push。
+
+最终结果：typecheck 通过；lint 0 warning；根 test 中 Python 13/13、Contract 19/19、frontend unit 3/3、component 3/3；Next production build 通过并收集交付 BFF 路由；`routes:check` 6/6 且服务已回收。

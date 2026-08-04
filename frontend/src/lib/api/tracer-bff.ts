@@ -2,6 +2,16 @@ import {
   ApiErrorSchema,
   TracerTaskResponseSchema,
   TracerUploadResponseSchema,
+  LessonPlanRevisionListResponseSchema,
+  LessonPlanRevisionResponseSchema,
+  PlanTaskResponseSchema,
+  AudioTaskResponseSchema,
+  AudioTimelineResponseSchema,
+  RenderTaskResponseSchema,
+  RenderedPageListResponseSchema,
+  CompositeTaskResponseSchema,
+  FinalMediaResponseSchema,
+  DeliveryManifestResponseSchema,
 } from "@ppt-digital-human/contracts";
 
 export function getApplicationConfig(): {
@@ -22,12 +32,24 @@ export function getApplicationConfig(): {
   return { baseUrl: url.toString().replace(/\/$/, ""), internalToken, principal };
 }
 
-export async function parseApplicationResponse(response: Response, kind: "upload" | "task") {
+export async function parseApplicationResponse(
+  response: Response,
+  kind: "upload" | "task" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery",
+) {
   const body: unknown = await response.json();
   if (response.ok) {
-    return kind === "upload"
-      ? TracerUploadResponseSchema.parse(body)
-      : TracerTaskResponseSchema.parse(body);
+    if (kind === "upload") return TracerUploadResponseSchema.parse(body);
+    if (kind === "task") return TracerTaskResponseSchema.parse(body);
+    if (kind === "plan-task") return PlanTaskResponseSchema.parse(body);
+    if (kind === "audio-task") return AudioTaskResponseSchema.parse(body);
+    if (kind === "audio-timeline") return AudioTimelineResponseSchema.parse(body);
+    if (kind === "render-task") return RenderTaskResponseSchema.parse(body);
+    if (kind === "render-pages") return RenderedPageListResponseSchema.parse(body);
+    if (kind === "composite-task") return CompositeTaskResponseSchema.parse(body);
+    if (kind === "final-media") return FinalMediaResponseSchema.parse(body);
+    if (kind === "delivery") return DeliveryManifestResponseSchema.parse(body);
+    if (kind === "revision") return LessonPlanRevisionResponseSchema.parse(body);
+    return LessonPlanRevisionListResponseSchema.parse(body);
   }
   return ApiErrorSchema.parse(body);
 }
@@ -48,5 +70,15 @@ export function bffErrorResponse(): Response {
       },
     }),
     { status: 503 },
+  );
+}
+
+export function bffInvalidRequestResponse(message: string): Response {
+  return Response.json(
+    ApiErrorSchema.parse({
+      error: { code: "INVALID_REQUEST", message, retryable: false, details: {} },
+      meta: { requestId: `request_${crypto.randomUUID()}`, inputVersion: "v1", outputVersion: "v1" },
+    }),
+    { status: 400 },
   );
 }

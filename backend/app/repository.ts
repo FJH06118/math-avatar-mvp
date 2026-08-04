@@ -123,6 +123,54 @@ export class ProductRepository {
   async getTask(principal: string, taskId: string) {
     return this.prisma.generationTask.findFirst({ where: { id: taskId, principal } });
   }
+
+  async cancelTask(
+    principal: string,
+    taskId: string,
+  ): Promise<{ outcome: "cancelled" | "not_found" | "terminal"; task?: Awaited<ReturnType<ProductRepository["getTask"]>> }> {
+    return this.prisma.$transaction(async (transaction) => {
+      const task = await transaction.generationTask.findFirst({ where: { id: taskId, principal } });
+      if (!task) {
+        return { outcome: "not_found" as const };
+      }
+      if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(task.status)) {
+        return { outcome: "terminal" as const, task };
+      }
+      const accepted = await transaction.generationTask.updateMany({
+        where: {
+          id: task.id,
+          statusVersion: task.statusVersion,
+          status: { in: ["CREATED", "QUEUED", "RUNNING"] },
+        },
+        data: {
+          status: "CANCELLED",
+          cancellationRequestedAt: new Date(),
+          statusVersion: { increment: 1 },
+        },
+      });
+      if (accepted.count !== 1) {
+        const terminal = await transaction.generationTask.findUniqueOrThrow({ where: { id: task.id } });
+        return { outcome: "terminal" as const, task: terminal };
+      }
+      const steps = await transaction.generationTaskStep.findMany({
+        where: { taskId: task.id, status: { in: ["QUEUED", "RUNNING"] } },
+        select: { id: true },
+      });
+      const stepIds = steps.map((step) => step.id);
+      await transaction.generationTaskStep.updateMany({
+        where: { id: { in: stepIds } },
+        data: { status: "CANCELLED", workerId: null, leaseExpiresAt: null },
+      });
+      await transaction.taskStepAttempt.updateMany({
+        where: { taskStepId: { in: stepIds }, status: "RUNNING" },
+        data: { status: "CANCELLED", completedAt: new Date() },
+      });
+      return {
+        outcome: "cancelled" as const,
+        task: await transaction.generationTask.findUniqueOrThrow({ where: { id: task.id } }),
+      };
+    });
+  }
 }
 
 export function idempotencyConflict(): AppHttpError {

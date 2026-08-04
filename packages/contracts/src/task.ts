@@ -16,6 +16,7 @@ import { TeachingSettingsSchema } from "./project";
 export const TaskKindSchema = z.enum([
   "PARSE",
   "PLAN",
+  "AUDIO",
   "PREVIEW",
   "GENERATE",
   "VALIDATE",

@@ -1,6 +1,6 @@
 # 当前真实架构
 
-> 更新于 2026-08-03。本文只描述代码中已经存在的实现；目标架构和候选技术见
+> 更新于 2026-08-04。本文只描述代码中已经存在的实现；目标架构和候选技术见
 > `docs/DECISIONS.md`、`docs/ARCHITECTURE_DECISIONS.md` 与
 > `docs/IMPLEMENTATION_PLAN.md`。
 
@@ -27,11 +27,19 @@ PowerShell / 终端
        └─ 固定本地 principal + 内部令牌 + 公共 Zod
             └─ Hono 私有 application service
                  ├─ PPTX MIME/大小/ZIP 结构/哈希复核
+                 ├─ PLAN/AUDIO task、Revision 修订与显式批准
                  ├─ Prisma 产品事务 + outbox
                  └─ Git 忽略的本地 source asset
+                      └─ PARSE dispatcher/lease Worker
+                           ├─ attempt 隔离 + Python/LibreOffice
+                           └─ strict deck → Slide + SLIDE_RENDER Asset
+                      └─ PLAN/AUDIO/PAGE_RENDER dispatcher/lease Worker
+                           ├─ strict Agent → Revision/Scene
+                           └─ Edge TTS → AUDIO_SEGMENT + SubtitleCue/SRT
+                           └─ Sharp/FFmpeg → PAGE_FRAME/PAGE_VIDEO + RenderedPage
 ```
 
-阶段 T-A 已有真实 Route Handler、私有 HTTP 服务和产品 PostgreSQL 写入，但现有页面仍默认使用 Mock；outbox 尚无产品 dispatcher/Worker，因此上传只创建持久 PARSE 任务，不会触发后端 CLI。
+T-A 已有真实 Route Handler、私有 HTTP 服务和产品 PostgreSQL 写入；T-B 已实现产品 PARSE dispatcher/Worker。现有页面仍默认使用 Mock，独立 Worker 进程必须启动后才会消费上传任务。
 
 阶段 T0 的独立 POC 表继续保留。T-A 在同一可丢弃开发数据库中通过向前 migration 新增产品表；产品代码使用独立的 `PPT_DH_DATABASE_URL` 配置，不导入 T0 store。
 
@@ -66,7 +74,9 @@ PowerShell / 终端
 - 进度：`run.mjs` 使用 `spawnSync` 串行执行，并把阶段状态写入 job 目录的
   `job-status.json`。直接运行根 `backend:prepare`/`backend:approve` 不会完整更新该状态。
 - 测试：`backend/tests/` 中有 Python 契约与解析单元测试。
-- 应用服务：`backend/app/` 使用 Hono，当前只实现上传和任务查询；HTTP 请求不运行重任务。
+- 应用服务：`backend/app/` 使用 Hono，当前实现上传、任务查询/取消、规划/音频任务、修订列表、用户修订、显式批准和音频时间轴读取；HTTP 请求不运行重任务。
+- PARSE/PLAN/AUDIO/PAGE_RENDER Worker：dispatcher 把 outbox 投影为稳定 step；音频按句、渲染按页恢复，只重试失败工作单元。适配器分别调用 Python prepare、受约束 Agent、可取消 Edge TTS 或 Sharp/FFmpeg。
+- 音频持久化：AudioSegment 关联冻结 revision/narration 和内容寻址 Asset；真实 MP3 通过 ffprobe/FFmpeg 解码与非静音校验后，SubtitleCue 与 AudioTimelineRecord 在最终事务中落库。
 
 Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有进程内共享类型或正式的跨语言 schema 包。
 
@@ -75,12 +85,12 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 | 能力 | 当前实现 |
 | --- | --- |
 | 数据库 | T-A 已持久化最小产品 Project、Asset、Presentation、GenerationTask 和 outbox；页面默认 Mock 与 CLI job JSON 仍并存。 |
-| 任务队列 | 产品已有 PARSE task/outbox 记录，但 dispatcher/lease Worker 尚未接入；T0 POC 仍单独证明恢复语义。 |
-| 文件存储 | T-A 本地适配器把源 PPTX 写入配置资产根，数据库只保存内部 storage key；CLI 的其他产物仍位于 job 目录。 |
+| 任务队列 | 产品 PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE Worker 已接入，支持 heartbeat、接管、取消、句/页级重试和不可变 attempt；T-G 受控交付只读取验证终态，不新增第二套队列。 |
+| 文件存储 | 本地适配器保存源 PPTX、原页 PNG、逐句 MP3、SRT、PAGE_FRAME 和 PAGE_VIDEO，数据库只保存内部 storage key。 |
 | 对象存储/CDN | 没有。 |
 | 公共资源授权 | T-A 上传/任务响应经过 scope 和公开投影，不含内部路径；CLI 调试 JSON 仍可能包含绝对路径。 |
 
-PostgreSQL/Prisma 已接入 T-A 上传事务；PostgreSQL lease worker 尚未接入产品任务。对象存储仍未实现；Redis/BullMQ 不属于当前方案。
+PostgreSQL/Prisma 与 PARSE/PLAN/AUDIO lease Worker 已接入产品任务。对象存储和后续视频/媒体 Worker 仍未实现；Redis/BullMQ 不属于当前方案。
 
 ## 视频生成数据流
 
@@ -99,7 +109,9 @@ PostgreSQL/Prisma 已接入 T-A 上传事务；PostgreSQL lease worker 尚未接
 
 每个步骤依赖前一步在同一 job 目录产生的文件。当前没有事务、内容寻址、尝试隔离、持久 worker 或按步骤重试机制。
 
-当前验证会检查音视频流、1080p、场景数、来源页码合法性、字幕数量/重叠、音视频时长差和完整解码；它不会证明所有源页完整覆盖，也没有遮挡、黑帧、静音/响度、哈希或 Fast Start 硬门禁。H.264/AAC 不符目前只产生警告。
+旧 CLI 验证器仍只有基础检查；产品 T-F 路径已新增独立 VALIDATE step，把 H.264/AAC、`yuv420p`、FPS、1080p、Fast Start、完整解码、时长、非静音、黑帧、逐页图像覆盖与安全布局作为硬门，并持久化不可变验证报告。只有 `VALIDATED` 的 MediaOutput 才能进入 T-G 交付。
+
+T-G 的 `DeliveryRepository` 从任务、MediaOutput、ValidationRecord 与 Asset 关系重新授权。Hono 提供清单、元数据与受控二进制内容，支持 Range/ETag 并在读取时复核哈希；Next BFF 隐藏 internal token、principal、私有服务地址和 storage key。阶段 T 使用本地文件 adapter，未来对象存储实现不能改变公共 Delivery Contract。
 
 ## 模块边界
 
@@ -109,13 +121,13 @@ PostgreSQL/Prisma 已接入 T-A 上传事务；PostgreSQL lease worker 尚未接
 - `packages/contracts/` 已存在，统一 Mock、真实 adapter、BFF 和 Hono 服务的 T-A 结构；Python 内部模型和 Node CLI JSON 尚未迁移，因此跨语言边界仍可能漂移。
 - 根 `package.json` 只负责编排 frontend/backend workspace 命令，不是业务实现层。
 
-“浏览器 → 薄 BFF → 私有后端应用服务”已在 T-A 实现最小入口；持久产品 Worker 仍属于下一子阶段。
+“浏览器 → 薄 BFF → 私有后端应用服务 → PARSE/PLAN Worker → Revision 修订/批准”已实现；页面仍默认 Mock，音频和媒体链路尚未实现。
 
 ## 尚未采用的候选技术
 
 以下内容不得在新文档或代码评审中写成现状：
 
-- 产品 parse/Agent/audio/render/validate lease Worker；T-A 只有产品事务和 outbox，尚未消费任务。
+- 产品 audio/render/validate lease Worker；当前已有 PARSE 与单 Agent PLAN Worker。
 - 完整 Next.js BFF/API；当前只有 T-A 上传与任务查询两个公开边界。
 - S3/OSS 等对象存储、签名 URL 和 CDN。
 - Remotion 或其他替代当前 Sharp/FFmpeg 管线的渲染框架。
@@ -133,7 +145,7 @@ WSL2 engine 在当前主机上无法创建 `docker-desktop` 发行版；用户�
 | --- | --- |
 | 前端完成上传到生成的端到端流程 | 页面流程存在，但业务数据全部来自 Mock client；后端 CLI 未接入。 |
 | 使用共享 Zod 契约和稳定 ID | `packages/contracts/` 已创建并被前端 Mock adapter 使用；Python/Node CLI 仍有独立内部模型和 JSON 形状。 |
-| 真实异步任务、数据库、队列和对象存储 | T-A 已有产品数据库任务/outbox和本地源资产，但无产品 dispatcher/Worker、对象存储或完整异步闭环。 |
+| 真实异步任务、数据库、队列和对象存储 | 上传与 PARSE 已形成持久异步闭环；Agent/媒体、对象存储和最终交付仍缺失。 |
 | 每个非跳过源页完整出现 | 多源场景的渲染路径当前取第一个 `sourceSlides`，存在漏页风险。 |
 | 审核后的覆盖数据与场景一致 | `approve.py` 沿用生成时的 `sourceSlideCoverage`，人工改页后可能陈旧。 |
 | 始终保留原页视觉 | 原页渲染失败时存在文本重建回退，不能保证原版式保真。 |

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run projects.test.ts real-tracer.test.ts",
+    "test:unit": "vitest run projects.test.ts real-tracer.test.ts tracer-adapter.test.ts",
     "test:components": "vitest run error-state.test.tsx workspace-actions.test.tsx"
   },
   "dependencies": {
