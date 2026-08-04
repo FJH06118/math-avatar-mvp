@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { after, before, beforeEach, test } from "node:test";
 import {
   ParseAdapterDeckSchema,
+  ParseSnapshotResponseSchema,
   TracerTaskResponseSchema,
   TracerUploadResponseSchema,
 } from "@ppt-digital-human/contracts";
@@ -153,6 +154,28 @@ test("real parse worker registers 3/3 original pages and durable progress", asyn
   assert.equal(publicBody.data.status, "SUCCEEDED");
   assert.equal(publicBody.data.progressCompleted, 3);
   assert.equal(publicBody.data.progressTotal, 3);
+
+  const snapshotResponse = await app.request(`/v1/tasks/${receipt.task.id}/parsing`, {
+    headers: { "X-Internal-Token": internalToken, "X-Principal": principal },
+  });
+  assert.equal(snapshotResponse.status, 200);
+  const snapshot = ParseSnapshotResponseSchema.parse(await snapshotResponse.json()).data;
+  assert.deepEqual(snapshot.slides.map((slide) => slide.slideNumber), [1, 2, 3]);
+  assert.equal(new Set(snapshot.slides.map((slide) => slide.id)).size, 3);
+  assert(snapshot.slides.every((slide) => slide.originalPage.url.endsWith("/preview")));
+
+  const previewResponse = await app.request(snapshot.slides[0]!.originalPage.url.replace("/api/t", "/v1"), {
+    headers: { "X-Internal-Token": internalToken, "X-Principal": principal },
+  });
+  assert.equal(previewResponse.status, 200);
+  assert.equal(previewResponse.headers.get("content-type"), "image/png");
+  const preview = new Uint8Array(await previewResponse.arrayBuffer());
+  assert.deepEqual([...preview.slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+
+  const foreignResponse = await app.request(`/v1/tasks/${receipt.task.id}/parsing`, {
+    headers: { "X-Internal-Token": internalToken, "X-Principal": "other-user" },
+  });
+  assert.equal(foreignResponse.status, 404);
 });
 
 test("expired product lease is taken over as a new immutable attempt", async () => {

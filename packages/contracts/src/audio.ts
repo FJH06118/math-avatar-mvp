@@ -41,6 +41,7 @@ export const AudioSegmentSchema = z
     spokenText: z.string().min(1).max(10_000),
     durationMs: z.number().int().min(200),
     assetId: AssetIdSchema,
+    previewUrl: z.string().regex(/^\/api\/t\/assets\/[A-Za-z0-9_-]+\/audio-preview$/).optional(),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();

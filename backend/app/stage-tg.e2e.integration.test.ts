@@ -80,6 +80,14 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   const manifestResponse = await request(app, `/v1/tasks/${compositeTask.id}/delivery`); assert.equal(manifestResponse.status, 200);
   const manifestText = await manifestResponse.text(); assert.doesNotMatch(manifestText, /storageKey|assetRoot|[A-Z]:\\|t-assets/i);
   const manifest = DeliveryManifestResponseSchema.parse(JSON.parse(manifestText)).data; assert.deepEqual(manifest.files.map((file) => file.kind), ["video", "captions", "metadata"]);
+  const taskCountBeforeRefresh = await prisma.generationTask.count({ where: { projectId: upload.project.id } });
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/delivery`)).status, 200);
+  assert.equal(await prisma.generationTask.count({ where: { projectId: upload.project.id } }), taskCountBeforeRefresh);
+  const vttResponse = await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt`);
+  assert.equal(vttResponse.status, 200);
+  assert.equal(vttResponse.headers.get("content-type"), "text/vtt; charset=utf-8");
+  assert.match(await vttResponse.text(), /^WEBVTT\n\n1\n00:00:00\.000 -->/);
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt`, {}, "another-user")).status, 404);
   for (const file of manifest.files) {
     const backendPath = file.kind === "metadata" ? `/v1/tasks/${compositeTask.id}/delivery/metadata` : `/v1/assets/${file.assetId}/content`;
     const full = await request(app, backendPath); assert.equal(full.status, 200); const bytes = new Uint8Array(await full.arrayBuffer()); assert.equal(bytes.byteLength, file.fileSize); assert.equal(createHash("sha256").update(bytes).digest("hex"), file.sha256); assert.equal(full.headers.get("etag"), `"${file.sha256}"`);

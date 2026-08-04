@@ -7,6 +7,30 @@ import {
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request): Promise<Response> {
+  try {
+    const config = getApplicationConfig();
+    const upstreamUrl = new URL(`${config.baseUrl}/v1/projects`);
+    const requested = new URL(request.url);
+    for (const key of ["search", "status", "includeArchived"]) {
+      const value = requested.searchParams.get(key);
+      if (value !== null) upstreamUrl.searchParams.set(key, value);
+    }
+    const upstream = await fetch(upstreamUrl, {
+      headers: {
+        "X-Internal-Token": config.internalToken,
+        "X-Principal": config.principal,
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    const body = await parseApplicationResponse(upstream, "project-list");
+    return Response.json(body, { status: upstream.status });
+  } catch {
+    return bffErrorResponse();
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   try {
     const form = await request.formData();
@@ -14,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     const file = form.get("file");
     const idempotencyKey = request.headers.get("idempotency-key") ?? "";
     if (typeof title !== "string" || !(file instanceof File)) {
-      return invalidRequest("请求必须包含标题和 PPTX 文件。");
+      return invalidRequest("请求必须包含标题和 PPT/PPTX 文件。");
     }
     const metadata = TracerUploadMetadataSchema.safeParse({
       title,
@@ -24,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
       idempotencyKey,
     });
     if (!metadata.success) {
-      return invalidRequest("上传元数据不符合阶段 T 契约。");
+      return invalidRequest("上传元数据不符合课件上传契约。");
     }
     const config = getApplicationConfig();
     const upstreamForm = new FormData();

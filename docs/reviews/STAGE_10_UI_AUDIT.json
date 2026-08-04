@@ -1,0 +1,59 @@
+{
+  "audit": {
+    "ranAt": "2026-08-04T14:40:00Z",
+    "skill": "ui-audit",
+    "scope": {
+      "mode": "diff",
+      "diffBase": "main",
+      "files": [
+        "frontend/src/components/projects/project-list.tsx",
+        "frontend/src/components/upload/upload-flow.tsx",
+        "frontend/src/components/parsing/parsing-flow.tsx",
+        "frontend/src/components/workspace/workspace-page.tsx",
+        "frontend/src/components/workspace/teaching-settings-form.tsx",
+        "frontend/src/components/generation/generation-flow.tsx",
+        "frontend/src/components/result/result-page.tsx",
+        "frontend/src/components/feedback/task-flow-skeleton.tsx",
+        "frontend/src/app/error.tsx"
+      ],
+      "filesAudited": 9
+    },
+    "featuresDetected": ["search", "form", "list", "modal", "empty-state", "error-state", "loading-state", "media"],
+    "rulesPlanned": 24,
+    "rulesRun": 24,
+    "selfCheck": { "passed": true, "failures": [] }
+  },
+  "verdict": "READY",
+  "summary": {
+    "releaseBlockers": 0,
+    "fixThisSprint": 0,
+    "backlog": 0,
+    "unknown": 2,
+    "suppressed": 0
+  },
+  "deferredTo": [
+    { "concern": "performance", "tool": "Lighthouse", "reason": "浏览器插件不可用，无法测量 CWV。" },
+    { "concern": "wcag", "tool": "axe-core", "reason": "静态语义已审查，但未运行浏览器级完整 WCAG 扫描。" },
+    { "concern": "visual-regression", "tool": "Chromatic/Percy", "reason": "仓库尚未配置截图基线。" }
+  ],
+  "findings": [
+    {
+      "rule": "a11y-contrast-and-redundant-cues",
+      "layer": "surface",
+      "category": "a11y",
+      "feature": "media",
+      "surface": "ResultPage",
+      "result": "unknown",
+      "reason": "本机浏览器插件无法建立会话，不能测量最终渲染颜色对比度。"
+    },
+    {
+      "rule": "interaction-focus-visible",
+      "layer": "surface",
+      "category": "interaction",
+      "feature": "modal",
+      "surface": "ConfirmDialog",
+      "result": "unknown",
+      "reason": "Base UI 语义与 CSS focus-visible 代码存在，但浏览器插件不可用，未完成实际 Tab/Shift+Tab 遍历。"
+    }
+  ]
+}

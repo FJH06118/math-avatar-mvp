@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { z } from "zod";
 import { OverlaySchema } from "@ppt-digital-human/contracts";
@@ -15,6 +16,7 @@ const PageSchema = z.object({
   durationMs: z.number().int().min(1_500), sourceAssetId: z.string().min(1), sourceSha256: z.string().length(64),
   audio: z.array(z.object({ assetId: z.string().min(1), sha256: z.string().length(64), durationMs: z.number().int().min(200) }).strict()).min(1),
   overlay: OverlaySchema.optional(), inputHash: z.string().length(64),
+  avatarPlacement: z.enum(["right-panel", "hidden"]),
 }).strict();
 const PayloadSchema = z.object({ fps: z.union([z.literal(25), z.literal(30)]), audioTaskId: z.string().min(1), pages: z.array(PageSchema).min(1) }).strict();
 
@@ -48,11 +50,32 @@ export async function runClaimedRenderStep(
       .then((owned) => { if (!owned) controller.abort(); }).catch(() => controller.abort()).finally(() => { heartbeatRunning = false; });
   }, Math.max(100, Math.floor(dependencies.leaseMs / 3)));
   try {
-    const result = await dependencies.adapter.run({
+    const cached = await dependencies.prisma.renderedPage.findFirst({
+      where: {
+        inputHash: page.inputHash,
+        task: { projectId: task.projectId },
+        frameAsset: { lifecycle: "AVAILABLE" },
+        videoAsset: { lifecycle: "AVAILABLE" },
+      },
+      include: { frameAsset: true, videoAsset: true },
+      orderBy: { createdAt: "desc" },
+    });
+    let result;
+    if (cached) {
+      const frameBytes = await readVerifiedAsset(dependencies.assets, cached.frameAsset);
+      const videoBytes = await readVerifiedAsset(dependencies.assets, cached.videoAsset);
+      result = {
+        frameBytes,
+        videoBytes,
+        avatarPlacement: cached.avatarPlacement as "right-panel" | "hidden",
+        overlayType: cached.overlayType as "highlightBox" | "arrow" | undefined,
+      };
+    } else result = await dependencies.adapter.run({
       sourcePath: dependencies.assets.resolveForRead(source.storageKey),
       audioPaths: page.audio.map((item) => dependencies.assets.resolveForRead(byId.get(item.assetId)!.storageKey)),
       durationMs: page.durationMs, fps: payload.data.fps, pageOrder: page.pageOrder, pageCount: payload.data.pages.length,
-      overlay: page.overlay, attemptDir: safeAttemptDir(dependencies.attemptRoot, task.id, step.id, claim.attempt), signal: controller.signal,
+      overlay: page.overlay, avatarPlacement: page.avatarPlacement,
+      attemptDir: safeAttemptDir(dependencies.attemptRoot, task.id, step.id, claim.attempt), signal: controller.signal,
     });
     if (controller.signal.aborted) {
       const current = await dependencies.prisma.generationTask.findUniqueOrThrow({ where: { id: task.id } });
@@ -101,6 +124,18 @@ export async function runClaimedRenderStep(
     const publicError = error instanceof WorkerError ? error : new WorkerError("RENDER_WORKER_FAILED", "分页渲染 Worker 执行失败。", true);
     return failProductStep(dependencies.pool, claim, workerId, publicError.code, publicError.message, publicError.retryable, dependencies.maxAttempts);
   } finally { clearInterval(timer); controller.abort(); }
+}
+
+async function readVerifiedAsset(
+  assets: LocalAssetStore,
+  asset: { storageKey: string; fileSize: number; sha256: string },
+): Promise<Uint8Array> {
+  const bytes = await readFile(assets.resolveForRead(asset.storageKey));
+  const actualSha = createHash("sha256").update(bytes).digest("hex");
+  if (bytes.byteLength !== asset.fileSize || actualSha !== asset.sha256) {
+    throw new WorkerError("RENDER_CACHE_INVALID", "分页渲染缓存完整性检查失败。", false);
+  }
+  return bytes;
 }
 
 function safeAttemptDir(root: string, taskId: string, stepId: string, attempt: number): string {

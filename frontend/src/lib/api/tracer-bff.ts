@@ -12,6 +12,12 @@ import {
   CompositeTaskResponseSchema,
   FinalMediaResponseSchema,
   DeliveryManifestResponseSchema,
+  ProjectListResponseSchema,
+  ProjectResponseSchema,
+  ParseSnapshotResponseSchema,
+  WorkspaceLockResponseSchema,
+  WorkspaceSnapshotResponseSchema,
+  TeachingSettingsResponseSchema,
 } from "@ppt-digital-human/contracts";
 
 export function getApplicationConfig(): {
@@ -34,12 +40,16 @@ export function getApplicationConfig(): {
 
 export async function parseApplicationResponse(
   response: Response,
-  kind: "upload" | "task" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery",
+  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list",
 ) {
   const body: unknown = await response.json();
   if (response.ok) {
     if (kind === "upload") return TracerUploadResponseSchema.parse(body);
     if (kind === "task") return TracerTaskResponseSchema.parse(body);
+    if (kind === "parse-snapshot") return ParseSnapshotResponseSchema.parse(body);
+    if (kind === "workspace") return WorkspaceSnapshotResponseSchema.parse(body);
+    if (kind === "workspace-lock") return WorkspaceLockResponseSchema.parse(body);
+    if (kind === "settings") return TeachingSettingsResponseSchema.parse(body);
     if (kind === "plan-task") return PlanTaskResponseSchema.parse(body);
     if (kind === "audio-task") return AudioTaskResponseSchema.parse(body);
     if (kind === "audio-timeline") return AudioTimelineResponseSchema.parse(body);
@@ -48,6 +58,8 @@ export async function parseApplicationResponse(
     if (kind === "composite-task") return CompositeTaskResponseSchema.parse(body);
     if (kind === "final-media") return FinalMediaResponseSchema.parse(body);
     if (kind === "delivery") return DeliveryManifestResponseSchema.parse(body);
+    if (kind === "project") return ProjectResponseSchema.parse(body);
+    if (kind === "project-list") return ProjectListResponseSchema.parse(body);
     if (kind === "revision") return LessonPlanRevisionResponseSchema.parse(body);
     return LessonPlanRevisionListResponseSchema.parse(body);
   }

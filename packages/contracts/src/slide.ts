@@ -8,6 +8,7 @@ import {
   SlideIdSchema,
   StableIdSchema,
 } from "./primitives";
+import { PreservationModeSchema } from "./scene";
 
 export const FormulaStatusSchema = z.enum(["valid", "warning", "error"]);
 export type FormulaStatus = z.infer<typeof FormulaStatusSchema>;
@@ -41,6 +42,7 @@ export const SlideSchema = z
     extractedText: z.string().max(50_000),
     teachingScript: z.string().min(1).max(20_000),
     thumbnailUrl: z.string().min(1).optional(),
+    originalPageUrl: z.string().regex(/^\/api\/t\/assets\/[A-Za-z0-9_-]+\/preview$/).optional(),
     sourceAssetId: StableIdSchema,
     renderAssetId: StableIdSchema.optional(),
     formulas: z.array(FormulaSchema).max(100),
@@ -51,6 +53,13 @@ export const SlideSchema = z
     isSkipped: z.boolean(),
     skipReason: z.string().max(1_000).optional(),
     revision: z.number().int().min(1),
+    lessonPlanRevisionId: StableIdSchema.optional(),
+    lessonPlanRevision: z.number().int().min(1).optional(),
+    lessonPlanApproval: z.enum(["pending", "approved"]).optional(),
+    preservationMode: PreservationModeSchema.optional(),
+    derivationSteps: z.array(z.string().min(1).max(10_000)).max(100).default([]),
+    sceneCount: z.number().int().min(0).max(100).default(0),
+    isLocked: z.boolean().default(false),
     updatedAt: IsoDateTimeSchema,
   })
   .strict()

@@ -30,6 +30,94 @@ export interface AudioRequestedPayload {
 export class AudioRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  async createPreviewTask(principal: string, projectId: string, input: AudioTaskCreateRequest) {
+    const presentation = await this.prisma.presentation.findFirst({
+      where: { id: input.presentationId, projectId, project: { principal } },
+      include: {
+        slides: {
+          orderBy: { slideNumber: "asc" },
+          take: 1,
+          include: { lessonPlan: { include: { revisions: { orderBy: { revision: "desc" }, take: 1 } } } },
+        },
+      },
+    });
+    if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
+    const slide = presentation.slides[0];
+    const revision = slide?.lessonPlan?.revisions[0];
+    if (!slide || !revision) {
+      throw new AppHttpError(409, "LESSON_PLAN_NOT_READY", "请先生成初始讲稿，再试听音色。", false);
+    }
+    const spokenText = "生活就像海洋，只有意志坚强的人才能到达彼岸。";
+    const narrationId = `preview_${revision.id}`.slice(0, 128);
+    const segment = {
+      revisionId: revision.id,
+      slideId: slide.id,
+      narrationId,
+      slideOrder: slide.slideNumber,
+      segmentOrder: 0,
+      displayText: spokenText,
+      spokenText,
+      inputHash: stableHash({ revisionId: revision.id, narrationId, spokenText, voice: input.voice, rate: input.rate, pitch: input.pitch }),
+    };
+    const payload: AudioRequestedPayload = {
+      voice: input.voice,
+      rate: input.rate,
+      pitch: input.pitch,
+      revisions: [revision.id],
+      segments: [segment],
+    };
+    const inputHash = stableHash({ preview: true, presentationRevision: presentation.revision, payload });
+    const existing = await this.prisma.generationTask.findFirst({
+      where: { principal, kind: "AUDIO", idempotencyKey: input.idempotencyKey },
+    });
+    if (existing) {
+      if (existing.inputHash !== inputHash) {
+        throw new AppHttpError(409, "IDEMPOTENCY_KEY_REUSED", "该幂等键已用于不同的试听请求。", false);
+      }
+      return { task: existing, created: false };
+    }
+    const taskId = `task_${randomUUID()}`;
+    try {
+      const task = await this.prisma.$transaction(async (transaction) => {
+        const created = await transaction.generationTask.create({
+          data: {
+            id: taskId,
+            principal,
+            projectId,
+            presentationId: presentation.id,
+            kind: "AUDIO",
+            idempotencyKey: input.idempotencyKey,
+            inputHash,
+            configHash: stableHash({ preview: true, voice: input.voice, rate: input.rate, pitch: input.pitch }),
+            status: "QUEUED",
+            stage: "AUDIO",
+            progressTotal: 1,
+            presentationRevision: presentation.revision,
+          },
+        });
+        await transaction.taskOutbox.create({
+          data: {
+            id: `outbox_${randomUUID()}`,
+            taskId,
+            eventKey: `audio.preview.requested:${taskId}`,
+            eventType: "AUDIO_REQUESTED",
+            payload: payload as unknown as Prisma.InputJsonValue,
+          },
+        });
+        return created;
+      });
+      return { task, created: true };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const replay = await this.prisma.generationTask.findFirst({
+          where: { principal, kind: "AUDIO", idempotencyKey: input.idempotencyKey },
+        });
+        if (replay?.inputHash === inputHash) return { task: replay, created: false };
+      }
+      throw error;
+    }
+  }
+
   async createTask(principal: string, projectId: string, input: AudioTaskCreateRequest) {
     const presentation = await this.prisma.presentation.findFirst({
       where: { id: input.presentationId, projectId, project: { principal } },
@@ -171,6 +259,7 @@ export class AudioRepository {
         spokenText: segment.spokenText,
         durationMs: segment.durationMs,
         assetId: segment.assetId,
+        previewUrl: `/api/t/assets/${segment.assetId}/audio-preview`,
         sha256: segment.sha256,
       })),
       cues: task.subtitleCues.map((cue) => ({
@@ -183,5 +272,18 @@ export class AudioRepository {
       })),
       srtAssetId: timeline.srtAssetId,
     });
+  }
+
+  async getPreviewAsset(principal: string, assetId: string) {
+    const asset = await this.prisma.asset.findFirst({
+      where: {
+        id: assetId,
+        kind: "AUDIO_SEGMENT",
+        lifecycle: "AVAILABLE",
+        project: { principal },
+      },
+    });
+    if (!asset) throw new AppHttpError(404, "AUDIO_PREVIEW_NOT_FOUND", "试听音频不存在。", false);
+    return asset;
   }
 }

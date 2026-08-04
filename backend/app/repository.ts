@@ -1,15 +1,31 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
+import type { GenerationTask, Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import type { StoredCandidate } from "./storage.ts";
+import type { TeachingSettings } from "@ppt-digital-human/contracts";
 
 const aggregateInclude = {
   project: true,
   presentation: { include: { sourceAsset: true } },
 } satisfies Prisma.GenerationTaskInclude;
 
+const projectInclude = {
+  presentations: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+  },
+  tasks: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+  },
+} satisfies Prisma.ProjectInclude;
+
 export type UploadAggregate = Prisma.GenerationTaskGetPayload<{
   include: typeof aggregateInclude;
+}>;
+
+export type ProjectRecord = Prisma.ProjectGetPayload<{
+  include: typeof projectInclude;
 }>;
 
 export interface PersistUploadInput {
@@ -32,6 +48,134 @@ export class ProductRepository {
     return this.prisma.generationTask.findFirst({
       where: { principal, kind: "PARSE", idempotencyKey },
       include: aggregateInclude,
+    });
+  }
+
+  async listProjects(
+    principal: string,
+    input: { search: string; includeArchived: boolean },
+  ): Promise<ProjectRecord[]> {
+    return this.prisma.project.findMany({
+      where: {
+        principal,
+        ...(input.includeArchived ? {} : { status: { not: "ARCHIVED" } }),
+        ...(input.search
+          ? { title: { contains: input.search, mode: "insensitive" } }
+          : {}),
+      },
+      include: projectInclude,
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  async getProject(principal: string, projectId: string): Promise<ProjectRecord | null> {
+    return this.prisma.project.findFirst({
+      where: { id: projectId, principal },
+      include: projectInclude,
+    });
+  }
+
+  async updateTeachingSettings(
+    principal: string,
+    projectId: string,
+    expectedVersion: number,
+    settings: TeachingSettings,
+  ): Promise<ProjectRecord> {
+    const updated = await this.prisma.project.updateMany({
+      where: { id: projectId, principal, version: expectedVersion },
+      data: { settings, version: { increment: 1 } },
+    });
+    if (updated.count !== 1) {
+      const exists = await this.prisma.project.count({ where: { id: projectId, principal } });
+      if (!exists) throw new AppHttpError(404, "PROJECT_NOT_FOUND", "项目不存在。", false);
+      throw new AppHttpError(409, "STALE_PROJECT", "项目设置已有更新，请刷新后重试。", false);
+    }
+    const record = await this.getProject(principal, projectId);
+    if (!record) throw new AppHttpError(404, "PROJECT_NOT_FOUND", "项目不存在。", false);
+    return record;
+  }
+
+  async getCopySource(principal: string, projectId: string) {
+    return this.prisma.project.findFirst({
+      where: { id: projectId, principal, status: { not: "ARCHIVED" } },
+      include: {
+        presentations: {
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          include: { sourceAsset: true },
+        },
+      },
+    });
+  }
+
+  async archiveProject(
+    principal: string,
+    projectId: string,
+    expectedVersion: number,
+  ): Promise<ProjectRecord> {
+    await this.prisma.$transaction(async (transaction) => {
+      const project = await transaction.project.findFirst({
+        where: { id: projectId, principal },
+      });
+      if (!project) {
+        throw new AppHttpError(404, "PROJECT_NOT_FOUND", "项目不存在。", false);
+      }
+      if (project.version !== expectedVersion) {
+        throw new AppHttpError(409, "PROJECT_VERSION_CONFLICT", "项目已更新，请刷新后重试。", false);
+      }
+      const activeTasks = await transaction.generationTask.count({
+        where: {
+          projectId,
+          status: { in: ["CREATED", "QUEUED", "RUNNING"] },
+        },
+      });
+      if (activeTasks > 0) {
+        throw new AppHttpError(409, "PROJECT_HAS_ACTIVE_TASKS", "项目仍有运行中的任务，暂时不能归档。", false);
+      }
+      const updated = await transaction.project.updateMany({
+        where: { id: projectId, principal, version: expectedVersion },
+        data: { status: "ARCHIVED", version: { increment: 1 } },
+      });
+      if (updated.count !== 1) {
+        throw new AppHttpError(409, "PROJECT_VERSION_CONFLICT", "项目已更新，请刷新后重试。", false);
+      }
+    });
+    return this.prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      include: projectInclude,
+    });
+  }
+
+  async deleteProject(
+    principal: string,
+    projectId: string,
+    expectedVersion: number,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const project = await transaction.project.findFirst({
+        where: { id: projectId, principal },
+      });
+      if (!project) {
+        throw new AppHttpError(404, "PROJECT_NOT_FOUND", "项目不存在。", false);
+      }
+      if (project.version !== expectedVersion) {
+        throw new AppHttpError(409, "PROJECT_VERSION_CONFLICT", "项目已更新，请刷新后重试。", false);
+      }
+      const activeTasks = await transaction.generationTask.count({
+        where: {
+          projectId,
+          status: { in: ["CREATED", "QUEUED", "RUNNING"] },
+        },
+      });
+      if (activeTasks > 0) {
+        throw new AppHttpError(409, "PROJECT_HAS_ACTIVE_TASKS", "项目仍有运行中的任务，暂时不能删除。", false);
+      }
+      const deleted = await transaction.project.deleteMany({
+        where: { id: projectId, principal, version: expectedVersion },
+      });
+      if (deleted.count !== 1) {
+        throw new AppHttpError(409, "PROJECT_VERSION_CONFLICT", "项目已更新，请刷新后重试。", false);
+      }
     });
   }
 
@@ -121,13 +265,16 @@ export class ProductRepository {
   }
 
   async getTask(principal: string, taskId: string) {
-    return this.prisma.generationTask.findFirst({ where: { id: taskId, principal } });
+    return this.prisma.generationTask.findFirst({
+      where: { id: taskId, principal },
+      include: { steps: { where: { status: "RUNNING" }, orderBy: { updatedAt: "desc" }, take: 1 } },
+    });
   }
 
   async cancelTask(
     principal: string,
     taskId: string,
-  ): Promise<{ outcome: "cancelled" | "not_found" | "terminal"; task?: Awaited<ReturnType<ProductRepository["getTask"]>> }> {
+  ): Promise<{ outcome: "cancelled" | "not_found" | "terminal"; task?: GenerationTask | null }> {
     return this.prisma.$transaction(async (transaction) => {
       const task = await transaction.generationTask.findFirst({ where: { id: taskId, principal } });
       if (!task) {

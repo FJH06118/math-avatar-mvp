@@ -105,6 +105,9 @@ export class LessonPlanRepository {
     const input = LessonPlanRevisionEditRequestSchema.parse(rawInput);
     return this.prisma.$transaction(async (transaction) => {
       const current = await findRevisionForUpdate(transaction, principal, revisionId);
+      if (current.lessonPlan.isLocked) {
+        throw new AppHttpError(409, "REVISION_LOCKED", "该页已锁定，解锁后才能修改。", false);
+      }
       if (current.lessonPlan.currentRevision !== input.expectedRevision || current.revision !== input.expectedRevision) {
         throw staleRevision();
       }

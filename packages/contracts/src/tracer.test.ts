@@ -25,6 +25,32 @@ describe("stage T tracer contracts", () => {
     ).toBe(false);
   });
 
+  it("accepts a legacy PPT upload envelope but rejects MIME spoofing", () => {
+    expect(PresentationSchema.safeParse({
+      ...pendingPresentation,
+      originalFileName: "中文旧版课件.ppt",
+      mimeType: "application/vnd.ms-powerpoint",
+    }).success).toBe(true);
+    expect(
+      TracerUploadMetadataSchema.safeParse({
+        title: "旧版课件",
+        fileName: "中文旧版课件.ppt",
+        mimeType: "application/vnd.ms-powerpoint",
+        fileSize: 1024,
+        idempotencyKey: "upload-legacy-ppt",
+      }).success,
+    ).toBe(true);
+    expect(
+      TracerUploadMetadataSchema.safeParse({
+        title: "伪装课件",
+        fileName: "伪装.pptx",
+        mimeType: "application/vnd.ms-powerpoint",
+        fileSize: 1024,
+        idempotencyKey: "upload-spoofed-ppt",
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts a bounded PPTX upload and rejects paths or legacy PPT", () => {
     const valid = {
       title: "导数的概念",

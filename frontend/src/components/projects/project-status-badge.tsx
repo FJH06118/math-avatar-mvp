@@ -10,6 +10,7 @@ const labels: Record<ProjectStatus, string> = {
   rendering: "生成中",
   completed: "已完成",
   failed: "需处理",
+  archived: "已归档",
 };
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {

@@ -9,6 +9,8 @@ import {
   AudioTaskResponseSchema,
   AudioTimelineResponseSchema,
   LessonPlanRevisionSchema,
+  TeachingSettingsResponseSchema,
+  TracerTaskResponseSchema,
   type LessonPlanRevision,
 } from "@ppt-digital-human/contracts";
 import type { Prisma } from "../generated/prisma/client.ts";
@@ -76,6 +78,10 @@ test("AUDIO freezes approved text, retries one sentence, and derives a real time
   for (let iteration = 0; iteration < 8; iteration += 1) {
     const claim = await claimNextProductStep(pool, "td-audio-worker", 8_000, 3, "AUDIO");
     if (!claim) break;
+    if (iteration === 0) {
+      const runningTask = TracerTaskResponseSchema.parse(await (await request(app, `/v1/tasks/${task.id}`)).json()).data;
+      assert.equal(runningTask.currentSlideId, "slide_td_1");
+    }
     const result = await runClaimedAudioStep({
       prisma, pool, assets: new LocalAssetStore(assetRoot), adapter, attemptRoot, leaseMs: 8_000,
     }, claim, "td-audio-worker");
@@ -117,6 +123,70 @@ test("AUDIO refuses an unapproved current revision and cancellation prevents cla
   await dispatchPendingOutbox(prisma);
   assert.equal((await request(app, `/v1/tasks/${task.id}/cancel`, { method: "POST" })).status, 200);
   assert.equal(await claimNextProductStep(pool, "td-cancel-worker", 8_000, 3, "AUDIO"), null);
+});
+
+test("Stage 7 persists settings and serves an authorized generated voice preview", async () => {
+  const seeded = await seedApprovedPresentation();
+  await prisma.lessonPlanRevision.update({ where: { id: seeded.revisionIds[0] }, data: { approvalStatus: "pending" } });
+  const app = createApplication({ prisma, assetRoot, internalToken });
+
+  const settings = {
+    avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1.1,
+    captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
+    slideOverrides: [{ slideId: "slide_td_1", avatarPosition: "hidden" }],
+  };
+  const settingsResponse = await request(app, `/v1/projects/${seeded.projectId}/settings`, {
+    method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: 1, settings }),
+  });
+  assert.equal(settingsResponse.status, 200);
+  assert.deepEqual(TeachingSettingsResponseSchema.parse(await settingsResponse.json()).data.slideOverrides, settings.slideOverrides);
+  assert.equal((await request(app, `/v1/projects/${seeded.projectId}/settings`, {
+    method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: 1, settings }),
+  })).status, 409);
+
+  const previewResponse = await request(app, `/v1/projects/${seeded.projectId}/voice-previews`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      presentationId: seeded.presentationId, idempotencyKey: "stage-seven-preview", voice: "zh-CN-XiaoxiaoNeural", rate: "+10%", pitch: "+0Hz",
+    }),
+  });
+  assert.equal(previewResponse.status, 201);
+  const task = AudioTaskResponseSchema.parse(await previewResponse.json()).data;
+  assert.equal(task.progressTotal, 1);
+  assert.equal(await dispatchPendingOutbox(prisma), 1);
+  const claim = await claimNextProductStep(pool, "stage-seven-preview-worker", 8_000, 3, "AUDIO");
+  assert(claim);
+  assert.equal(await runClaimedAudioStep({
+    prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: new RetryOnceAudioAdapter("never"), attemptRoot, leaseMs: 8_000,
+  }, claim, "stage-seven-preview-worker"), "SUCCEEDED");
+
+  const timelineResponse = await request(app, `/v1/tasks/${task.id}/audio`);
+  const timeline = AudioTimelineResponseSchema.parse(await timelineResponse.json()).data;
+  assert.equal(timeline.rate, "+10%");
+  assert.equal(timeline.segments[0]?.spokenText, "生活就像海洋，只有意志坚强的人才能到达彼岸。");
+  const previewUrl = timeline.segments[0]?.previewUrl;
+  assert(previewUrl);
+  const media = await request(app, previewUrl.replace("/api/t", "/v1"));
+  assert.equal(media.status, 200);
+  assert.equal(media.headers.get("content-type"), "audio/mpeg");
+  assert((await media.arrayBuffer()).byteLength > 2_000);
+  const forbiddenHeaders = new Headers({ "X-Internal-Token": internalToken, "X-Principal": "another-user" });
+  assert.equal((await app.request(previewUrl.replace("/api/t", "/v1"), { headers: forbiddenHeaders })).status, 404);
+
+  const cachedResponse = await request(app, `/v1/projects/${seeded.projectId}/voice-previews`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      presentationId: seeded.presentationId, idempotencyKey: "stage-seven-preview-cache", voice: "zh-CN-XiaoxiaoNeural", rate: "+10%", pitch: "+0Hz",
+    }),
+  });
+  const cachedTask = AudioTaskResponseSchema.parse(await cachedResponse.json()).data;
+  assert.equal(await dispatchPendingOutbox(prisma), 1);
+  const cachedClaim = await claimNextProductStep(pool, "stage-seven-cache-worker", 8_000, 3, "AUDIO");
+  assert(cachedClaim);
+  const cacheMissAdapter = new RetryOnceAudioAdapter("never");
+  assert.equal(await runClaimedAudioStep({
+    prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: cacheMissAdapter, attemptRoot, leaseMs: 8_000,
+  }, cachedClaim, "stage-seven-cache-worker"), "SUCCEEDED");
+  assert.equal(cacheMissAdapter.calls.length, 0);
+  assert.equal((await prisma.audioSegment.findFirstOrThrow({ where: { taskId: cachedTask.id } })).assetId, timeline.segments[0]!.assetId);
 });
 
 test("real Edge TTS produces decodable non-silent Chinese audio", {

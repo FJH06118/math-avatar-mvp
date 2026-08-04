@@ -106,6 +106,7 @@ export class ParseResultPersister {
             extractedText: source.extractedText,
             notes: source.notes,
             formulaJson: source.formulas as Prisma.InputJsonValue,
+            parseWarnings: source.warnings as Prisma.InputJsonValue,
             renderAssetId: asset.id,
           },
           create: {
@@ -119,7 +120,7 @@ export class ParseResultPersister {
             notes: source.notes,
             formulaJson: source.formulas as Prisma.InputJsonValue,
             renderAssetId: asset.id,
-            parseWarnings: [] as Prisma.InputJsonValue,
+            parseWarnings: source.warnings as Prisma.InputJsonValue,
           },
         });
         await transaction.generationTask.update({

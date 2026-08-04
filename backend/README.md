@@ -14,9 +14,10 @@ PPTX
 → 页码、字幕、音视频流和完整解码验收
 ```
 
-当前 MVP 直接支持 `.pptx`。旧 `.ppt` 请先在 PowerPoint 中另存为
-`.pptx`。第一版刻意不做图片公式 OCR：公式截图仍保留在原 PPT 画面中，
-讲稿和公式读法需要在审核阶段确认。
+当前 MVP 直接支持 `.pptx`；旧 `.ppt` 在持久 PARSE Worker 的独立 attempt 中使用
+LibreOffice 转换为 `source.pptx`，随后进入完全相同的 PPTX 解析与原页门禁。HTTP 上传
+请求本身不运行 LibreOffice。图片公式 OCR 已获准延期：公式截图仍完整保留在原 PPT
+画面中，包含图片的页面会提示人工核对，讲稿和公式读法必须在审核阶段确认。
 
 ## 1. 环境
 
@@ -144,6 +145,7 @@ dispatcher 为每句创建稳定 step，Worker 只重试失败句。Edge TTS 在
 `AUDIO_SEGMENT`。最后一句成功时按实际时长生成 SubtitleCue、SRT 和 AudioTimelineRecord。
 当前 HTTP/BFF 端点为 `POST /v1/projects/:projectId/audio`、`GET /v1/tasks/:taskId/audio`
 及对应 `/api/t/...` 路由；公共响应只暴露稳定 asset ID，不返回 storage key。
+试听任务固定朗读“生活就像海洋，只有意志坚强的人才能到达彼岸。”，并冻结用户当前选择的 voice、rate 与 pitch；默认 Mock 页面使用同文案的三份版本化真实 MP3，不以蜂鸣音冒充音色。
 
 阶段 T-E 增加 GENERATE/PAGE_RENDER Worker。任务冻结成功 AUDIO task、current approved
 revision、原页/音频哈希、Overlay、时长、25/30 FPS 和渲染器版本；dispatcher 为每页创建
@@ -245,8 +247,9 @@ Docker 使用 LibreOffice 渲染 PPT 页面，并使用系统 FFmpeg 和 Noto CJ
 
 阶段 T-F 增加 COMPOSITE/VALIDATE Worker。COMPOSITE 将已验证的分页视频与全局 SRT 合成为
 H.264/AAC、`yuv420p`、Fast Start MP4，但任务仍保持非终态；VALIDATE 完成完整解码、编码、
-时长、非静音、黑帧、逐页图像覆盖与安全布局硬门后，才登记可交付的 `VALIDATED`
+时长、非静音、平均响度（-35～-8 dB）、峰值（< -0.05 dB）、黑帧、逐页图像覆盖与安全布局硬门后，才登记可交付的 `VALIDATED`
 MediaOutput。失败候选会被拒绝且不能通过媒体读取端点取得。
+VALIDATE 调用分析器前还会重新读取候选 MP4 和逐页基准帧，复核登记大小与 SHA-256；缺失或篡改统一以 `MEDIA_ASSET_INTEGRITY_FAILED` 拒绝，不使用数据库中的旧哈希代替落盘验证。
 
 阶段 T-G 增加 DeliveryRepository 与受控 HTTP 内容端点。只有验证成功且生命周期可用的最终
 MP4/SRT 才能读取；每次请求重新检查 principal、项目范围、大小和 SHA-256，并支持 Range、

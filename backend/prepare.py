@@ -177,7 +177,8 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
 
     for slide_index, slide in enumerate(presentation.slides, 1):
         blocks: list[dict[str, Any]] = []
-        for shape in iter_shapes(slide.shapes):
+        flattened_shapes = list(iter_shapes(slide.shapes))
+        for shape in flattened_shapes:
             text = shape_text(shape)
             if not text:
                 continue
@@ -233,6 +234,9 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 formula_sources, 1
             )
         ]
+        warnings = []
+        if any(shape.shape_type == MSO_SHAPE_TYPE.PICTURE for shape in flattened_shapes):
+            warnings.append("页面包含图片；图片公式 OCR 已延期，请人工核对图片中是否存在公式。")
         slide_type = classify_slide(
             title, all_text, slide_index, len(presentation.slides)
         )
@@ -245,6 +249,7 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 "extractedText": all_text,
                 "notes": extract_notes(slide),
                 "formulas": formulas,
+                "warnings": warnings,
                 "thumbnail": f"slides/slide-{slide_index:03d}.png",
             }
         )
@@ -380,6 +385,48 @@ def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
         finally:
             document.close()
     return "libreoffice"
+
+
+def convert_legacy_ppt(source_path: Path, output_path: Path) -> None:
+    soffice = find_program(
+        ["soffice.com", "soffice", "libreoffice"],
+        [
+            Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
+            Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"),
+        ],
+    )
+    if not soffice:
+        raise RuntimeError("旧版 PPT 转换需要 LibreOffice")
+    with tempfile.TemporaryDirectory(prefix="ppt-convert-") as temp_value:
+        temp_dir = Path(temp_value)
+        profile_uri = (temp_dir / "libreoffice-profile").resolve().as_uri()
+        subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--nologo",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--norestore",
+                f"-env:UserInstallation={profile_uri}",
+                "--convert-to",
+                "pptx",
+                "--outdir",
+                str(temp_dir),
+                str(source_path.resolve()),
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
+        )
+        converted = temp_dir / f"{source_path.stem}.pptx"
+        if not converted.exists() or converted.stat().st_size == 0:
+            raise RuntimeError("LibreOffice 未生成 PPTX 转换结果")
+        shutil.copy2(converted, output_path)
 
 
 def render_slides(pptx_path: Path, output_dir: Path) -> tuple[str, str | None]:
@@ -569,7 +616,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse a PPTX and generate reviewable teaching scenes."
     )
-    parser.add_argument("--input", required=True, help="input .pptx path")
+    parser.add_argument("--input", required=True, help="input .ppt or .pptx path")
     parser.add_argument("--job-dir", required=True, help="job output directory")
     parser.add_argument("--audience", default="大学一年级学生")
     parser.add_argument("--style", default="详细推导、通俗讲解")
@@ -599,12 +646,14 @@ def main() -> int:
     job_dir = Path(args.job_dir).expanduser().resolve()
     if not source_path.exists():
         raise FileNotFoundError(source_path)
-    if source_path.suffix.lower() != ".pptx":
-        raise ValueError("当前MVP只直接支持.pptx；旧.ppt请先转换为.pptx")
+    if source_path.suffix.lower() not in {".ppt", ".pptx"}:
+        raise ValueError("当前MVP只支持 .ppt 或 .pptx")
 
     job_dir.mkdir(parents=True, exist_ok=True)
     source_copy = job_dir / "source.pptx"
-    if source_path != source_copy:
+    if source_path.suffix.lower() == ".ppt":
+        convert_legacy_ppt(source_path, source_copy)
+    elif source_path != source_copy:
         shutil.copy2(source_path, source_copy)
 
     deck = extract_deck(source_copy)

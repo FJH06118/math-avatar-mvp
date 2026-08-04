@@ -58,4 +58,11 @@ export class DeliveryRepository {
     if (!output) throw new AppHttpError(404, "ASSET_NOT_FOUND", "交付资产不存在。", false);
     return asset;
   }
+
+  async getCaptionsAsset(principal: string, taskId: string) {
+    const bundle = await this.getBundle(principal, taskId);
+    const captions = bundle.manifest.files.find((file) => file.kind === "captions");
+    if (!captions?.assetId) throw new AppHttpError(404, "CAPTIONS_NOT_FOUND", "字幕不存在。", false);
+    return this.getDeliverableAsset(principal, captions.assetId);
+  }
 }

@@ -28,4 +28,19 @@ describe("stage T-D audio timeline", () => {
       ], srtAssetId: "asset_srt_1",
     }).success).toBe(false);
   });
+
+  it("allows only a same-origin BFF audio preview URL", () => {
+    const timeline = {
+      taskId: "task_audio_1", projectId: "project_1", presentationId: "presentation_1",
+      voice: "zh-CN-YunxiNeural", rate: "+0%", pitch: "+0Hz", totalDurationMs: 1000,
+      segments: [{ ...segment, previewUrl: "/api/t/assets/asset_audio_1/audio-preview" }],
+      cues: [{ id: "cue_1", audioSegmentId: segment.id, index: 1, startMs: 0, endMs: 1000, text: "导数。" }],
+      srtAssetId: "asset_srt_1",
+    };
+    expect(AudioTimelineSchema.safeParse(timeline).success).toBe(true);
+    expect(AudioTimelineSchema.safeParse({
+      ...timeline,
+      segments: [{ ...segment, previewUrl: "https://example.com/private.mp3" }],
+    }).success).toBe(false);
+  });
 });

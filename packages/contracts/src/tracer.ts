@@ -9,19 +9,36 @@ import { TaskSchema } from "./task";
 export const PptxMimeTypeSchema = z.literal(
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 );
+export const LegacyPptMimeTypeSchema = z.literal("application/vnd.ms-powerpoint");
+export const PresentationUploadMimeTypeSchema = z.union([
+  PptxMimeTypeSchema,
+  LegacyPptMimeTypeSchema,
+]);
 
 export const TracerUploadMetadataSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     fileName: FileNameSchema.refine(
-      (value) => value.toLowerCase().endsWith(".pptx"),
-      "阶段 T 仅接受 .pptx",
+      (value) => /\.pptx?$/i.test(value),
+      "仅接受 .ppt 或 .pptx",
     ),
-    mimeType: PptxMimeTypeSchema,
+    mimeType: PresentationUploadMimeTypeSchema,
     fileSize: z.number().int().positive().max(100 * 1024 * 1024),
     idempotencyKey: StableIdSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const expected = value.fileName.toLowerCase().endsWith(".pptx")
+      ? PptxMimeTypeSchema.value
+      : LegacyPptMimeTypeSchema.value;
+    if (value.mimeType !== expected) {
+      context.addIssue({
+        code: "custom",
+        path: ["mimeType"],
+        message: "文件扩展名与 MIME 不一致",
+      });
+    }
+  });
 
 export const TracerUploadReceiptSchema = z
   .object({

@@ -44,6 +44,11 @@ after(async () => {
 
 test("PAGE_RENDER freezes three approved pages and retries only the failed page", async () => {
   const seeded = await seedReadyAudio();
+  await prisma.project.update({ where: { id: seeded.projectId }, data: { settings: {
+    avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1,
+    captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
+    slideOverrides: [{ slideId: "slide_te_2", avatarPosition: "hidden" }],
+  } } });
   const app = createApplication({ prisma, assetRoot, internalToken });
   const body = { presentationId: seeded.presentationId, audioTaskId: seeded.audioTaskId, idempotencyKey: "stage-te-render-key", fps: 25 };
   const created = await request(app, `/v1/projects/${seeded.projectId}/renders`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -68,7 +73,8 @@ test("PAGE_RENDER freezes three approved pages and retries only the failed page"
   const pages = RenderedPageListResponseSchema.parse(await response.json()).data;
   assert.equal(pages.length, 3);
   assert.deepEqual(pages.map((page) => page.pageOrder), [1, 2, 3]);
-  assert(pages.every((page) => page.durationMs >= 1_500 && page.fps === 25 && page.avatarPlacement === "right-panel"));
+  assert(pages.every((page) => page.durationMs >= 1_500 && page.fps === 25));
+  assert.deepEqual(pages.map((page) => page.avatarPlacement), ["right-panel", "hidden", "right-panel"]);
   assert.equal(pages[0].overlayType, "highlightBox");
   for (const page of pages) {
     const assets = await prisma.asset.findMany({ where: { id: { in: [page.frameAssetId, page.videoAssetId] } } });
@@ -92,6 +98,36 @@ test("active PAGE_RENDER cancellation aborts the adapter and keeps CANCELLED ter
   assert.equal(await running, "CANCELLED");
   assert.equal((await prisma.generationTask.findUniqueOrThrow({ where: { id: task.id } })).status, "CANCELLED");
   assert.equal(await prisma.renderedPage.count({ where: { taskId: task.id } }), 0);
+});
+
+test("changing one slide setting reuses unchanged page assets and renders only that page", async () => {
+  const seeded = await seedReadyAudio();
+  const app = createApplication({ prisma, assetRoot, internalToken });
+  const createAndRun = async (key: string, adapter: PageRenderAdapter) => {
+    const response = await request(app, `/v1/projects/${seeded.projectId}/renders`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: seeded.presentationId, audioTaskId: seeded.audioTaskId, idempotencyKey: key, fps: 25 }) });
+    const task = RenderTaskResponseSchema.parse(await response.json()).data;
+    await dispatchPendingOutbox(prisma);
+    for (;;) {
+      const claim = await claimNextProductStep(pool, `${key}-worker`, 20_000, 3, "PAGE_RENDER");
+      if (!claim) break;
+      assert.equal(await runClaimedRenderStep({ prisma, pool, assets: new LocalAssetStore(assetRoot), adapter, attemptRoot, leaseMs: 20_000 }, claim, `${key}-worker`), "SUCCEEDED");
+    }
+    return prisma.renderedPage.findMany({ where: { taskId: task.id }, orderBy: { pageOrder: "asc" } });
+  };
+  const firstAdapter = new RetryPageAdapter(new SharpFfmpegPageRenderAdapter(), -1);
+  const first = await createAndRun("stage-11e-cache-first", firstAdapter);
+  assert.deepEqual(firstAdapter.calls, [1, 2, 3]);
+  await prisma.project.update({ where: { id: seeded.projectId }, data: { settings: {
+    avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1,
+    captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
+    slideOverrides: [{ slideId: "slide_te_2", avatarPosition: "hidden" }],
+  } } });
+  const secondAdapter = new RetryPageAdapter(new SharpFfmpegPageRenderAdapter(), -1);
+  const second = await createAndRun("stage-11e-cache-second", secondAdapter);
+  assert.deepEqual(secondAdapter.calls, [2]);
+  assert.equal(second[0]!.videoAssetId, first[0]!.videoAssetId);
+  assert.notEqual(second[1]!.videoAssetId, first[1]!.videoAssetId);
+  assert.equal(second[2]!.videoAssetId, first[2]!.videoAssetId);
 });
 
 class RetryPageAdapter implements PageRenderAdapter {

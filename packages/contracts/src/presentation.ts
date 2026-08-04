@@ -25,9 +25,10 @@ export const PresentationSchema = z
     originalFileName: FileNameSchema,
     sha256: Sha256Schema,
     fileSize: NonNegativeIntSchema,
-    mimeType: z.literal(
+    mimeType: z.enum([
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ),
+      "application/vnd.ms-powerpoint",
+    ]),
     slideCount: z.number().int().min(0).max(100),
     width: z.number().positive().optional(),
     height: z.number().positive().optional(),

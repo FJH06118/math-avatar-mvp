@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { z } from "zod";
 import type { Pool } from "pg";
@@ -66,6 +67,15 @@ export async function runClaimedValidationStep(
   const renderTask = await dependencies.prisma.generationTask.findUniqueOrThrow({ where: { id: task.mediaOutput.renderTaskId }, include: { renderedPages: { orderBy: { pageOrder: "asc" }, include: { frameAsset: true } } } });
   const controller = leaseController(dependencies.pool, claim, workerId, dependencies.leaseMs);
   try {
+    const candidateValid = await verifyStoredAsset(dependencies.assets, task.mediaOutput.videoAsset);
+    const framesValid = (await Promise.all(renderTask.renderedPages.map((page) => verifyStoredAsset(dependencies.assets, page.frameAsset)))).every(Boolean);
+    if (!candidateValid || !framesValid) {
+      await dependencies.prisma.$transaction([
+        dependencies.prisma.mediaOutput.update({ where: { id: task.mediaOutput.id }, data: { status: "REJECTED" } }),
+        dependencies.prisma.asset.update({ where: { id: task.mediaOutput.videoAssetId }, data: { lifecycle: "INVALID" } }),
+      ]);
+      return failProductStep(dependencies.pool, claim, workerId, "MEDIA_ASSET_INTEGRITY_FAILED", "Media validation input failed size or SHA-256 verification.", false, dependencies.maxAttempts);
+    }
     const report = await dependencies.adapter.run({
       videoPath: dependencies.assets.resolveForRead(task.mediaOutput.videoAsset.storageKey), fps: task.mediaOutput.fps as 25 | 30,
       expectedDurationMs: task.mediaOutput.totalDurationMs, expectedPageCount: task.presentation.slideCount,
@@ -105,3 +115,11 @@ async function handleFailure(dependencies: { prisma: PrismaClient; pool: Pool; m
 }
 async function cancellationState(prisma: PrismaClient, taskId: string) { return (await prisma.generationTask.findUniqueOrThrow({ where: { id: taskId } })).status === "CANCELLED" ? "CANCELLED" as const : "QUEUED" as const; }
 function safeAttemptDir(root: string, taskId: string, stepId: string, attempt: number) { const resolvedRoot = resolve(root); const target = resolve(resolvedRoot, taskId, stepId, `attempt-${attempt}`); if (!target.startsWith(`${resolvedRoot}${sep}`)) throw new Error("Attempt path escaped the configured root."); return target; }
+async function verifyStoredAsset(store: LocalAssetStore, asset: { storageKey: string; sha256: string; fileSize: bigint | number }): Promise<boolean> {
+  try {
+    const bytes = await readFile(store.resolveForRead(asset.storageKey));
+    return BigInt(bytes.byteLength) === BigInt(asset.fileSize) && createHash("sha256").update(bytes).digest("hex") === asset.sha256;
+  } catch {
+    return false;
+  }
+}

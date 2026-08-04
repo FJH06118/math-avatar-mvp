@@ -34,6 +34,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   createParsingJob,
   createProject,
+  getEnabledTracerApiAdapter,
   getUserFacingErrorMessage,
   uploadPresentation,
 } from "@/lib/api";
@@ -66,7 +67,9 @@ function getProjectTitle(fileName: string): string {
 
 export function UploadFlow() {
   const router = useRouter();
+  const realAdapter = getEnabledTracerApiAdapter();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const idempotencyKeyRef = useRef(`upload_${crypto.randomUUID()}`);
   const demoFailureConsumedRef = useRef(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -85,6 +88,16 @@ export function UploadFlow() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
       setUploadPhase("uploading");
+      if (realAdapter) {
+        const receipt = await realAdapter.uploadPresentation({
+          title: getProjectTitle(file.name),
+          file,
+          idempotencyKey: idempotencyKeyRef.current,
+          signal: controller.signal,
+        });
+        setProgress(100);
+        return { projectId: receipt.project.id, jobId: receipt.task.id };
+      }
       const uploadedFile = await uploadPresentation({
         file,
         fail,
@@ -123,6 +136,7 @@ export function UploadFlow() {
     setValidationError(null);
     setCancelledMessage(null);
     setProgress(0);
+    idempotencyKeyRef.current = `upload_${crypto.randomUUID()}`;
     demoFailureConsumedRef.current = false;
     uploadMutation.reset();
   }
@@ -133,6 +147,7 @@ export function UploadFlow() {
     setCancelledMessage(null);
     setProgress(0);
     uploadMutation.reset();
+    idempotencyKeyRef.current = `upload_${crypto.randomUUID()}`;
   }
 
   function startUpload() {
@@ -224,6 +239,8 @@ export function UploadFlow() {
               <ProgressLabel>
                 {isSuccess
                   ? "上传完成，正在进入解析页"
+                  : realAdapter
+                    ? "正在上传并由服务端校验课件"
                   : uploadPhase === "creating"
                     ? "正在创建课程项目"
                     : "正在上传课件"}
@@ -249,7 +266,9 @@ export function UploadFlow() {
                 <UploadIcon data-icon="inline-start" aria-hidden="true" />
               )}
               {isUploading
-                ? uploadPhase === "creating"
+                ? realAdapter
+                  ? "正在上传并校验"
+                  : uploadPhase === "creating"
                   ? "正在创建项目"
                   : `正在上传 ${progress}%`
                 : isSuccess

@@ -1,5 +1,6 @@
-import { createAgentPlanOutputSchema, type AgentPlanOutput } from "@ppt-digital-human/contracts";
+import type { AgentPlanOutput } from "@ppt-digital-human/contracts";
 import { WorkerError } from "./worker-error.ts";
+import { parseAndValidateAgentContent } from "./agent-evaluator.ts";
 
 export interface AgentInputSlide {
   id: string;
@@ -23,6 +24,7 @@ export interface AgentAdapterResult {
   provider: string;
   model: string;
   promptVersion: string;
+  validationAttempts?: number;
 }
 
 export interface AgentAdapter {
@@ -79,26 +81,18 @@ export class OpenAiCompatibleAgentAdapter implements AgentAdapter {
     }
     const envelope: unknown = await response.json();
     const content = readContent(envelope);
-    let payload: unknown;
     try {
-      payload = JSON.parse(content);
-    } catch {
-      throw new WorkerError("AGENT_OUTPUT_INVALID", "课程规划结果不是合法 JSON。", true);
+      const validated = parseAndValidateAgentContent(content, input.slides.map((slide) => slide.id));
+      return {
+        output: validated.output,
+        provider: new URL(this.config.baseUrl).host,
+        model: this.config.model,
+        promptVersion: "stage-tc-agent-prompt-v1",
+        validationAttempts: validated.attempts,
+      };
+    } catch (error) {
+      throw new WorkerError("AGENT_OUTPUT_INVALID", `课程规划结果未通过严格契约与模块审核：${error instanceof Error ? error.message : "未知错误"}`, true);
     }
-    const parsed = createAgentPlanOutputSchema(input.slides.map((slide) => slide.id)).safeParse(payload);
-    if (!parsed.success) {
-      const summary = parsed.error.issues
-        .slice(0, 8)
-        .map((issue) => `${issue.path.join(".") || "root"}:${issue.message}`)
-        .join("；");
-      throw new WorkerError("AGENT_OUTPUT_INVALID", `课程规划结果未通过严格契约：${summary}`, true);
-    }
-    return {
-      output: parsed.data,
-      provider: new URL(this.config.baseUrl).host,
-      model: this.config.model,
-      promptVersion: "stage-tc-agent-prompt-v1",
-    };
   }
 }
 

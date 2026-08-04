@@ -25,6 +25,7 @@ export interface PageRenderAdapterInput {
   pageOrder: number;
   pageCount: number;
   overlay?: Overlay;
+  avatarPlacement: "right-panel" | "hidden";
   attemptDir: string;
   signal: AbortSignal;
 }
@@ -32,7 +33,7 @@ export interface PageRenderAdapterInput {
 export interface PageRenderAdapterResult {
   frameBytes: Uint8Array;
   videoBytes: Uint8Array;
-  avatarPlacement: "right-panel";
+  avatarPlacement: "right-panel" | "hidden";
   overlayType?: "highlightBox" | "arrow";
 }
 
@@ -48,11 +49,13 @@ export class SharpFfmpegPageRenderAdapter implements PageRenderAdapter {
     const audioPath = join(input.attemptDir, "page-audio.m4a");
     const videoPath = join(input.attemptDir, "page.mp4");
     const slide = await sharp(input.sourcePath).resize(SLIDE.width, SLIDE.height, { fit: "contain", background: "#ffffff" }).png().toBuffer();
-    const avatar = await sharp(AVATAR).resize(300, 300, { fit: "contain" }).png().toBuffer();
     const overlays: Parameters<ReturnType<typeof sharp>["composite"]>[0] = [
       { input: slide, left: SLIDE.left, top: SLIDE.top },
-      { input: avatar, left: 1574, top: 620 },
     ];
+    if (input.avatarPlacement !== "hidden") {
+      const avatar = await sharp(AVATAR).resize(300, 300, { fit: "contain" }).png().toBuffer();
+      overlays.push({ input: avatar, left: 1574, top: 620 });
+    }
     if (input.overlay) overlays.push({ input: overlaySvg(input.overlay), left: SLIDE.left, top: SLIDE.top });
     const frameBytes = await sharp(chromeSvg(input.pageOrder, input.pageCount)).composite(overlays).png({ compressionLevel: 9 }).toBuffer();
     await writeFile(framePath, frameBytes, { flag: "wx" });
@@ -69,7 +72,7 @@ export class SharpFfmpegPageRenderAdapter implements PageRenderAdapter {
     return {
       frameBytes,
       videoBytes: await readFile(videoPath),
-      avatarPlacement: "right-panel",
+      avatarPlacement: input.avatarPlacement,
       overlayType: input.overlay?.type as "highlightBox" | "arrow" | undefined,
     };
   }

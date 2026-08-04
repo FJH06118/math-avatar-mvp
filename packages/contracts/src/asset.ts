@@ -10,6 +10,7 @@ import {
   SlideIdSchema,
   StableIdSchema,
 } from "./primitives";
+import { MediaValidationReportSchema } from "./media";
 
 export const AssetKindSchema = z.enum([
   "SOURCE_PPT",
@@ -69,6 +70,7 @@ export const RenderResultSchema = z
     resolution: FormulaResolutionSchema,
     generatedAt: IsoDateTimeSchema,
     assetsAvailable: z.boolean(),
+    validation: MediaValidationReportSchema.optional(),
   })
   .strict();
 

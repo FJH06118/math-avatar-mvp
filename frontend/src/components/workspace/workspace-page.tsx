@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   getProject,
   createRenderJob,
@@ -15,6 +17,9 @@ import {
   listSlides,
   listVoices,
   updateSlideScript,
+  setSlideLocked,
+  approveSlideRevision,
+  getEnabledTracerApiAdapter,
 } from "@/lib/api";
 import type { Avatar, ParsedSlide, Project, Voice } from "@/types";
 
@@ -105,11 +110,55 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   const [settingsSaveState, setSettingsSaveState] =
     useState<WorkspaceSaveState>("saved");
   const [settingsValid, setSettingsValid] = useState(true);
+  const [previewSettings, setPreviewSettings] = useState(data.project.settings);
   const savingSnapshotRef = useRef<SlideDrafts>({});
+  const realAdapter = getEnabledTracerApiAdapter();
+  const [planTaskId, setPlanTaskId] = useState(data.project.planTaskId);
 
   const selectedSlide =
     data.slides.find((slide) => slide.id === selectedSlideId) ??
     data.slides[0];
+  const previewAvatar = data.avatars.find(
+    (avatar) => avatar.id === previewSettings.avatarId,
+  );
+  const previewAvatarPosition =
+    previewSettings.slideOverrides?.find(
+      (override) => override.slideId === selectedSlide?.id,
+    )?.avatarPosition ?? previewSettings.avatarPosition;
+
+  const createPlanMutation = useMutation({
+    mutationFn: async () => {
+      if (!realAdapter || !data.slides[0]) {
+        throw new Error("真实规划服务未启用。");
+      }
+      return realAdapter.createPlanTask(data.project.id, {
+        presentationId: data.slides[0].presentationId,
+        idempotencyKey: `plan_${data.project.id}_${data.slides[0].presentationId}`,
+        audience: "大学一年级学生",
+        style: "严谨、逐页讲解、保留原页",
+        targetMinutes: Math.max(1, Math.round(data.slides.length * 1.5)),
+      });
+    },
+    onSuccess: (task) => setPlanTaskId(task.id),
+  });
+
+  const planTaskQuery = useQuery({
+    queryKey: ["tasks", planTaskId],
+    queryFn: () => realAdapter!.getTask(planTaskId as string),
+    enabled: Boolean(realAdapter && planTaskId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "SUCCEEDED" || status === "FAILED" || status === "CANCELLED"
+        ? false
+        : 1_000;
+    },
+  });
+
+  useEffect(() => {
+    if (planTaskQuery.data?.status === "SUCCEEDED") {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", data.project.id] });
+    }
+  }, [data.project.id, planTaskQuery.data?.status, queryClient]);
 
   const dirtyDrafts = useMemo(
     () =>
@@ -140,17 +189,23 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
         ? "unsaved"
         : "saved";
 
+  const missingRevision = data.slides.some(
+    (slide) => !slide.lessonPlanRevisionId,
+  );
   const canGenerate =
     settingsValid &&
     !hasSaveError &&
     !hasUnsavedChanges &&
     !isSaving &&
     data.slides.length > 0 &&
+    !missingRevision &&
     data.slides.every((slide) =>
       (drafts[slide.id] ?? slide.teachingScript).trim(),
     );
 
-  const generateDisabledReason = !settingsValid
+  const generateDisabledReason = missingRevision
+    ? "请先生成并审核全部页面的初始讲稿。"
+    : !settingsValid
     ? "请先补全授课配置。"
     : hasSaveError
       ? "保存失败，请先重新保存讲稿或授课配置。"
@@ -207,11 +262,36 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   });
 
   const createRenderMutation = useMutation({
-    mutationFn: () => createRenderJob(data.project.id),
+    mutationFn: async () => {
+      await Promise.all(
+        data.slides
+          .filter((slide) => slide.lessonPlanApproval === "pending")
+          .map((slide) => approveSlideRevision(slide)),
+      );
+      return createRenderJob(data.project.id);
+    },
     onSuccess: (job) =>
       router.push(
         `/projects/${data.project.id}/generating?jobId=${job.id}`,
       ),
+  });
+
+  const lockMutation = useMutation({
+    mutationFn: ({ slide, locked }: { slide: ParsedSlide; locked: boolean }) =>
+      setSlideLocked(slide, locked),
+    onSuccess: (locked, variables) => {
+      queryClient.setQueryData<WorkspaceData>(
+        ["workspace", data.project.id],
+        (current) => current
+          ? {
+              ...current,
+              slides: current.slides.map((slide) =>
+                slide.id === variables.slide.id ? { ...slide, isLocked: locked } : slide,
+              ),
+            }
+          : current,
+      );
+    },
   });
 
   const saveScripts = useCallback(() => {
@@ -309,22 +389,67 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
         />
         <SlideContentTabs
           slide={selectedSlide}
+          avatar={previewAvatar}
+          avatarPosition={previewAvatarPosition}
           scriptValue={
             drafts[selectedSlide.id] ?? selectedSlide.teachingScript
           }
           activeTab={activeTab}
           onTabChange={handleTabChange}
           onScriptChange={handleScriptChange}
+          onLockChange={(locked) => lockMutation.mutate({ slide: selectedSlide, locked })}
+          isLocking={lockMutation.isPending}
         />
         <TeachingSettingsForm
           projectId={data.project.id}
+          presentationId={selectedSlide.presentationId}
           settings={data.project.settings}
           avatars={data.avatars}
           voices={data.voices}
           onSaveStateChange={setSettingsSaveState}
           onValidityChange={setSettingsValid}
+          onPreviewSettingsChange={setPreviewSettings}
+          selectedSlideId={selectedSlide.id}
+          selectedSlideTitle={selectedSlide.title}
         />
       </div>
+
+      {realAdapter && missingRevision ? (
+        <div className="px-4 pb-4 sm:px-6 lg:px-8">
+          <Alert>
+            <AlertTitle>初始讲稿尚未生成</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                {createPlanMutation.isError
+                  ? getUserFacingErrorMessage(
+                      createPlanMutation.error,
+                      "规划任务创建失败，请检查连接后重试。",
+                    )
+                  : planTaskQuery.data?.status === "FAILED"
+                  ? `规划失败：${planTaskQuery.data.errorMessage ?? planTaskQuery.data.errorCode ?? "未知错误"}`
+                  : planTaskId
+                    ? `服务端正在规划讲稿，已完成 ${planTaskQuery.data?.progressCompleted ?? 0}/${planTaskQuery.data?.progressTotal ?? data.slides.length} 页。`
+                    : "创建真实规划任务后，工作台会读取逐页 revision；不会使用占位讲稿进入生成。"}
+              </span>
+              {!planTaskId || planTaskQuery.data?.status === "FAILED" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={createPlanMutation.isPending}
+                  onClick={() => createPlanMutation.mutate()}
+                >
+                  {createPlanMutation.isPending ? (
+                    <Spinner data-icon="inline-start" aria-hidden="true" />
+                  ) : null}
+                  {createPlanMutation.isPending ? "正在创建..." : "生成初始讲稿"}
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
 
       {createRenderMutation.isError ? (
         <div className="px-4 pb-4 sm:px-6 lg:px-8">

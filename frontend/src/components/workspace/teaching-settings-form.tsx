@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PauseIcon, PlayIcon, Volume2Icon } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -28,6 +29,7 @@ import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { getVoicePreview, updateTeachingSettings } from "@/lib/api";
+import { getEnabledTracerApiAdapter } from "@/lib/api/tracer-adapter";
 import type {
   Avatar,
   TeachingSettings,
@@ -45,6 +47,14 @@ const settingsSchema = z.object({
   captionStyle: z.enum(["clear", "focus", "minimal"]),
   avatarPosition: z.enum(["left", "right"]),
   background: z.enum(["classroom", "light", "board"]),
+  slideOverrides: z
+    .array(
+      z.object({
+        slideId: z.string().min(1),
+        avatarPosition: z.enum(["left", "right", "hidden"]),
+      }),
+    )
+    .optional(),
 });
 
 export type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -56,25 +66,38 @@ const speechRateFormatter = new Intl.NumberFormat("zh-CN", {
 
 interface TeachingSettingsFormProps {
   projectId: string;
+  presentationId: string;
   settings: TeachingSettings;
   avatars: Avatar[];
   voices: Voice[];
   onSaveStateChange: (state: WorkspaceSaveState) => void;
   onValidityChange: (isValid: boolean) => void;
+  onPreviewSettingsChange?: (settings: TeachingSettings) => void;
+  selectedSlideId: string;
+  selectedSlideTitle: string;
 }
 
 export function TeachingSettingsForm({
   projectId,
+  presentationId,
   settings,
   avatars,
   voices,
   onSaveStateChange,
   onValidityChange,
+  onPreviewSettingsChange,
+  selectedSlideId,
+  selectedSlideTitle,
 }: TeachingSettingsFormProps) {
   const queryClient = useQueryClient();
+  const realAdapter = getEnabledTracerApiAdapter();
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
-  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewTaskId, setPreviewTaskId] = useState<string | null>(null);
+  const [mockPreviewUrl, setMockPreviewUrl] = useState<string | null>(null);
+  const [mockPlaybackRate, setMockPlaybackRate] = useState(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSavedRef = useRef(JSON.stringify(settings));
+  const lastPreviewedRef = useRef<string | null>(null);
   const failedValuesRef = useRef<string | null>(null);
 
   const avatarItems = useMemo(
@@ -94,6 +117,10 @@ export function TeachingSettingsForm({
   const values = useWatch({ control: form.control });
   const valuesKey = JSON.stringify(values);
   const currentVoice = voices.find((voice) => voice.id === values.voiceId);
+  const currentAvatar = avatars.find((avatar) => avatar.id === values.avatarId);
+  const currentSlideOverride = values.slideOverrides?.find(
+    (override) => override?.slideId === selectedSlideId,
+  )?.avatarPosition;
 
   const saveMutation = useMutation({
     mutationFn: (nextSettings: TeachingSettings) =>
@@ -140,22 +167,54 @@ export function TeachingSettingsForm({
   });
 
   const previewMutation = useMutation({
-    mutationFn: (voiceId: string) => getVoicePreview(voiceId),
-    onSuccess: ({ voiceId, durationMs }) => {
-      setPreviewVoiceId(voiceId);
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
+    mutationFn: async ({ voiceId, speechRate }: { voiceId: string; speechRate: number }) => {
+      if (!realAdapter) {
+        const preview = await getVoicePreview(voiceId, speechRate);
+        return { mode: "mock" as const, ...preview };
       }
-      previewTimerRef.current = setTimeout(
-        () => setPreviewVoiceId(null),
-        durationMs,
-      );
+      const task = await realAdapter.createVoicePreviewTask(projectId, {
+        presentationId,
+        idempotencyKey: `preview_${crypto.randomUUID()}`,
+        voice: edgeVoiceFor(voiceId),
+        rate: edgeRateFor(speechRate),
+        pitch: edgePitchFor(voiceId),
+      });
+      return { mode: "real" as const, voiceId, taskId: task.id };
+    },
+    onSuccess: (preview) => {
+      setPreviewVoiceId(preview.voiceId);
+      if (preview.mode === "real") {
+        setPreviewTaskId(preview.taskId);
+        return;
+      }
+      setMockPreviewUrl(preview.previewUrl);
+      setMockPlaybackRate(preview.playbackRate);
     },
   });
+
+  const previewTaskQuery = useQuery({
+    queryKey: ["voice-preview-task", previewTaskId],
+    queryFn: ({ signal }) => realAdapter!.getTask(previewTaskId!, signal),
+    enabled: Boolean(realAdapter && previewTaskId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) ? false : 700;
+    },
+  });
+  const previewTimelineQuery = useQuery({
+    queryKey: ["voice-preview-timeline", previewTaskId],
+    queryFn: ({ signal }) => realAdapter!.getAudioTimeline(previewTaskId!, signal),
+    enabled: Boolean(realAdapter && previewTaskId && previewTaskQuery.data?.status === "SUCCEEDED"),
+  });
+  const previewUrl = mockPreviewUrl ?? previewTimelineQuery.data?.segments[0]?.previewUrl;
 
   useEffect(() => {
     const parsed = settingsSchema.safeParse(values);
     onValidityChange(parsed.success);
+    if (parsed.success && valuesKey !== lastPreviewedRef.current) {
+      lastPreviewedRef.current = valuesKey;
+      onPreviewSettingsChange?.(parsed.data);
+    }
     if (
       !parsed.success ||
       valuesKey === lastSavedRef.current ||
@@ -172,25 +231,18 @@ export function TeachingSettingsForm({
     return () => clearTimeout(timeoutId);
   }, [
     onSaveStateChange,
+    onPreviewSettingsChange,
     onValidityChange,
     saveMutation,
     values,
     valuesKey,
   ]);
 
-  useEffect(
-    () => () => {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-      }
-    },
-    [],
-  );
-
   function stopPreview() {
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-    }
+    audioRef.current?.pause();
+    setPreviewTaskId(null);
+    setMockPreviewUrl(null);
+    setMockPlaybackRate(1);
     setPreviewVoiceId(null);
   }
 
@@ -229,15 +281,35 @@ export function TeachingSettingsForm({
                       fieldState.invalid ? "avatar-select-error" : undefined
                     }
                   >
+                    {currentAvatar?.imageUrl ? (
+                      <Image
+                        src={currentAvatar.imageUrl}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="size-6 shrink-0 rounded-full bg-secondary object-cover object-top outline-1 -outline-offset-1 outline-foreground/10"
+                      />
+                    ) : null}
                     <SelectValue placeholder="选择数字人教师" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       {avatars.map((avatar) => (
                         <SelectItem key={avatar.id} value={avatar.id}>
-                          <span>{avatar.name}</span>
-                          <span className="text-muted-foreground">
-                            {avatar.description}
+                          {avatar.imageUrl ? (
+                            <Image
+                              src={avatar.imageUrl}
+                              alt=""
+                              width={44}
+                              height={44}
+                              className="size-11 shrink-0 rounded-full bg-secondary object-cover object-top outline-1 -outline-offset-1 outline-foreground/10"
+                            />
+                          ) : null}
+                          <span className="flex min-w-0 flex-col items-start">
+                            <span className="font-medium">{avatar.name}</span>
+                            <span className="max-w-52 truncate text-muted-foreground">
+                              {avatar.description}
+                            </span>
                           </span>
                         </SelectItem>
                       ))}
@@ -299,7 +371,10 @@ export function TeachingSettingsForm({
                     onClick={() =>
                       previewVoiceId === field.value
                         ? stopPreview()
-                        : previewMutation.mutate(field.value)
+                        : previewMutation.mutate({
+                            voiceId: field.value,
+                            speechRate: form.getValues("speechRate"),
+                          })
                     }
                   >
                     {previewMutation.isPending ? (
@@ -314,6 +389,26 @@ export function TeachingSettingsForm({
                 </div>
                 {previewMutation.isError ? (
                   <FieldError>试听失败，请稍后重试。</FieldError>
+                ) : null}
+                {previewTaskQuery.data?.status === "FAILED" || previewTimelineQuery.isError ? (
+                  <FieldError>试听生成失败，请稍后重试。</FieldError>
+                ) : null}
+                {previewUrl ? (
+                  <audio
+                    ref={audioRef}
+                    className="w-full"
+                    controls
+                    autoPlay
+                    src={previewUrl}
+                    onLoadedMetadata={(event) => {
+                      if (mockPreviewUrl) {
+                        event.currentTarget.playbackRate = mockPlaybackRate;
+                      }
+                    }}
+                    onEnded={() => setPreviewVoiceId(null)}
+                  >
+                    当前浏览器不支持音频播放。
+                  </audio>
                 ) : null}
                 <FieldError
                   id="voice-select-error"
@@ -350,6 +445,9 @@ export function TeachingSettingsForm({
                 <FieldDescription>
                   建议数学推导使用 0.90× 至 1.10×。
                 </FieldDescription>
+                <FieldDescription>
+                  试听内容：“生活就像海洋，只有意志坚强的人才能到达彼岸。”
+                </FieldDescription>
               </Field>
             )}
           />
@@ -379,6 +477,53 @@ export function TeachingSettingsForm({
             control={form.control}
             captionsEnabled={values.captionsEnabled ?? true}
           />
+
+          <Field>
+            <FieldLabel htmlFor="slide-avatar-position">本页数字人站位</FieldLabel>
+            <Select
+              items={[
+                { value: "inherit", label: "沿用全局站位" },
+                { value: "left", label: "左侧" },
+                { value: "right", label: "右侧" },
+                { value: "hidden", label: "本页隐藏" },
+              ]}
+              name="slide-avatar-position"
+              value={currentSlideOverride ?? "inherit"}
+              onValueChange={(value) => {
+                const retained = (form.getValues("slideOverrides") ?? []).filter(
+                  (override) => override.slideId !== selectedSlideId,
+                );
+                form.setValue(
+                  "slideOverrides",
+                  value && value !== "inherit"
+                    ? [
+                        ...retained,
+                        {
+                          slideId: selectedSlideId,
+                          avatarPosition: value as "left" | "right" | "hidden",
+                        },
+                      ]
+                    : retained,
+                  { shouldDirty: true, shouldValidate: true },
+                );
+              }}
+            >
+              <SelectTrigger id="slide-avatar-position" className="w-full">
+                <SelectValue placeholder="选择本页站位" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="inherit">沿用全局站位</SelectItem>
+                  <SelectItem value="left">左侧</SelectItem>
+                  <SelectItem value="right">右侧</SelectItem>
+                  <SelectItem value="hidden">本页隐藏</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              当前页“{selectedSlideTitle}”可覆盖全局站位；内容拥挤时允许隐藏数字人。
+            </FieldDescription>
+          </Field>
 
           <div
             className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -416,4 +561,25 @@ export function TeachingSettingsForm({
       </form>
     </aside>
   );
+}
+
+function edgeVoiceFor(voiceId: string): string {
+  return {
+    "voice-qinghe": "zh-CN-XiaoxiaoNeural",
+    "voice-zhiyuan": "zh-CN-YunyangNeural",
+    "voice-mingxi": "zh-CN-XiaoyiNeural",
+  }[voiceId] ?? "zh-CN-XiaoxiaoNeural";
+}
+
+function edgeRateFor(speechRate: number): string {
+  const percentage = Math.round((speechRate - 1) * 100);
+  return `${percentage >= 0 ? "+" : ""}${percentage}%`;
+}
+
+function edgePitchFor(voiceId: string): string {
+  return {
+    "voice-qinghe": "+0Hz",
+    "voice-zhiyuan": "-2Hz",
+    "voice-mingxi": "+2Hz",
+  }[voiceId] ?? "+0Hz";
 }

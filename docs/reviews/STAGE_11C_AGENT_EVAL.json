@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "stage-11c-agent-eval-v1",
+  "promptVersion": "stage-tc-agent-prompt-v1",
+  "contractVersion": "stage-tc-agent-v1",
+  "modelName": "offline-fixture",
+  "sampleCount": 4,
+  "firstPassSchemaRate": { "numerator": 2, "denominator": 4, "percent": 50 },
+  "afterRepairSchemaRate": { "numerator": 3, "denominator": 4, "percent": 75 },
+  "repairLimit": 2,
+  "modulePassCounts": {
+    "content-understanding": 3,
+    "teaching-planning": 3,
+    "narration-generation": 3,
+    "formula-derivation": 3,
+    "visual-storyboard": 3,
+    "result-review": 3
+  },
+  "failures": [
+    {
+      "sampleId": "missing-slide",
+      "stage": "schema-or-module-review",
+      "reason": "slides:Array must contain at least 1 element(s)"
+    }
+  ]
+}

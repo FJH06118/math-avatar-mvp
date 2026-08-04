@@ -11,7 +11,10 @@ import {
   LessonPlanRevisionListResponseSchema,
   LessonPlanRevisionResponseSchema,
   PlanTaskResponseSchema,
+  ProjectResponseSchema,
   TracerUploadResponseSchema,
+  WorkspaceLockResponseSchema,
+  WorkspaceSnapshotResponseSchema,
   type AgentPlanOutput,
 } from "@ppt-digital-human/contracts";
 import { createApplication } from "./app.ts";
@@ -90,6 +93,12 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   });
   assert.equal(replay.status, 200);
   assert.equal(PlanTaskResponseSchema.parse(await replay.json()).data.id, planTask.id);
+  const projectWithPlan = await request(app, `/v1/projects/${upload.project.id}`);
+  assert.equal(projectWithPlan.status, 200);
+  assert.equal(
+    ProjectResponseSchema.parse(await projectWithPlan.json()).data.planTaskId,
+    planTask.id,
+  );
 
   assert.equal(await dispatchPendingOutbox(prisma), 1);
   assert.equal(await dispatchPendingOutbox(prisma), 0);
@@ -114,7 +123,17 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   assert.equal(await prisma.plannedScene.count(), 3);
   assert.equal(await prisma.asset.count({ where: { kind: { notIn: ["SOURCE_PPT", "SLIDE_RENDER"] } } }), 0);
 
+  const workspaceResponse = await request(app, `/v1/projects/${upload.project.id}/workspace`);
+  assert.equal(workspaceResponse.status, 200);
+  const workspace = WorkspaceSnapshotResponseSchema.parse(await workspaceResponse.json()).data;
+  assert.equal(workspace.slides.length, 3);
+  assert(workspace.slides.every((slide) => slide.parsed.originalPage.url.endsWith("/preview")));
+  assert(workspace.slides.every((slide) => slide.currentRevision));
+
   const original = revisions[0];
+  const unaffectedHashes = new Map(
+    revisions.slice(1).map((revision) => [revision.id, revision.outputHash]),
+  );
   const editPayload = {
     expectedRevision: original.revision,
     teachingGoal: `${original.teachingGoal}（人工修订）`,
@@ -124,6 +143,24 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
     preservationMode: original.preservationMode,
     estimatedDurationMs: original.estimatedDurationMs,
   };
+  const lockedResponse = await request(app, `/v1/revisions/${original.id}/lock`, {
+    method: "POST",
+    body: JSON.stringify({ expectedRevision: original.revision, locked: true }),
+    headers: { "content-type": "application/json" },
+  });
+  assert.equal(lockedResponse.status, 200);
+  assert.equal(WorkspaceLockResponseSchema.parse(await lockedResponse.json()).data.locked, true);
+  assert.equal((await request(app, `/v1/revisions/${original.id}/revise`, {
+    method: "POST",
+    body: JSON.stringify(editPayload),
+    headers: { "content-type": "application/json" },
+  })).status, 409);
+  const unlockedResponse = await request(app, `/v1/revisions/${original.id}/lock`, {
+    method: "POST",
+    body: JSON.stringify({ expectedRevision: original.revision, locked: false }),
+    headers: { "content-type": "application/json" },
+  });
+  assert.equal(unlockedResponse.status, 200);
   const revisedResponse = await request(app, `/v1/revisions/${original.id}/revise`, {
     method: "POST",
     body: JSON.stringify(editPayload),
@@ -133,6 +170,12 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   const revised = LessonPlanRevisionResponseSchema.parse(await revisedResponse.json()).data;
   assert.equal(revised.revision, 2);
   assert.equal(revised.createdBy, "user");
+  const unaffected = await prisma.lessonPlanRevision.findMany({
+    where: { id: { in: [...unaffectedHashes.keys()] } },
+  });
+  assert(
+    unaffected.every((revision) => unaffectedHashes.get(revision.id) === revision.outputHash),
+  );
   assert.equal((await request(app, `/v1/revisions/${original.id}/revise`, {
     method: "POST", body: JSON.stringify(editPayload), headers: { "content-type": "application/json" },
   })).status, 409);

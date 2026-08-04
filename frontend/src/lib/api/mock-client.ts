@@ -117,6 +117,9 @@ const seedSlides: ParsedSlide[] = [
     parseWarnings: [],
     isSkipped: false,
     revision: 1,
+    derivationSteps: [],
+    sceneCount: 1,
+    isLocked: false,
     updatedAt: minutesAgo(18),
   },
   {
@@ -147,6 +150,9 @@ const seedSlides: ParsedSlide[] = [
     parseWarnings: [],
     isSkipped: false,
     revision: 1,
+    derivationSteps: [],
+    sceneCount: 1,
+    isLocked: false,
     updatedAt: minutesAgo(18),
   },
   {
@@ -176,6 +182,9 @@ const seedSlides: ParsedSlide[] = [
     parseWarnings: [],
     isSkipped: false,
     revision: 1,
+    derivationSteps: [],
+    sceneCount: 1,
+    isLocked: false,
     updatedAt: minutesAgo(18),
   },
 ];
@@ -201,6 +210,9 @@ function createExtraSlide(slideNumber: number): ParsedSlide {
     parseWarnings: [],
     isSkipped: false,
     revision: 1,
+    derivationSteps: [],
+    sceneCount: 1,
+    isLocked: false,
     updatedAt: minutesAgo(18),
   };
 }
@@ -283,18 +295,21 @@ export const mockDb = {
       id: "avatar-lin",
       name: "林老师",
       description: "沉稳亲切，适合概念讲解",
+      imageUrl: "/images/avatars/avatar-lin.png",
       genderPresentation: "female",
     },
     {
       id: "avatar-zhou",
       name: "周老师",
       description: "清晰理性，适合推导与例题",
+      imageUrl: "/images/avatars/avatar-zhou.png",
       genderPresentation: "male",
     },
     {
       id: "avatar-yan",
       name: "严老师",
       description: "中性专业，适合正式课程",
+      imageUrl: "/images/avatars/avatar-yan.png",
       genderPresentation: "neutral",
     },
   ]),

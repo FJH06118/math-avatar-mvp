@@ -1,5 +1,6 @@
 export * from "./api";
 export * from "./agent";
+export * from "./agent-evaluation";
 export * from "./asset";
 export * from "./audio";
 export * from "./lesson-plan";
@@ -15,3 +16,4 @@ export * from "./scene";
 export * from "./slide";
 export * from "./task";
 export * from "./tracer";
+export * from "./workspace";

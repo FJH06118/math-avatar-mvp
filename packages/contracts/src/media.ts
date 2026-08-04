@@ -17,11 +17,12 @@ export const MediaValidationReportSchema = z.object({
   videoCodec: z.string(), audioCodec: z.string(), pixelFormat: z.string(), fps: RenderFpsSchema,
   width: z.literal(1920), height: z.literal(1080), durationMs: z.number().int().min(1),
   expectedDurationMs: z.number().int().min(1), fastStart: z.boolean(), fullDecode: z.boolean(),
-  nonSilent: z.boolean(), maxBlackDurationMs: z.number().int().min(0),
+  nonSilent: z.boolean(), meanVolumeDb: z.number(), peakVolumeDb: z.number(),
+  maxBlackDurationMs: z.number().int().min(0),
   pageCount: z.number().int().min(1), pageCoverage: z.array(z.number().int().min(1)).min(1),
   obstructionClear: z.boolean(), errors: z.array(z.string()),
 }).strict().superRefine((report, context) => {
-  if (report.status === "passed" && (report.errors.length || !report.fastStart || !report.fullDecode || !report.nonSilent || !report.obstructionClear)) {
+  if (report.status === "passed" && (report.errors.length || !report.fastStart || !report.fullDecode || !report.nonSilent || report.meanVolumeDb < -35 || report.meanVolumeDb > -8 || report.peakVolumeDb >= -0.05 || !report.obstructionClear)) {
     context.addIssue({ code: "custom", message: "通过的媒体报告不能包含失败硬门" });
   }
 });

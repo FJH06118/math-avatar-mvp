@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run projects.test.ts real-tracer.test.ts tracer-adapter.test.ts",
-    "test:components": "vitest run error-state.test.tsx workspace-actions.test.tsx"
+    "test:unit": "vitest run projects.test.ts real-tracer.test.ts tracer-adapter.test.ts jobs.test.ts voice-preview.test.ts",
+    "test:components": "vitest run error-state.test.tsx workspace-actions.test.tsx slide-content-tabs.test.tsx teaching-settings-form.test.tsx generation-flow.test.tsx result-page.test.tsx project-list.test.tsx upload-flow.test.tsx parsing-flow.test.tsx"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

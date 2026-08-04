@@ -6,7 +6,7 @@
 
 ## 总览
 
-当前保留 Mock/CLI 两条原型链路，并新增阶段 T-A 的真实产品入口：
+当前保留 Mock/CLI 两条原型链路，并已完成阶段 T 的真实产品纵切；阶段 3 进一步接入项目管理：
 
 ```text
 浏览器
@@ -26,6 +26,7 @@ PowerShell / 终端
   └─ Next.js /api/t Route Handlers
        └─ 固定本地 principal + 内部令牌 + 公共 Zod
             └─ Hono 私有 application service
+                 ├─ Project 列表/复制/归档/删除与版本冲突
                  ├─ PPTX MIME/大小/ZIP 结构/哈希复核
                  ├─ PLAN/AUDIO task、Revision 修订与显式批准
                  ├─ Prisma 产品事务 + outbox
@@ -39,18 +40,20 @@ PowerShell / 终端
                            └─ Sharp/FFmpeg → PAGE_FRAME/PAGE_VIDEO + RenderedPage
 ```
 
-T-A 已有真实 Route Handler、私有 HTTP 服务和产品 PostgreSQL 写入；T-B 已实现产品 PARSE dispatcher/Worker。现有页面仍默认使用 Mock，独立 Worker 进程必须启动后才会消费上传任务。
+T-A～T-G 已有真实 Route Handler、私有 HTTP、产品 PostgreSQL、PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE Worker 与受控交付。现有页面仍默认使用 Mock；显式 `stage-t` 模式下阶段 3 项目列表已读取真实项目生命周期，独立 Worker 进程仍必须启动后才会消费重任务。
 
 阶段 T0 的独立 POC 表继续保留。T-A 在同一可丢弃开发数据库中通过向前 migration 新增产品表；产品代码使用独立的 `PPT_DH_DATABASE_URL` 配置，不导入 T0 store。
 
 ## 前端
+
+阶段 6 在显式 `stage-t` adapter 下增加 workspace snapshot：浏览器只读取同源 BFF 原页 URL、当前逐页 revision、批准与锁定状态。讲稿修改写入新的不可变 revision；页面锁定写入 `LessonPlan.isLocked` 并使用乐观 revision。无初始讲稿时，页面创建/恢复持久 PLAN task 并轮询服务端状态，不用浏览器计时器伪造规划完成。
 
 - 位置：`frontend/`
 - 框架：Next.js 16 App Router、React 19、TypeScript。
 - UI：Tailwind CSS 4、Base UI/shadcn 风格组件、Motion。
 - 数据与表单：TanStack Query、React Hook Form、Zod。
 - 路由：项目首页、上传、项目审核、解析进度、生成进度和结果页。
-- 数据源：页面默认仍是 `frontend/src/lib/api/mock-client.ts`；`real-tracer.ts` 已提供真实上传/任务查询 adapter，留待后续 T 子阶段按 feature flag 接入页面。
+- 数据源：页面默认仍是 `frontend/src/lib/api/mock-client.ts`；`real-tracer.ts` 已提供完整阶段 T adapter。阶段 3 的项目列表按 `stage-t` flag 使用真实列表/复制/归档/删除，其余页面继续按阶段 4～9 增量接线。
 - 上传：Mock 只检查扩展名和 100 MB 上限，不读取或上传文件字节。
 - 任务模拟：`frontend/src/lib/api/shared.ts` 与 Mock client 使用
   `setTimeout`/当前时间推导进度；刷新后数据丢失。
@@ -84,11 +87,13 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 
 | 能力 | 当前实现 |
 | --- | --- |
-| 数据库 | T-A 已持久化最小产品 Project、Asset、Presentation、GenerationTask 和 outbox；页面默认 Mock 与 CLI job JSON 仍并存。 |
+| 数据库 | 已持久化 Project、Asset、Presentation、Slide、Revision、GenerationTask/Step/Attempt、媒体与验证记录；阶段 3 增加 Project `ARCHIVED` 生命周期。页面默认 Mock 与 CLI job JSON 仍并存。 |
 | 任务队列 | 产品 PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE Worker 已接入，支持 heartbeat、接管、取消、句/页级重试和不可变 attempt；T-G 受控交付只读取验证终态，不新增第二套队列。 |
 | 文件存储 | 本地适配器保存源 PPTX、原页 PNG、逐句 MP3、SRT、PAGE_FRAME 和 PAGE_VIDEO，数据库只保存内部 storage key。 |
-| 对象存储/CDN | 没有。 |
+| 对象存储/CDN | 没有；阶段 T/3 使用项目范围内的本地资产 adapter。 |
 | 公共资源授权 | T-A 上传/任务响应经过 scope 和公开投影，不含内部路径；CLI 调试 JSON 仍可能包含绝对路径。 |
+
+阶段 11A 增加只面向本地资产适配器的对账边界：数据库 `Asset` 是已登记资产事实来源，对账器复核存在性、大小和 SHA-256，并报告未登记文件。默认 dry-run；只有显式启用、文件位于规范化的 `assetRoot/projects` 内且超过宽限期时才删除孤儿普通文件，符号链接永不跟随。该能力不把磁盘路径暴露给浏览器，也不替代阶段 11F 的媒体质量门禁。
 
 PostgreSQL/Prisma 与 PARSE/PLAN/AUDIO lease Worker 已接入产品任务。对象存储和后续视频/媒体 Worker 仍未实现；Redis/BullMQ 不属于当前方案。
 
@@ -113,6 +118,26 @@ PostgreSQL/Prisma 与 PARSE/PLAN/AUDIO lease Worker 已接入产品任务。对�
 
 T-G 的 `DeliveryRepository` 从任务、MediaOutput、ValidationRecord 与 Asset 关系重新授权。Hono 提供清单、元数据与受控二进制内容，支持 Range/ETag 并在读取时复核哈希；Next BFF 隐藏 internal token、principal、私有服务地址和 storage key。阶段 T 使用本地文件 adapter，未来对象存储实现不能改变公共 Delivery Contract。
 
+阶段 7 把教学设置持久化到 Project 聚合并用 version 做乐观并发。试听不是浏览器计时器：BFF 创建单句持久 AUDIO task，Worker 复用既有 TTS 校验，完成后通过按 principal 授权且复核哈希的同源音频端点播放。逐页 hidden 设置冻结进 PAGE_RENDER payload；Worker 根据该快照决定是否合成数字人，避免任务运行时读取可变设置。
+
+阶段 8 的生成页是持久任务协调客户端，不是队列：它轮询 Task 公共投影，并只在服务端成功终态后调用下一阶段已有的幂等创建端点。当前任务与依赖 task ID 保存在 URL，使刷新/重挂载恢复同一任务；Worker、outbox、lease、重试 attempt 与最终状态仍完全由后端拥有。
+
+阶段 9 结果页以最终 VALIDATE taskId 聚合 FinalMedia、DeliveryManifest 与 Task 公共投影。播放器和下载只使用同源 BFF URL；下载前可重新获取 manifest，但该读取路径不创建任何 generation task。当前本地 HTTP adapter 的 URL 不设到期时间，未来对象存储可在不改变 manifest 语义的前提下换成短期签名地址。
+
+阶段 10 为浏览器字幕增加最终 task 范围内的只读 WebVTT 投影：服务端重新授权已验证 captions asset、复核 SRT 完整性并转换时间分隔符，BFF 不暴露源路径。SRT 仍作为交付文件，VTT 仅作为播放器可访问性视图；两者不创建或修改生成任务。
+
+阶段 11B 让旧 `.ppt` 先以原始 OLE 源资产进入持久 PARSE 任务，再由 Worker 在 attempt 隔离目录中使用 LibreOffice 转换为 `source.pptx`；转换结果不覆盖原始上传，且继续经过同一严格 PPTX Contract、连续页码和 1920×1080 原页检查。图片公式 OCR 已延期，图片只触发人工核对警告并完整保留在原页中。
+
+阶段 11C 保留单一 Provider 调用，不引入多 Agent 或第二运行时。Provider 输出通过 strict Contract 后依次经过内容理解、教学规划、讲稿、推导、分镜和结果审核六个纯确定性模块；JSON 修复只处理包装噪声且最多两次，不新增或猜测业务字段。版本化离线评测始终记录真实分子/分母。
+
+阶段 11D 的生产音频候选必须通过解码、时长、16–48kHz 采样率、非静音和无削波风险检查。Worker 可按冻结 inputHash 复用同项目既有 AudioSegment，但必须先复核资产大小与 SHA-256；复用只省略 Provider 调用，新任务仍保留自己的 segment、cue、timeline 和 attempt 审计。
+
+阶段 11E 对 PAGE_RENDER 使用相同的冻结输入缓存边界：source/audio/overlay/avatar/FPS/renderer version 任一变化都会改变 page inputHash；命中时仍复核 frame/video 完整性，新任务保留独立 RenderedPage 与 attempt。attempt 目录只允许首次创建，避免旧帧污染。25/30 FPS 均可显式请求，未确认容量前默认冻结为 25 FPS。
+
+阶段 11F 把最终候选 MP4 与逐页覆盖基准帧的实际落盘大小和 SHA-256 复核置于媒体分析之前。最终报告除既有编码、完整解码、Fast Start、页面覆盖、黑帧与遮挡策略外，还记录平均响度和峰值；只有所有硬门通过，Task、MediaOutput、Asset、Validation 与 Step 才原子收口到一致成功终态。项目包范围未确认时，交付边界保持版本化元数据、讲稿/场景引用和资产清单，不推断为完整离线工程。
+
+默认 Mock 模式的音色试听使用三份版本化真实 MP3，不在浏览器或 Route Handler 中调用 TTS；动态路由只校验音色与语速并重定向到对应静态资产，播放器在客户端应用冻结的授课倍速。真实模式仍通过 BFF 创建持久 AUDIO 试听任务，由 Worker 按相同 voice/rate/pitch 映射合成和验证，浏览器不直接调用 Edge TTS。
+
 ## 模块边界
 
 - 浏览器代码只在 `frontend/`，没有直接导入 `backend/`。
@@ -121,7 +146,7 @@ T-G 的 `DeliveryRepository` 从任务、MediaOutput、ValidationRecord 与 Asse
 - `packages/contracts/` 已存在，统一 Mock、真实 adapter、BFF 和 Hono 服务的 T-A 结构；Python 内部模型和 Node CLI JSON 尚未迁移，因此跨语言边界仍可能漂移。
 - 根 `package.json` 只负责编排 frontend/backend workspace 命令，不是业务实现层。
 
-“浏览器 → 薄 BFF → 私有后端应用服务 → PARSE/PLAN Worker → Revision 修订/批准”已实现；页面仍默认 Mock，音频和媒体链路尚未实现。
+“浏览器 → 薄 BFF → 私有后端应用服务 → 持久 Worker → Revision/批准 → 音频/分页渲染 → 合成/验证 → 受控交付”已实现真实三页纵切；页面仍默认 Mock，阶段 3 已接项目管理，其余逐屏接线属于阶段 4～9。
 
 ## 尚未采用的候选技术
 

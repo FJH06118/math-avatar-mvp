@@ -42,7 +42,12 @@ export function validatePptxStructure(bytes: Uint8Array): void {
     }
     const flags = view.getUint16(offset + 8, true);
     if ((flags & 0x1) !== 0) {
-      throw invalidPptx("不支持加密的 PPTX。");
+      throw new AppHttpError(
+        422,
+        "ENCRYPTED_PPTX",
+        "课件已加密，请在 PowerPoint 中取消密码保护后重试。",
+        false,
+      );
     }
     expandedBytes += view.getUint32(offset + 24, true);
     if (expandedBytes > MAX_EXPANDED_BYTES) {
@@ -62,6 +67,18 @@ export function validatePptxStructure(bytes: Uint8Array): void {
 
   if (!names.has("[Content_Types].xml") || !names.has("ppt/presentation.xml")) {
     throw invalidPptx("ZIP 包缺少 PPTX 必需结构。");
+  }
+}
+
+export function validateLegacyPptStructure(bytes: Uint8Array): void {
+  const oleHeader = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  const validHeader = bytes.byteLength >= 512 && oleHeader.every((value, index) => bytes[index] === value);
+  if (!validHeader) {
+    throw new AppHttpError(422, "INVALID_PPT_STRUCTURE", "旧版 PPT 文件结构无效或已损坏。", false);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint16(0x1c, true) !== 0xfffe || view.getUint16(0x1e, true) !== 9) {
+    throw new AppHttpError(422, "INVALID_PPT_STRUCTURE", "旧版 PPT 的复合文档头无效。", false);
   }
 }
 

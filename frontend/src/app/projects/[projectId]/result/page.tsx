@@ -8,9 +8,11 @@ export const metadata: Metadata = {
 
 export default async function VideoResultPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ jobId?: string }>;
 }) {
-  const { projectId } = await params;
-  return <ResultPage projectId={projectId} />;
+  const [{ projectId }, { jobId }] = await Promise.all([params, searchParams]);
+  return <ResultPage projectId={projectId} taskId={jobId} />;
 }

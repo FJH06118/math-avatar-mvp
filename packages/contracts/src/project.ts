@@ -7,6 +7,7 @@ import {
   ProjectIdSchema,
   StableIdSchema,
 } from "./primitives";
+import { createApiSuccessSchema } from "./api";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -16,6 +17,7 @@ export const ProjectStatusSchema = z.enum([
   "rendering",
   "completed",
   "failed",
+  "archived",
 ]);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
@@ -35,6 +37,24 @@ export const TeachingSettingsSchema = z
     captionStyle: CaptionStyleSchema,
     avatarPosition: AvatarPositionSchema,
     background: BackgroundStyleSchema,
+    slideOverrides: z
+      .array(
+        z
+          .object({
+            slideId: StableIdSchema,
+            avatarPosition: z.enum(["left", "right", "hidden"]),
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
+  })
+  .strict();
+
+export const TeachingSettingsUpdateInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+    settings: TeachingSettingsSchema,
   })
   .strict();
 
@@ -49,6 +69,7 @@ export const ProjectSchema = z
     updatedAt: IsoDateTimeSchema,
     uploadedFileId: StableIdSchema.optional(),
     parsingJobId: StableIdSchema.optional(),
+    planTaskId: StableIdSchema.optional(),
     renderJobId: StableIdSchema.optional(),
     settings: TeachingSettingsSchema,
     version: z.number().int().min(1),
@@ -118,6 +139,35 @@ export const UpdateProjectInputSchema = z
   })
   .strict();
 
+export const ProjectListQuerySchema = z
+  .object({
+    search: z.string().trim().max(200).default(""),
+    status: ProjectStatusSchema.optional(),
+    includeArchived: z.boolean().default(false),
+  })
+  .strict();
+
+export const ProjectCopyInputSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    idempotencyKey: StableIdSchema,
+  })
+  .strict();
+
+export const ProjectVersionInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
+
+export const ProjectResponseSchema = createApiSuccessSchema(ProjectSchema);
+export const ProjectListResponseSchema = createApiSuccessSchema(
+  ProjectSchema.array(),
+);
+export const TeachingSettingsResponseSchema = createApiSuccessSchema(
+  TeachingSettingsSchema,
+);
+
 export const UpdateSlideScriptInputSchema = z
   .object({
     teachingScript: z.string().min(1).max(20_000),
@@ -126,6 +176,9 @@ export const UpdateSlideScriptInputSchema = z
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
 export type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;
+export type ProjectListQuery = z.infer<typeof ProjectListQuerySchema>;
+export type ProjectCopyInput = z.infer<typeof ProjectCopyInputSchema>;
+export type ProjectVersionInput = z.infer<typeof ProjectVersionInputSchema>;
 export type UpdateSlideScriptInput = z.infer<
   typeof UpdateSlideScriptInputSchema
 >;

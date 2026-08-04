@@ -166,10 +166,13 @@ export const JobSchema = z
     status: JobStatusSchema,
     progress: ProgressSchema,
     currentStageId: StableIdSchema,
+    currentSlideId: SlideIdSchema.optional(),
     stages: z.array(JobStageSchema).min(1).max(20),
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
     error: z.string().max(2_000).optional(),
+    errorCode: z.string().min(1).max(100).optional(),
+    retryable: z.boolean().optional(),
   })
   .strict();
 

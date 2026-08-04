@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { z } from "zod";
 import type { Pool } from "pg";
@@ -56,7 +57,20 @@ export async function runClaimedAudioStep(
       .finally(() => { heartbeatRunning = false; });
   }, Math.max(50, Math.floor(dependencies.leaseMs / 3)));
   try {
-    const result = await dependencies.adapter.run({
+    const cached = await dependencies.prisma.audioSegment.findFirst({
+      where: { projectId: task.projectId, inputHash: segment.inputHash, asset: { lifecycle: "AVAILABLE" } },
+      include: { asset: true },
+      orderBy: { createdAt: "desc" },
+    });
+    let result;
+    if (cached) {
+      const bytes = await readFile(dependencies.assets.resolveForRead(cached.asset.storageKey));
+      const actualSha = createHash("sha256").update(bytes).digest("hex");
+      if (bytes.byteLength !== cached.asset.fileSize || actualSha !== cached.asset.sha256) {
+        throw new WorkerError("AUDIO_CACHE_INVALID", "缓存音频完整性检查失败。", false);
+      }
+      result = { bytes, durationMs: cached.durationMs };
+    } else result = await dependencies.adapter.run({
       text: segment.spokenText,
       voice: payload.data.voice,
       rate: payload.data.rate,

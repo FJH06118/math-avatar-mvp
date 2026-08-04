@@ -1,14 +1,45 @@
 # 项目状态
 
-> 更新时间：2026-08-03。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+> 更新时间：2026-08-05。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+
+### 2026-08-05 三位数字人教师与即时预览
+
+- 实机首次加载发现预览设置回调形成父子组件无限更新；已按内容键去重，等值设置不再回写，并增加带父组件 state 的回归用例。此前完整门禁不能替代这条实机证据，状态文档已据此纠正。
+- 新增林老师、严老师两份同画风透明数字人素材，并复用原有蓝色西装素材作为周老师；Mock Avatar 数据补齐项目内 `imageUrl`。
+- 教师选择器现在可见头像；有效表单值会即时驱动 PPT 页面预览的教师形象与左/右/隐藏站位，无需等待 700ms 自动保存完成。
+- 组件回归覆盖林老师到严老师的预览替换和父组件 state 回写；修复后完整串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 9/9、component 15/15、Next production build、路由 6/6 与服务回收。内置浏览器控制仍受既有宿主初始化故障阻塞，未把桌面/移动端实点与截图记作通过。
+- 本轮没有生成开口/闭口双帧或改变正式渲染 adapter；最终视频仍是原单套口型素材，避免把静态预览素材误报为完整数字人驱动能力。
+
+### 2026-08-05 `127.0.0.1` 开发页面交互恢复
+
+- 此前把上传失效完全归因于非交互 `<span>` 的判断不完整：选择按钮虽然已改为真实控件，但上传、拖拽和首页“查看最近项目”共同失效的主因是 Next.js 开发资源跨来源保护。
+- `frontend/next.config.ts` 现按本地 Next.js 16 官方指南允许 `127.0.0.1` 访问开发资源。服务以新配置重启后，`/upload` 返回 200，日志不再报告 `Blocked cross-origin request`。
+- 上传边界不会移动或删除用户源文件；桌面只读检查确认 `C:\Users\Fangjunhao\Desktop\test.pptx` 仍存在。若用户指的是其他文件，需要按准确文件名继续只读定位。
+- 内置浏览器控制仍受宿主 `process` 属性初始化故障阻塞，未把真实点击记为通过。
+- 完整串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 9/9、component 13/13、Next production build、路由 6/6 与服务回收。
+
+### 2026-08-05 上传文件按钮恢复
+
+- 上传页“选择文件”由按钮外观的非交互 `<span>` 改为真实按钮，直接调用 react-dropzone `open()` 并停止重复冒泡；拖拽区域行为不变。
+- component 13/13 通过，新增“原生文件选择只触发一次”回归；运行中的 `/upload` 已返回包含真实按钮的新页面。
+- 完整串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 9/9、component 13/13、Next production build、路由 6/6 与服务回收。
+
+### 2026-08-05 三音色真实试听与语速联动
+
+- 默认网页的统一蜂鸣 Mock 已替换为三份版本化真实中文 MP3：清和/Xiaoxiao、致远/Yunyang、明晰/Xiaoyi，文案统一为“生活就像海洋，只有意志坚强的人才能到达彼岸。”
+- Mock 在点击试听时冻结当前 `speechRate` 并设置音频 `playbackRate`；真实模式把同一值转换为 Edge rate 进入持久 Worker。试听与最终生成共享 voice/pitch 映射。
+- 三份文件经 ffprobe/FFmpeg 验证为可解码 24kHz 单声道 MP3，时长、响度、峰值均有效且哈希互异。Python `edge-tts` 7.2.8 只临时安装到系统临时目录用于生成样本，没有写入项目或系统 Python 依赖。
+- 专项通过：前端 unit 9/9、component 12/12、Stage 11D 5 pass；原有外部 Edge opt-in 用例仍按设计跳过。
+- 完整串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 9/9、component 12/12、Next production build、路由 6/6 与服务回收。
 
 ## 当前基线
 
 - 分支：`main`。
 - 目录重组、依赖调整、后端原型和详细资料已经按拆分方案提交；提交历史以 `git log --oneline` 为准。
-- 本地 `main` 当前相对 `origin/main` ahead 14，尚未执行 push；T-A 已按四个提交收口，T-B/T-C 变更仍在工作树中。
+- 本地 `main` 当前相对 `origin/main` ahead 15，尚未执行 push；阶段 T 已在提交 `181a41a` 收口。当前工作树只包含阶段 3 实现与文档更新，未 commit/push。
+- 阶段 3～11 的实现和文档均位于当前未提交工作树；阶段 11F 专项 4/4 与最终完整串行门禁均已通过。未经用户要求未 commit/push。
 - 当前仓库包含 `frontend/`、`backend/`、`packages/contracts/` 和 `docs/` 四个主要工作区；根目录保留工作区级脚本和配置。
-- 前端仍是浏览器内存中的 Mock API 应用；后端是独立运行的本地 CLI 视频管线，两者尚未通过真实 API 接通。
+- 页面默认仍使用浏览器内存 Mock；显式 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 已具备 BFF/Hono/PostgreSQL/Worker/受控交付真实纵切。阶段 3 已把首页项目列表和项目生命周期接入同一真实 adapter。
 - `frontend/.next/`、`frontend/out/`、`backend/work/`、缓存和 Python 字节码均由 `.gitignore` 排除，未纳入提交。
 
 ## 已完成功能
@@ -26,7 +57,7 @@
 - Windows PowerPoint COM 或 LibreOffice 原页图片生成。
 - OpenAI 兼容模型规划与确定性规则回退。
 - 人工审核/批准门禁及 Python 契约、解析单元测试。
-- Edge TTS、SRT 字幕、Sharp 帧合成、固定头像叠加、FFmpeg H.264/AAC 视频生成和基础媒体验证。
+- Edge TTS、SRT 字幕、Sharp 分页渲染、逐页数字人设置、FFmpeg H.264/AAC 视频合成和完整媒体硬门。
 - `backend/README.md`、`backend/Dockerfile` 和 `.env.example` 已提供本地运行参考；Docker Desktop 已安装但 engine 不可用，容器构建仍未验证。
 
 ### 文档与工程基线
@@ -91,7 +122,7 @@
 - 新增 strict 合成/最终媒体 Contract、第九个向前 migration、`MediaOutput` 与不可变 `MediaValidationRecord`。
 - COMPOSITE 成功只登记候选视频并转入独立 VALIDATE step；验证完成前任务保持非终态，硬门失败会拒绝候选并使任务失败。
 - 真实 FFmpeg 合成固定为 1920×1080、25/30 FPS、H.264/AAC、`yuv420p`、Fast Start，并烧录全局 SRT。
-- 媒体硬门覆盖完整解码、编码/像素/FPS/尺寸、时长、非静音、黑帧、3/3 页面图像覆盖及右侧数字人面板不遮挡原页/字幕安全区。
+- 媒体硬门覆盖完整解码、编码/像素/FPS/尺寸、时长、平均响度、峰值、非静音、黑帧、3/3 页面图像覆盖及右侧数字人面板不遮挡原页/字幕安全区；验证前复核候选视频和基准帧的大小与 SHA-256。
 - 专项验证 2/2；全量后端 integration 为 17 通过、1 个外部 Edge 用例按设计跳过；T0 7/7 验证九个 migration。
 
 ### 阶段 T-G 受控交付与纵向验收
@@ -102,9 +133,37 @@
 - 三页 E2E 1/1：HTTP 上传真实 PPTX fixture，依次完成 Python 解析、本地严格 Agent、显式批准、有效音频、真实分页渲染、最终合成、媒体硬门及 MP4/SRT/元数据下载。
 - 全量 backend integration 为 18 通过、1 个需显式外发的 Edge 用例跳过，共 19 个；Contract 19/19；T0 7/7。
 
+### 阶段 3 项目管理
+
+- Project Contract 新增归档状态、列表查询、复制幂等与乐观版本输入；产品 migration 向前增加 `ARCHIVED`。
+- Hono/BFF/真实 adapter 已覆盖项目列表、读取、复制、归档和删除；复制重新校验源资产并创建独立项目/PARSE task，归档和删除拒绝活动任务及陈旧版本。
+- 首页保留原视觉结构，新增搜索、状态筛选、复制、归档、删除、无匹配、错误重试和操作反馈；默认 Mock 与显式真实 adapter 使用同一 API 函数边界。
+- 专项检查：Contract 22/22、frontend unit 5/5、`test:components -- projects` 6/6、真实 PostgreSQL project integration 2/2。
+- 完整根门禁：typecheck、0-warning lint、Python 13/13 + Contract 22/22 + unit 5/5 + component 4/4、Next production build、`routes:check` 6/6 与服务回收全部通过。浏览器插件因本机运行时兼容错误未能连接，桌面/移动视觉实机检查未执行。
+
+### 阶段 4 真实上传流程
+
+- Upload Contract 扩展到严格 `.pptx`/`.ppt` 扩展名与 MIME 组合；Hono 复核大小并保留 100 MiB、ZIP 条目/展开体积和幂等门。
+- 损坏 PPTX、加密 PPTX、MIME 伪装分别返回稳定错误；旧 `.ppt` 检查 OLE 头后返回 `PPT_CONVERSION_UNAVAILABLE`，不创建伪解析任务。
+- 显式 `stage-t` 上传页直接消费真实 Project/Task 收据，取消 abort 请求并保留选择；同次失败重试复用幂等键。默认 Mock 上传不变。
+- 专项检查：Contract 23/23、`test:components -- upload` 6/6、真实 PostgreSQL upload integration 6/6。
+- 完整根门禁：typecheck、0-warning lint、Python 13/13 + Contract 23/23 + unit 5/5 + component 6/6、Next production build、`routes:check` 6/6 与服务回收全部通过。
+
 ## 正在进行
 
-- 阶段 1A、阶段 1B、阶段 2、阶段 T0 与阶段 T 的 T-A～T-G 均已完成；阶段 T 专项与最终五项根门禁全部通过。
+- 阶段 11E 已增加分页渲染缓存完整性复核，验证单页站位修改只重渲染该页、attempt 不复用旧目录；25/30 FPS 三页基准均通过并保守冻结默认 25 FPS。专项 4/4，完整门禁待执行。
+- 阶段 11D 完整 typecheck/lint/test/build/routes 门禁已通过。
+- 阶段 11D 已增加音频采样率、静音和削波硬门，并以输入哈希+资产完整性复核实现跨任务缓存；专项 5 pass，外部 Edge 联网探针 1 skip（opt-in）。完整门禁待执行。
+- 阶段 11C 完整 typecheck/lint/test/build/routes 门禁已通过。
+- 阶段 11C 已在单 Agent Provider 后增加六模块确定性审核与最多两次受限 JSON 包装修复；离线 `eval:agent` 2/2，首次 Schema 2/4、修复后 3/4，失败样本未被吞掉；T-C integration 2/2 通过。完整门禁待执行。
+- 阶段 11B 完整 typecheck/lint/test/build/routes 门禁已通过。
+- 阶段 11B 已实现 `.ppt` 持久上传与 Worker 内 LibreOffice 转换；1/10/50/100 页合成覆盖、真实 `.ppt` 全链和私有 14 页导数金样专项 3/3 通过。P-11 OCR 延期通过图片页人工核对警告落实，未伪装为识别成功；完整门禁待执行。
+- 阶段 11A 已补齐产品恢复专项与本地资产对账器：outbox 并发重放保持单 step，过期 lease 生成不可变 attempt 并由同一业务 task 恢复，内容寻址资产无重复；对账默认 dry-run，删除必须显式启用且受 `assetRoot/projects`、宽限期和不跟随符号链接约束。专项 T0 7/7、产品恢复/T-B 8/8，以及完整 typecheck/lint/test/build/routes 门禁均已通过。
+- 用户于 2026-08-04 批准 P-11 图片公式 OCR 从 Web MVP 延期；阶段 11B STOP 已解除。图片公式继续完整保留在原页并标记人工核对，不计入结构化公式成功率。现有 LibreOffice `soffice.com` 已安装但不在 PATH，可用于受控 `.ppt` 转换 POC，无需安装系统软件。
+- 阶段 10 已完成产品 UI 静态审查与修复：最终视频增加受控 SRT→WebVTT 字幕轨、App Router 路由错误恢复、解析/生成等高 skeleton；审查报告为 0 blocker、0 sprint、0 backlog、2 个浏览器证据 unknown。完整门禁通过：typecheck、0-warning lint、Python 13/13、Contract 28/28、unit 7/7、component 12/12、production build、`routes:check` 6/6。
+- 当前进入阶段 11A，只处理恢复语义和孤儿资产对账；11A 门禁失败不得进入 11B。
+
+- 阶段 1A、阶段 1B、阶段 2、阶段 T0、阶段 T 的 T-A～T-G、阶段 3 与阶段 4 均已完成；当前进入阶段 5。
 - 用户于 2026-08-02 批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 作为等价本地方案；Redis/BullMQ 不再属于 T0 方案。PostgreSQL 18.4 已安装为本机服务，最小 POC 代码和运行证据存在，但它不是产品数据库、HTTP 服务或真实 Worker 实现。
 - 实际 Windows 用户 PATH 已配置现有 Python 3.10.11；新开的普通终端应使用标准 `python` 命令，项目脚本不依赖 Codex 私有解释器路径。
 - Vitest、React Testing Library、一个 API adapter 测试、错误重试组件测试、关键生成确认交互测试、共享 Contract 测试和 `routes:check` 已加入；阶段 1A 与阶段 2 的完整门禁均已通过。
@@ -112,25 +171,20 @@
 
 ## 未完成任务
 
-1. 阶段 T 最终五项门禁通过后停止，等待用户决定提交拆分及是否进入阶段 3；不自动继续。
-2. 在内部 feature flag 下把真实 adapter 接入上传/解析页面；正式认证与团队权限仍不属于阶段 T。
-3. 持久化项目、任务和版本，引入可取消、可重试、幂等且可恢复的任务执行。
-4. 在 T0 POC 通过后按已批准架构接入数据库和 PostgreSQL lease worker；对象存储仍未选择，这些能力目前均未实现。
-5. 完善 PPT/PPTX 安全校验、隔离执行、上传策略及图片公式 OCR 范围。
-6. 补齐多页源页面覆盖、遮挡、黑帧、静音、时长、哈希、编码和最终状态一致性等硬门禁。
-7. 增加集成和端到端测试；当前仍只覆盖 Mock API、共享 Contract 和最小前端 unit/component 测试。
-8. 验证生产 LLM/TTS 供应商、正式交付规格和真实端到端媒体样本。
+1. 完成阶段 11F 最终串行门禁并保留结果；任何失败都停止收口。
+2. 后续单独确认生产 LLM/TTS、对象存储、部署区域、最大视频时长和完整离线项目包范围。
+3. 图片公式 OCR 已获准从 Web MVP 延期；恢复前需确认数据集、准确率、隐私和供应商/本地方案。
 
 ## 已知问题
 
 - 默认前端项目、任务和进度仍存于浏览器内存，刷新即丢失；T-A 真实 adapter/BFF 已存在但尚未设为页面默认。
 - 前端结果页的 `videoUrl` 为空且 `assetsAvailable=false`，没有后端生成的真实视频资源。
-- 后端主链仍保留本地 V0.1 CLI；产品侧已有上传、数据库/outbox、PARSE/PLAN/AUDIO Worker 和批准边界，但没有对象存储、视频或下载闭环。
+- 后端主链仍保留本地 V0.1 CLI；产品侧已有上传、数据库/outbox、PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE Worker 和受控本地 HTTP 下载闭环，但尚无对象存储和生产部署。
 - 多页场景当前可能只处理 `sourceSlides[0]`；原页渲染失败时的文本回退、`sourceSlideCoverage` 更新和最终结果状态仍有已知缺口。
 - 后端产物 JSON 可能包含服务端绝对路径；同一 job 目录重跑可能受到陈旧帧或临时文件影响。
 - T-F 产品路径已把页面覆盖、遮挡、黑帧、静音、编码、完整解码与 Fast Start 设为硬门；旧 Python/Node CLI 的基础验证器仍保留原有不足，不能作为产品交付证据。
 - DeepSeek V4 Flash 已完成本机 Provider 预检；Edge TTS 开发适配器已用公开占位句验证，正式 TTS 供应商/SLA 与完整 Agent 工具调用兼容性尚未确认。
-- 当前没有 OCR、真实集成或端到端测试；阶段 1A 的前端 unit/component 测试、阶段 2 Contract 测试与 `routes:check` 已建立。
+- 图片公式 OCR 已获准延期；产品路径已有 PostgreSQL integration、真实 FFmpeg 三页端到端、Contract 和前端 unit/component 测试。
 - 详细历史问题和实施风险见 `docs/ARCHITECTURE_DECISIONS.md`、`docs/IMPLEMENTATION_PLAN.md` 与 `backend/README.md`。
 
 ## 当前阻塞项
@@ -141,7 +195,14 @@
 - P-01 高等数学优先、P-02 内部单用户范围与 DeepSeek V4 Flash Provider 预检均已确认；私有 14 页课件已经离线解析并手工导出原页 PNG，右下角默认数字人位置已确认。自动原页 PNG 已用合成三页 fixture 验证；实质遮挡的提醒逻辑仍须在阶段 T 验证。
 - 初始接管所用 Codex 宿主终端未刷新用户 PATH：`python` 命令不可用；重开 PowerShell 后已恢复标准 `python` 调用并通过全部门禁。
 - 三页 HTTP 上传到受控下载闭环已通过；完整 E2E 使用本地严格 Agent 与本地有效音频，真实 DeepSeek、私有课件切片和公开占位句 Edge TTS 保留为独立授权证据。正式 TTS SLA、完整页面接线、对象存储签名及生产部署仍未完成。
-- 数据库/任务方向已按 ADR-011 接入产品；T-A～T-D 已实现 API/outbox/PARSE/PLAN/AUDIO Worker。对象存储、视频/媒体 Worker 和正式供应商选择仍未实现。
+- 数据库/任务方向已按 ADR-011 接入产品；T-A～T-G 已实现 API/outbox、全链 Worker 和本地受控媒体交付。对象存储、生产部署和正式供应商选择仍未实现。
+
+### 2026-08-04 阶段 11F 最终媒体硬化
+
+- strict 媒体报告新增平均响度与峰值；通过门槛为平均响度 `-35～-8 dB`、峰值 `< -0.05 dB`，与非静音门分开报告。
+- VALIDATE 在分析前复核最终候选和逐页基准帧的大小与 SHA-256；候选被篡改时稳定拒绝并写入一致失败终态。
+- 专项 4/4 通过，覆盖真实三页全部硬门、显式硬门失败、候选篡改和 HTTP 交付哈希闭环。P-07 未确认时项目包只承诺版本化元数据与资产清单，不承诺完整离线复现工程。
+- 最终串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 7/7、component 12/12、Next production build、路由 6/6 与服务回收。
 - 当前稳定 Next 版本没有同时修复其内嵌 PostCSS 与 Sharp 高危项的兼容补丁；canary 不作为阶段 1B 方案。该残余风险已由用户明确接受，未来升级 Next 或进入生产化前必须重新审查。
 
 ## 最近检查
@@ -233,6 +294,59 @@
 - `npm.cmd run test`：阻塞；`python` 未被当前进程解析，尚未进入后端、unit 或 component 测试。
 - `py -3`：未发现已注册的 Python；直接路径检查确认 `D:\Python310\python.exe` 为 Python 3.10.11。
 - 因测试门禁阻塞，按规则未继续运行本轮的 `npm.cmd run build` 和 `npm.cmd run routes:check`。
+
+## 最新阶段记录
+
+### 2026-08-04 阶段 10 产品审查
+
+- `ui-audit` 静态审查修复了真实视频无浏览器字幕轨、普通路由无 error boundary、解析/生成加载布局跳变三个问题。
+- 新增受控 WebVTT endpoint、可聚焦恢复的 `error.tsx` 和任务工作流 skeleton；复审为 0 blocker/0 sprint/0 backlog、2 个浏览器证据 unknown。
+- 专项通过：component 12/12、T-G E2E 1/1、typecheck、0-warning lint。浏览器插件仍因宿主兼容错误不可用，未把视觉/键盘/CWV 记为通过；完整根门禁正在串行执行。
+
+### 2026-08-04 阶段 9 真实结果与受控下载
+
+- 结果页以最终 taskId 读取 FinalMedia、DeliveryManifest 和 Task，真实 MP4 可在同源 BFF 播放，MP4/SRT/元数据均可受控下载。
+- 展示最终媒体硬门报告；SRT 保持下载交付，不错误标注为浏览器 WebVTT 字幕轨。
+- 每次下载重新读取授权 manifest；真实 E2E 证明刷新 manifest 不新增任务，Range/ETag/哈希和跨 principal 404 均保持有效。
+- 专项通过：component 12/12、T-G E2E 1/1；lint 首次因测试 image mock 的 2 个 warning 停止，修正后完整门禁重跑通过：typecheck、0-warning lint、Python 13/13、Contract 28/28、unit 7/7、component 12/12、production build、routes 6/6。
+
+### 2026-08-04 阶段 8 持久生成任务页面
+
+- 真实生成 UI 依次消费 AUDIO、PAGE_RENDER、COMPOSITE/VALIDATE 持久任务；仅在前一任务服务端成功后通过既有幂等边界创建下一任务。
+- URL 持久记录当前及上游任务 ID，重挂载恢复轮询而不重复创建；排队/运行态可取消，失败阶段可按服务端错误分类重启。
+- GET task 投影当前 RUNNING step 的稳定 slideId；UI 显示真实完成/总量、当前页、错误和冻结上游任务。
+- 专项通过：unit 7/7、component 11/11、T-D integration 3/3、三页完整 T-G E2E 1/1；完整门禁通过：typecheck、0-warning lint、Python 13/13、Contract 28/28、unit 7/7、component 11/11、production build、routes 6/6。
+
+### 2026-08-04 阶段 7 数字人与声音配置
+
+- 新增 Project settings JSON 向前 migration、严格设置 Contract、Hono/BFF/真实 adapter，并以项目 version 防止陈旧设置覆盖。
+- 新增持久单句 voice-preview AUDIO task 与受控 `audio/mpeg` 读取；生产路径复用 Edge TTS 的解码、时长和非静音校验，Mock 路径使用可解码 HTTP MP3 fixture。
+- 工作台保存语速、字幕和逐页数字人候选站位；hidden 进入冻结渲染快照并在真实 Sharp/FFmpeg 页面渲染中省略数字人。
+- 专项通过：Contract 28/28、component 10/10、T-D integration 3/3、T-E integration 2/2；完整门禁通过：typecheck、0-warning lint、Python 13/13、Contract 28/28、unit 6/6、component 10/10、production build、routes 6/6。外部 Edge 联网探针按设计 opt-in，本轮跳过。
+
+### 2026-08-04 阶段 6 门禁前状态
+
+- workspace snapshot、原页默认预览、revision 编辑/批准、乐观冲突、页面锁定和 PLAN task 恢复已接入真实 Hono/BFF/PostgreSQL 边界。
+- 新增 `LessonPlan.isLocked` migration；锁定页不能修订，陈旧 revision/lock 请求返回 409。
+- 单页修改生成该页的新不可变 revision；真实集成测试确认未修改页面 output hash 保持不变。
+- 无 revision 项目必须显式创建/恢复 PLAN task，服务端成功前不能以占位讲稿进入生成。
+- 专项结果：Contract 27/27、component 9/9、真实 PLAN/revision/workspace integration 2/2；typecheck 与 0-warning lint 通过。完整根门禁待执行。
+- 完整根门禁已通过：typecheck、0-warning lint、Python 13/13、Contract 27/27、unit 6/6、component 9/9、production build、routes 6/6 与服务回收。
+
+### 2026-08-04 阶段 6 暂停点
+
+- 阶段 5 已完成完整五项根门禁。
+- 阶段 6 已创建 workspace snapshot/lock Contract、`LessonPlan.isLocked` 向前 migration、Hono/BFF/真实 adapter 接线，并开始把工作台改为原页默认预览和真实 revision 编辑。
+- migration 已应用且 Prisma Client 已生成。
+- 阶段 6 当前不完整：typecheck 因 4 个 Mock slide fixture 缺少 `derivationSteps`、`sceneCount`、`isLocked` 而失败；后续专项测试和完整门禁未运行。
+- 按用户要求在此保存并停止；不得进入阶段 7，也不得把阶段 6 标记为完成。
+
+### 2026-08-04 阶段 5 真实解析页接线
+
+- 新增解析快照与原页预览公共边界，稳定页 ID、连续页码、真实页数、原页资产、公式数量、解析置信度与警告均可从 PostgreSQL/Hono/BFF 回读。
+- 原页预览按 principal 隔离并在读取时校验大小/SHA-256；缺失原页硬阻断，不生成或展示文本重建替代页。
+- 前端真实模式只使用服务端工作单元计算进度，并展示持久化原页核对列表；完成后不再自动跳转，失败/取消不伪造本地重试。
+- 专项检查已通过：Contract 25/25、frontend unit 6/6、component 7/7、真实 parse integration 6/6（含 PNG 字节、跨 principal 404、漏页硬失败）。完整阶段门禁正在串行执行。
 
 ## 下一步建议
 

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { uploadTracerPresentation } from "./real-tracer";
+import {
+  copyRealProject,
+  listRealProjects,
+  uploadTracerPresentation,
+} from "./real-tracer";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -83,5 +87,55 @@ describe("real tracer API adapter", () => {
     expect(receipt.created).toBe(true);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][0]).toBe("/api/t/projects");
+  });
+
+  it("validates project list and copy responses", async () => {
+    const project = {
+      id: "project-stage-3",
+      title: "导数项目",
+      status: "ready",
+      fileName: "中文导数.pptx",
+      slideCount: 3,
+      createdAt: "2026-08-04T00:00:00.000Z",
+      updatedAt: "2026-08-04T01:00:00.000Z",
+      uploadedFileId: "asset-stage-3",
+      settings: {
+        avatarId: "avatar-lin",
+        voiceId: "voice-qinghe",
+        speechRate: 1,
+        captionsEnabled: true,
+        captionStyle: "clear",
+        avatarPosition: "right",
+        background: "light",
+      },
+      version: 1,
+    };
+    const meta = {
+      requestId: "request-stage-3",
+      inputVersion: "v1",
+      outputVersion: "v1",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: [project], meta }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: { ...project, id: "project-stage-3-copy" }, meta }),
+          { status: 201 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await listRealProjects({ search: "导数" })).toHaveLength(1);
+    expect(
+      (
+        await copyRealProject("project-stage-3", {
+          idempotencyKey: "copy-stage-3",
+        })
+      ).id,
+    ).toBe("project-stage-3-copy");
+    expect(fetchMock.mock.calls[0][0]).toContain("search=%E5%AF%BC%E6%95%B0");
   });
 });

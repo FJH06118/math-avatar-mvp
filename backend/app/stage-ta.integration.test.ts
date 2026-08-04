@@ -151,3 +151,81 @@ test("invalid ZIP content is rejected before persistence", async () => {
   assert.equal(ApiErrorSchema.parse(await response.json()).error.code, "INVALID_PPTX_STRUCTURE");
   assert.equal(await prisma.project.count(), 0);
 });
+
+test("truncated legacy PPT is rejected before persistence", async () => {
+  const form = new FormData();
+  form.set("title", "旧版导数课件");
+  form.set(
+    "file",
+    new File(
+      [new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0])],
+      "旧版导数课件.ppt",
+      { type: "application/vnd.ms-powerpoint" },
+    ),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-stage-4-legacy"),
+    body: form,
+  });
+  assert.equal(response.status, 422);
+  const body = ApiErrorSchema.parse(await response.json());
+  assert.equal(body.error.code, "INVALID_PPT_STRUCTURE");
+  assert.equal(await prisma.project.count(), 0);
+});
+
+test("extension and MIME mismatch is rejected before persistence", async () => {
+  const form = uploadForm();
+  const file = form.get("file");
+  assert(file instanceof File);
+  form.set(
+    "file",
+    new File([await file.arrayBuffer()], file.name, {
+      type: "application/vnd.ms-powerpoint",
+    }),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-stage-4-spoof"),
+    body: form,
+  });
+  assert.equal(response.status, 400);
+  assert.equal(ApiErrorSchema.parse(await response.json()).error.code, "INVALID_REQUEST");
+  assert.equal(await prisma.project.count(), 0);
+});
+
+test("encrypted PPTX returns a distinct actionable error", async () => {
+  const encrypted = Uint8Array.from(fixture);
+  let centralOffset = -1;
+  for (let index = 0; index < encrypted.byteLength - 4; index += 1) {
+    if (
+      encrypted[index] === 0x50 &&
+      encrypted[index + 1] === 0x4b &&
+      encrypted[index + 2] === 0x01 &&
+      encrypted[index + 3] === 0x02
+    ) {
+      centralOffset = index;
+      break;
+    }
+  }
+  assert(centralOffset >= 0);
+  encrypted[centralOffset + 8] |= 0x01;
+  const form = new FormData();
+  form.set("title", "加密课件");
+  form.set(
+    "file",
+    new File([encrypted], "加密课件.pptx", {
+      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-stage-4-encrypted"),
+    body: form,
+  });
+  assert.equal(response.status, 422);
+  const body = ApiErrorSchema.parse(await response.json());
+  assert.equal(body.error.code, "ENCRYPTED_PPTX");
+  assert.match(body.error.message, /取消密码保护/);
+  assert.equal(await prisma.project.count(), 0);
+});

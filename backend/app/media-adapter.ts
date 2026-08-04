@@ -87,8 +87,13 @@ export class FfmpegMediaValidationAdapter implements MediaValidationAdapter {
     catch { fullDecode = false; errors.push("FULL_DECODE_FAILED"); }
     const volume = await run(FFMPEG!, ["-v", "info", "-i", input.videoPath, "-af", "volumedetect", "-f", "null", process.platform === "win32" ? "NUL" : "/dev/null"], input.signal);
     const volumeMatch = /mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i.exec(volume.stderr);
-    const nonSilent = Boolean(volumeMatch && Number(volumeMatch[1]) >= -65);
+    const peakMatch = /max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i.exec(volume.stderr);
+    const meanVolumeDb = volumeMatch ? Number(volumeMatch[1]) : -120;
+    const peakVolumeDb = peakMatch ? Number(peakMatch[1]) : 0;
+    const nonSilent = meanVolumeDb >= -65;
     if (!nonSilent) errors.push("AUDIO_SILENT");
+    if (meanVolumeDb < -35 || meanVolumeDb > -8) errors.push("AUDIO_LOUDNESS_OUT_OF_RANGE");
+    if (peakVolumeDb >= -0.05) errors.push("AUDIO_CLIPPED");
     const black = await run(FFMPEG!, ["-v", "info", "-i", input.videoPath, "-vf", "blackdetect=d=0.25:pix_th=0.02", "-an", "-f", "null", process.platform === "win32" ? "NUL" : "/dev/null"], input.signal);
     const blackDurations = [...black.stderr.matchAll(/black_duration:([0-9.]+)/g)].map((match) => Number(match[1]) * 1_000);
     const maxBlackDurationMs = Math.round(Math.max(0, ...blackDurations));
@@ -101,7 +106,7 @@ export class FfmpegMediaValidationAdapter implements MediaValidationAdapter {
     return MediaValidationReportSchema.parse({
       status: errors.length ? "failed" : "passed", videoCodec: String(video?.codec_name ?? ""), audioCodec: String(audio?.codec_name ?? ""),
       pixelFormat: String(video?.pix_fmt ?? ""), fps: input.fps, width: 1920, height: 1080, durationMs,
-      expectedDurationMs: input.expectedDurationMs, fastStart, fullDecode, nonSilent, maxBlackDurationMs,
+      expectedDurationMs: input.expectedDurationMs, fastStart, fullDecode, nonSilent, meanVolumeDb, peakVolumeDb, maxBlackDurationMs,
       pageCount: input.expectedPageCount, pageCoverage, obstructionClear, errors,
     });
   }

@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+import { createApiSuccessSchema } from "./api";
+import {
+  AssetIdSchema,
+  ProjectIdSchema,
+  SlideIdSchema,
+  StableIdSchema,
+} from "./primitives";
+import { TaskSchema } from "./task";
+import { FormulaSchema } from "./slide";
+
 const ParsedTextBlockSchema = z
   .object({
     text: z.string().max(50_000),
@@ -31,6 +41,7 @@ export const ParseAdapterSlideSchema = z
     extractedText: z.string().max(200_000),
     notes: z.string().max(100_000),
     formulas: z.array(ParsedFormulaCandidateSchema).max(500),
+    warnings: z.array(z.string().min(1).max(1_000)).max(100).default([]),
     thumbnail: z.string().regex(/^slides\/slide-\d{3}\.png$/),
   })
   .strict();
@@ -76,3 +87,55 @@ export const ParseAdapterDeckSchema = z
 
 export type ParseAdapterDeck = z.infer<typeof ParseAdapterDeckSchema>;
 export type ParseAdapterSlide = z.infer<typeof ParseAdapterSlideSchema>;
+
+export const ParsedSlideSummarySchema = z
+  .object({
+    id: SlideIdSchema,
+    projectId: ProjectIdSchema,
+    presentationId: StableIdSchema,
+    slideNumber: z.number().int().min(1).max(100),
+    title: z.string().min(1).max(500),
+    slideType: z.string().min(1).max(100),
+    extractedText: z.string().max(200_000),
+    formulaCount: z.number().int().min(0).max(500),
+    formulas: z.array(FormulaSchema).max(500),
+    parseConfidence: z.number().min(0).max(1),
+    parseWarnings: z.array(z.string().min(1).max(1_000)).max(100),
+    originalPage: z
+      .object({
+        assetId: AssetIdSchema,
+        url: z.string().regex(/^\/api\/t\/assets\/[A-Za-z0-9_-]+\/preview$/),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const ParseSnapshotSchema = z
+  .object({
+    task: TaskSchema,
+    slides: z.array(ParsedSlideSummarySchema).max(100),
+  })
+  .strict()
+  .superRefine((snapshot, context) => {
+    snapshot.slides.forEach((slide, index) => {
+      if (slide.slideNumber !== index + 1) {
+        context.addIssue({
+          code: "custom",
+          path: ["slides", index, "slideNumber"],
+          message: "公开解析页面必须按连续页码排序",
+        });
+      }
+      if (slide.projectId !== snapshot.task.projectId) {
+        context.addIssue({
+          code: "custom",
+          path: ["slides", index, "projectId"],
+          message: "解析页面必须属于任务项目",
+        });
+      }
+    });
+  });
+
+export const ParseSnapshotResponseSchema = createApiSuccessSchema(ParseSnapshotSchema);
+
+export type ParsedSlideSummary = z.infer<typeof ParsedSlideSummarySchema>;
+export type ParseSnapshot = z.infer<typeof ParseSnapshotSchema>;

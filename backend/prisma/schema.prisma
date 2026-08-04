@@ -95,6 +95,7 @@ enum ProjectLifecycle {
   PARSING
   READY
   FAILED
+  ARCHIVED
 }
 
 enum PresentationParseLifecycle {
@@ -134,6 +135,7 @@ model Project {
   title         String
   status        ProjectLifecycle @default(DRAFT)
   version       Int              @default(1)
+  settings      Json             @default("{}")
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   assets        Asset[]
@@ -225,6 +227,7 @@ model LessonPlan {
   presentationId  String
   slideId         String       @unique
   currentRevision Int          @default(0)
+  isLocked        Boolean      @default(false)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)

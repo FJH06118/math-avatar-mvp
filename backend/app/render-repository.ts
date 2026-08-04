@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   LessonPlanRevisionSchema,
   RenderedPageListResponseSchema,
+  TeachingSettingsSchema,
   type RenderTaskCreateRequest,
 } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
@@ -20,6 +21,7 @@ export interface RenderRequestedPayload {
     sourceSha256: string;
     audio: Array<{ assetId: string; sha256: string; durationMs: number }>;
     overlay?: unknown;
+    avatarPlacement: "right-panel" | "hidden";
     inputHash: string;
   }>;
 }
@@ -31,6 +33,7 @@ export class RenderRepository {
     const presentation = await this.prisma.presentation.findFirst({
       where: { id: input.presentationId, projectId, project: { principal } },
       include: {
+        project: true,
         slides: {
           orderBy: { slideNumber: "asc" },
           include: {
@@ -41,6 +44,8 @@ export class RenderRepository {
       },
     });
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
+    const parsedSettings = TeachingSettingsSchema.safeParse(presentation.project.settings);
+    const slideOverrides = parsedSettings.success ? parsedSettings.data.slideOverrides : undefined;
     const audioTask = await this.prisma.generationTask.findFirst({
       where: { id: input.audioTaskId, principal, projectId, presentationId: presentation.id, kind: "AUDIO", status: "SUCCEEDED" },
       include: { audioSegments: { orderBy: [{ slideOrder: "asc" }, { segmentOrder: "asc" }] }, audioTimeline: true },
@@ -75,6 +80,9 @@ export class RenderRepository {
         sourceSha256: slide.renderAsset!.sha256,
         audio: audio.map((segment) => ({ assetId: segment.assetId, sha256: segment.sha256, durationMs: segment.durationMs })),
         overlay,
+        avatarPlacement: slideOverrides?.find((item) => item.slideId === slide.id)?.avatarPosition === "hidden"
+          ? "hidden" as const
+          : "right-panel" as const,
       };
       return { ...snapshot, inputHash: stableHash({ ...snapshot, fps: input.fps, rendererVersion: "stage-te-sharp-ffmpeg-v1" }) };
     });

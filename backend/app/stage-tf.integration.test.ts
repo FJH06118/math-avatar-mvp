@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, beforeEach, test } from "node:test";
@@ -46,7 +46,13 @@ test("COMPOSITE stays non-terminal until all media hard gates pass", async () =>
   assert.equal(media.validation.videoCodec, "h264"); assert.equal(media.validation.audioCodec, "aac");
   assert.equal(media.validation.pixelFormat, "yuv420p"); assert.equal(media.validation.fastStart, true);
   assert.equal(media.validation.fullDecode, true); assert.equal(media.validation.nonSilent, true);
+  assert(media.validation.meanVolumeDb >= -35 && media.validation.meanVolumeDb <= -8);
+  assert(media.validation.peakVolumeDb < -0.05);
   assert.equal(media.validation.obstructionClear, true); assert.equal(media.validation.errors.length, 0);
+  const terminal = await prisma.generationTask.findUniqueOrThrow({ where: { id: task.id }, include: { steps: true, mediaOutput: { include: { videoAsset: true, validation: true } } } });
+  assert.equal(terminal.status, "SUCCEEDED"); assert.equal(terminal.mediaOutput?.status, "VALIDATED");
+  assert.equal(terminal.mediaOutput?.videoAsset.lifecycle, "AVAILABLE"); assert.equal(terminal.mediaOutput?.validation?.status, "passed");
+  assert.equal(terminal.steps.find((step) => step.stage === "VALIDATE")?.status, "SUCCEEDED");
 });
 
 test("a failed hard gate rejects the candidate and fails the task", async () => {
@@ -62,9 +68,23 @@ test("a failed hard gate rejects the candidate and fails the task", async () => 
   assert.equal((await request(app, `/v1/tasks/${task.id}/delivery`)).status, 404);
 });
 
+test("validation rejects a candidate whose persisted bytes no longer match its asset record", async () => {
+  const seeded = await seedRenderedPages(); const app = createApplication({ prisma, assetRoot, internalToken });
+  const task = await createComposite(app, seeded, "stage-tf-integrity-key"); await dispatchPendingOutbox(prisma);
+  const compositeClaim = await claimNextProductStep(pool, "tf-composite-integrity", 30_000, 3, "COMPOSITE"); assert(compositeClaim);
+  await runClaimedCompositeStep({ prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: new FfmpegCompositeAdapter(), attemptRoot, leaseMs: 30_000 }, compositeClaim, "tf-composite-integrity");
+  const output = await prisma.mediaOutput.findUniqueOrThrow({ where: { taskId: task.id }, include: { videoAsset: true } });
+  const store = new LocalAssetStore(assetRoot); await writeFile(store.resolveForRead(output.videoAsset.storageKey), Buffer.from("corrupted"));
+  const validateClaim = await claimNextProductStep(pool, "tf-validate-integrity", 30_000, 3, "VALIDATE"); assert(validateClaim);
+  assert.equal(await runClaimedValidationStep({ prisma, pool, assets: store, adapter: new FfmpegMediaValidationAdapter(), attemptRoot, leaseMs: 30_000 }, validateClaim, "tf-validate-integrity"), "FAILED");
+  const failed = await prisma.generationTask.findUniqueOrThrow({ where: { id: task.id }, include: { mediaOutput: { include: { videoAsset: true } } } });
+  assert.equal(failed.errorCode, "MEDIA_ASSET_INTEGRITY_FAILED"); assert.equal(failed.mediaOutput?.status, "REJECTED");
+  assert.equal(failed.mediaOutput?.videoAsset.lifecycle, "INVALID");
+});
+
 class RejectingValidator implements MediaValidationAdapter {
   async run(input: Parameters<MediaValidationAdapter["run"]>[0]): Promise<MediaValidationReport> {
-    return { status: "failed", videoCodec: "h264", audioCodec: "aac", pixelFormat: "yuv420p", fps: input.fps, width: 1920, height: 1080, durationMs: input.expectedDurationMs, expectedDurationMs: input.expectedDurationMs, fastStart: false, fullDecode: true, nonSilent: true, maxBlackDurationMs: 0, pageCount: input.expectedPageCount, pageCoverage: [1, 2, 3], obstructionClear: true, errors: ["FAST_START_MISSING"] };
+    return { status: "failed", videoCodec: "h264", audioCodec: "aac", pixelFormat: "yuv420p", fps: input.fps, width: 1920, height: 1080, durationMs: input.expectedDurationMs, expectedDurationMs: input.expectedDurationMs, fastStart: false, fullDecode: true, nonSilent: true, meanVolumeDb: -21, peakVolumeDb: -18, maxBlackDurationMs: 0, pageCount: input.expectedPageCount, pageCoverage: [1, 2, 3], obstructionClear: true, errors: ["FAST_START_MISSING"] };
   }
 }
 
@@ -97,7 +117,7 @@ async function seedRenderedPages() {
     await prisma.lessonPlan.create({ data: { id: lessonPlanId, projectId, presentationId, slideId, currentRevision: 1 } });
     const revision: LessonPlanRevision = LessonPlanRevisionSchema.parse({ id: revisionId, lessonPlanId, slideId, revision: 1, teachingGoal: "fixture", narration: [{ id: `narration_tf_${index}`, displayText: `第${index}页`, spokenText: `第${index}页` }], derivation: [], scenes: [{ id: `scene_tf_${index}`, sourceSlides: [slideId], baseSlide: { sourceAssetId: `asset_source_page_tf_${index}`, preservationMode: "FULL_PRESERVE", fit: "contain", mustShowFullSlide: true, fullSlideDurationMs: 1650, fullRedesignAuthorizedByUser: false }, durationMs: 1650, isSkipped: false }], sourceSlideCoverage: [slideId], preservationMode: "FULL_PRESERVE", estimatedDurationMs: 1650, modelProvider: "fixture", modelName: "fixture", promptVersion: "fixture", schemaVersion: "stage-tc-agent-v1", inputHash: "input", outputHash: `output-${index}`, createdBy: "agent", createdAt: new Date().toISOString(), approval: { status: "approved", approvedBy: principal, approvedAt: new Date().toISOString() } });
     await prisma.lessonPlanRevision.create({ data: { id: revisionId, lessonPlanId, slideId, revision: 1, payload: revision as unknown as Prisma.InputJsonValue, inputHash: revision.inputHash, outputHash: revision.outputHash, modelProvider: revision.modelProvider, modelName: revision.modelName, promptVersion: revision.promptVersion, schemaVersion: revision.schemaVersion, createdBy: revision.createdBy, approvalStatus: "approved", approvedBy: principal, approvedAt: new Date() } });
-    const rendered = await new SharpFfmpegPageRenderAdapter().run({ sourcePath: store.resolveForRead(sourceKey), audioPaths: [store.resolveForRead(toneKey)], durationMs: 1650, fps: 25, pageOrder: index, pageCount: 3, attemptDir: join(attemptRoot, `seed-page-${index}-${Date.now()}`), signal: new AbortController().signal });
+    const rendered = await new SharpFfmpegPageRenderAdapter().run({ sourcePath: store.resolveForRead(sourceKey), audioPaths: [store.resolveForRead(toneKey)], durationMs: 1650, fps: 25, pageOrder: index, pageCount: 3, avatarPlacement: "right-panel", attemptDir: join(attemptRoot, `seed-page-${index}-${Date.now()}`), signal: new AbortController().signal });
     const frameSha = createHash("sha256").update(rendered.frameBytes).digest("hex"), videoSha = createHash("sha256").update(rendered.videoBytes).digest("hex");
     const frameKey = await store.putPageFrame(projectId, frameSha, rendered.frameBytes), videoKey = await store.putPageVideo(projectId, videoSha, rendered.videoBytes);
     await prisma.asset.create({ data: { id: `asset_frame_tf_${index}`, projectId, taskId: renderTaskId, kind: "PAGE_FRAME", storageKey: frameKey, sha256: frameSha, mimeType: "image/png", fileSize: rendered.frameBytes.byteLength } });

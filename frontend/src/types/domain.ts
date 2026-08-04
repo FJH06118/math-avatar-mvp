@@ -12,6 +12,8 @@ export type {
   JobType,
   ParsedSlide,
   Project,
+  ProjectCopyInput,
+  ProjectListQuery,
   ProjectStatus,
   RenderResult,
   TeachingSettings,

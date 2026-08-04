@@ -15,8 +15,13 @@ export class LocalAssetStore {
     this.resolvedRoot = resolve(root);
   }
 
-  async putSource(projectId: string, sha256: string, bytes: Uint8Array): Promise<StoredCandidate> {
-    const storageKey = `projects/${projectId}/source-${sha256}.pptx`;
+  async putSource(
+    projectId: string,
+    sha256: string,
+    bytes: Uint8Array,
+    extension: "ppt" | "pptx" = "pptx",
+  ): Promise<StoredCandidate> {
+    const storageKey = `projects/${projectId}/source-${sha256}.${extension}`;
     const target = this.resolveKey(storageKey);
     const temporary = `${target}.${randomUUID()}.tmp`;
     await mkdir(dirname(target), { recursive: true });
@@ -83,6 +88,11 @@ export class LocalAssetStore {
 
   resolveForRead(storageKey: string): string {
     return this.resolveKey(storageKey);
+  }
+
+  async removeProject(projectId: string): Promise<void> {
+    const target = this.resolveKey(`projects/${projectId}`);
+    await rm(target, { recursive: true, force: true });
   }
 
   private resolveKey(storageKey: string): string {

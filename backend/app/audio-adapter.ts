@@ -25,6 +25,9 @@ export interface AudioAdapterInput {
 export interface AudioAdapterResult {
   bytes: Uint8Array;
   durationMs: number;
+  sampleRateHz?: number;
+  meanDb?: number;
+  peakDb?: number;
 }
 
 export interface AudioAdapter {
@@ -54,12 +57,8 @@ export class EdgeTtsAudioAdapter implements AudioAdapter {
       if ((await stat(outputPath)).size <= 2_000) {
         throw new WorkerError("AUDIO_EMPTY", "音频文件为空或过小。", true);
       }
-      const durationMs = await probeDuration(outputPath);
-      if (!Number.isInteger(durationMs) || durationMs < 200) {
-        throw new WorkerError("AUDIO_UNDECODABLE", "音频无法解码或时长无效。", true);
-      }
-      await assertAudible(outputPath);
-      return { bytes: await readFile(outputPath), durationMs };
+      const quality = await inspectAudioFile(outputPath);
+      return { bytes: await readFile(outputPath), ...quality };
     } catch (error) {
       if (error instanceof WorkerError) throw error;
       throw new WorkerError("AUDIO_OUTPUT_INVALID", "音频产物无法读取或校验。", true);
@@ -69,8 +68,18 @@ export class EdgeTtsAudioAdapter implements AudioAdapter {
   }
 }
 
-function probeDuration(path: string): Promise<number> {
-  const child = spawn(FFPROBE!, ["-v", "error", "-show_entries", "stream=codec_type,codec_name:format=duration", "-of", "json", path], {
+export async function inspectAudioFile(path: string): Promise<{ durationMs: number; sampleRateHz: number; meanDb: number; peakDb: number }> {
+  const probe = await probeAudio(path);
+  if (!Number.isInteger(probe.durationMs) || probe.durationMs < 200) throw new WorkerError("AUDIO_UNDECODABLE", "音频无法解码或时长无效。", true);
+  if (probe.sampleRateHz < 16_000 || probe.sampleRateHz > 48_000) throw new WorkerError("AUDIO_SAMPLE_RATE_INVALID", "音频采样率必须在 16kHz 到 48kHz 之间。", false);
+  const volume = await detectVolume(path);
+  if (volume.meanDb < -65) throw new WorkerError("AUDIO_SILENT", "音频内容为静音。", true);
+  if (volume.peakDb >= -0.05) throw new WorkerError("AUDIO_CLIPPED", "音频存在削波风险。", true);
+  return { ...probe, ...volume };
+}
+
+function probeAudio(path: string): Promise<{ durationMs: number; sampleRateHz: number }> {
+  const child = spawn(FFPROBE!, ["-v", "error", "-show_entries", "stream=codec_type,codec_name,sample_rate:format=duration", "-of", "json", path], {
     stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
   });
   return new Promise((resolve, reject) => {
@@ -79,17 +88,18 @@ function probeDuration(path: string): Promise<number> {
     child.once("error", reject);
     child.once("exit", (code) => {
       try {
-        const output = JSON.parse(stdout) as { streams?: Array<{ codec_type?: string; codec_name?: string }>; format?: { duration?: string } };
+        const output = JSON.parse(stdout) as { streams?: Array<{ codec_type?: string; codec_name?: string; sample_rate?: string }>; format?: { duration?: string } };
         const seconds = Number(output.format?.duration);
-        const audio = output.streams?.some((stream) => stream.codec_type === "audio" && Boolean(stream.codec_name));
-        if (code !== 0 || !audio || !Number.isFinite(seconds)) reject(new Error("ffprobe failed"));
-        else resolve(Math.round(seconds * 1_000));
+        const audio = output.streams?.find((stream) => stream.codec_type === "audio" && Boolean(stream.codec_name));
+        const sampleRateHz = Number(audio?.sample_rate);
+        if (code !== 0 || !audio || !Number.isFinite(seconds) || !Number.isInteger(sampleRateHz)) reject(new Error("ffprobe failed"));
+        else resolve({ durationMs: Math.round(seconds * 1_000), sampleRateHz });
       } catch { reject(new Error("ffprobe output invalid")); }
     });
   });
 }
 
-function assertAudible(path: string): Promise<void> {
+function detectVolume(path: string): Promise<{ meanDb: number; peakDb: number }> {
   const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
   const child = spawn(FFMPEG!, ["-v", "info", "-i", path, "-af", "volumedetect", "-f", "null", nullDevice], {
     stdio: ["ignore", "ignore", "pipe"], windowsHide: true,
@@ -99,9 +109,10 @@ function assertAudible(path: string): Promise<void> {
     child.stderr.on("data", (chunk) => { if (stderr.length < MAX_OUTPUT) stderr += String(chunk); });
     child.once("error", reject);
     child.once("exit", (code) => {
-      const match = /mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i.exec(stderr);
-      if (code !== 0 || !match || Number(match[1]) < -65) reject(new Error("audio is silent"));
-      else resolve();
+      const mean = /mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i.exec(stderr);
+      const peak = /max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i.exec(stderr);
+      if (code !== 0 || !mean || !peak) reject(new Error("volume detection failed"));
+      else resolve({ meanDb: Number(mean[1]), peakDb: Number(peak[1]) });
     });
   });
 }
