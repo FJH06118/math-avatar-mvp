@@ -11,6 +11,7 @@ import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface AudioRequestedPayload {
+  timingCaptureVersion: "edge-word-boundary-v1";
   voice: string;
   rate: string;
   pitch: string;
@@ -57,9 +58,10 @@ export class AudioRepository {
       segmentOrder: 0,
       displayText: spokenText,
       spokenText,
-      inputHash: stableHash({ revisionId: revision.id, narrationId, spokenText, voice: input.voice, rate: input.rate, pitch: input.pitch }),
+      inputHash: stableHash({ revisionId: revision.id, narrationId, spokenText, voice: input.voice, rate: input.rate, pitch: input.pitch, timingCaptureVersion: "edge-word-boundary-v1" }),
     };
     const payload: AudioRequestedPayload = {
+      timingCaptureVersion: "edge-word-boundary-v1",
       voice: input.voice,
       rate: input.rate,
       pitch: input.pitch,
@@ -88,7 +90,7 @@ export class AudioRepository {
             kind: "AUDIO",
             idempotencyKey: input.idempotencyKey,
             inputHash,
-            configHash: stableHash({ preview: true, voice: input.voice, rate: input.rate, pitch: input.pitch }),
+            configHash: stableHash({ preview: true, voice: input.voice, rate: input.rate, pitch: input.pitch, timingCaptureVersion: payload.timingCaptureVersion }),
             status: "QUEUED",
             stage: "AUDIO",
             progressTotal: 1,
@@ -157,6 +159,7 @@ export class AudioRepository {
           voice: input.voice,
           rate: input.rate,
           pitch: input.pitch,
+          timingCaptureVersion: "edge-word-boundary-v1",
         }),
       })),
     );
@@ -164,6 +167,7 @@ export class AudioRepository {
       throw new AppHttpError(409, "NARRATION_EMPTY", "已批准讲稿不包含可合成的逐句文本。", false);
     }
     const payload: AudioRequestedPayload = {
+      timingCaptureVersion: "edge-word-boundary-v1",
       voice: input.voice,
       rate: input.rate,
       pitch: input.pitch,
@@ -192,7 +196,7 @@ export class AudioRepository {
             kind: "AUDIO",
             idempotencyKey: input.idempotencyKey,
             inputHash,
-            configHash: createHash("sha256").update(`${input.voice}:${input.rate}:${input.pitch}`).digest("hex"),
+            configHash: createHash("sha256").update(`${input.voice}:${input.rate}:${input.pitch}:${payload.timingCaptureVersion}`).digest("hex"),
             status: "QUEUED",
             stage: "AUDIO",
             progressTotal: segments.length,

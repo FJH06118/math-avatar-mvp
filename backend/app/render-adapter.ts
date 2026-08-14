@@ -12,10 +12,13 @@ const ffmpegValue = require("@ffmpeg-installer/ffmpeg") as string | { path?: str
 const ffprobeValue = require("ffprobe-static") as string | { path?: string };
 const FFMPEG = typeof ffmpegValue === "string" ? ffmpegValue : ffmpegValue.path;
 const FFPROBE = typeof ffprobeValue === "string" ? ffprobeValue : ffprobeValue.path;
-const AVATAR = fileURLToPath(new URL("../assets/avatar/teacher-closed.png", import.meta.url));
+const AVATAR_CLOSED = fileURLToPath(new URL("../assets/avatar/teacher-closed.png", import.meta.url));
+const AVATAR_OPEN = fileURLToPath(new URL("../assets/avatar/teacher-open.png", import.meta.url));
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const SLIDE = { left: 34, top: 104, width: 1500, height: 844 } as const;
+const CLOSED_MS = 120;
+const OPEN_MS = 100;
 
 export interface PageRenderAdapterInput {
   sourcePath: string;
@@ -45,37 +48,69 @@ export class SharpFfmpegPageRenderAdapter implements PageRenderAdapter {
     if (input.durationMs < 1_500 || input.audioPaths.length === 0) throw new WorkerError("RENDER_INPUT_INVALID", "分页渲染输入无效。", false);
     await mkdir(dirname(input.attemptDir), { recursive: true });
     await mkdir(input.attemptDir, { recursive: false });
-    const framePath = join(input.attemptDir, "frame.png");
+    const closedFramePath = join(input.attemptDir, "frame-closed.png");
+    const openFramePath = join(input.attemptDir, "frame-open.png");
     const audioPath = join(input.attemptDir, "page-audio.m4a");
     const videoPath = join(input.attemptDir, "page.mp4");
     const slide = await sharp(input.sourcePath).resize(SLIDE.width, SLIDE.height, { fit: "contain", background: "#ffffff" }).png().toBuffer();
-    const overlays: Parameters<ReturnType<typeof sharp>["composite"]>[0] = [
+    const baseOverlays: Parameters<ReturnType<typeof sharp>["composite"]>[0] = [
       { input: slide, left: SLIDE.left, top: SLIDE.top },
     ];
-    if (input.avatarPlacement !== "hidden") {
-      const avatar = await sharp(AVATAR).resize(300, 300, { fit: "contain" }).png().toBuffer();
-      overlays.push({ input: avatar, left: 1574, top: 620 });
-    }
-    if (input.overlay) overlays.push({ input: overlaySvg(input.overlay), left: SLIDE.left, top: SLIDE.top });
-    const frameBytes = await sharp(chromeSvg(input.pageOrder, input.pageCount)).composite(overlays).png({ compressionLevel: 9 }).toBuffer();
-    await writeFile(framePath, frameBytes, { flag: "wx" });
-    const concatPath = join(input.attemptDir, "audio.txt");
-    await writeFile(concatPath, `${input.audioPaths.map((path) => `file '${path.replaceAll("\\", "/").replaceAll("'", "'\\''")}'`).join("\n")}\n`, "utf8");
-    await runProcess(FFMPEG, ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", concatPath, "-c:a", "aac", "-b:a", "128k", audioPath], input.signal);
+    if (input.overlay) baseOverlays.push({ input: overlaySvg(input.overlay), left: SLIDE.left, top: SLIDE.top });
+    const [closedAvatar, openAvatar] = await Promise.all([
+      sharp(AVATAR_CLOSED).resize(300, 300, { fit: "contain" }).png().toBuffer(),
+      sharp(AVATAR_OPEN).resize(300, 300, { fit: "contain" }).png().toBuffer(),
+    ]);
+    const renderFrame = async (avatar: Buffer) => {
+      const overlays = [...baseOverlays];
+      if (input.avatarPlacement !== "hidden") overlays.push({ input: avatar, left: 1574, top: 620 });
+      return sharp(chromeSvg(input.pageOrder, input.pageCount)).composite(overlays).png({ compressionLevel: 9 }).toBuffer();
+    };
+    const [closedFrame, openFrame] = await Promise.all([renderFrame(closedAvatar), renderFrame(openAvatar)]);
+    await writeFile(closedFramePath, closedFrame, { flag: "wx" });
+    await writeFile(openFramePath, openFrame, { flag: "wx" });
+
+    const audioConcatPath = join(input.attemptDir, "audio.txt");
+    await writeFile(audioConcatPath, `${input.audioPaths.map(quoteConcatFile).join("\n")}\n`, "utf8");
+    await runProcess(FFMPEG, ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", audioConcatPath, "-c:a", "aac", "-b:a", "128k", audioPath], input.signal);
+
+    const animationConcatPath = join(input.attemptDir, "mouth-animation.txt");
+    await writeFile(animationConcatPath, buildBinaryMouthConcat(closedFramePath, openFramePath, input.durationMs), "utf8");
     await runProcess(FFMPEG, [
-      "-y", "-v", "error", "-loop", "1", "-framerate", String(input.fps), "-i", framePath,
+      "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", animationConcatPath,
       "-i", audioPath, "-t", (input.durationMs / 1_000).toFixed(3), "-map", "0:v:0", "-map", "1:a:0",
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
-      "-r", String(input.fps), "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-shortest", videoPath,
+      "-vf", `fps=${input.fps}`, "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-shortest", videoPath,
     ], input.signal);
     await verifyPageVideo(videoPath, input.fps, input.durationMs, input.signal);
     return {
-      frameBytes,
+      frameBytes: closedFrame,
       videoBytes: await readFile(videoPath),
       avatarPlacement: input.avatarPlacement,
       overlayType: input.overlay?.type as "highlightBox" | "arrow" | undefined,
     };
   }
+}
+
+export function buildBinaryMouthConcat(closedPath: string, openPath: string, durationMs: number): string {
+  if (!Number.isInteger(durationMs) || durationMs <= 0) throw new Error("durationMs must be a positive integer");
+  const frames = [closedPath, openPath] as const;
+  const durations = [CLOSED_MS, OPEN_MS] as const;
+  const lines: string[] = [];
+  let elapsedMs = 0;
+  let state = 0;
+  while (elapsedMs < durationMs) {
+    const sliceMs = Math.min(durations[state], durationMs - elapsedMs);
+    lines.push(quoteConcatFile(frames[state]), `duration ${(sliceMs / 1_000).toFixed(6)}`);
+    elapsedMs += sliceMs;
+    state = state === 0 ? 1 : 0;
+  }
+  lines.push(quoteConcatFile(closedPath));
+  return `${lines.join("\n")}\n`;
+}
+
+function quoteConcatFile(path: string): string {
+  return `file '${path.replaceAll("\\", "/").replaceAll("'", "'\\''")}'`;
 }
 
 function chromeSvg(pageOrder: number, pageCount: number): Buffer {

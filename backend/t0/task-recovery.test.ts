@@ -83,6 +83,7 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
     "20260804193000_stage_3_project_lifecycle",
     "20260804203000_stage_6_workspace_locks",
     "20260804223000_stage_7_teaching_settings",
+    "20260813023000_lip_sync_v1",
   ];
   const applied = await pool.query<{ migration_name: string }>(
     'SELECT migration_name FROM "_prisma_migrations" ORDER BY migration_name',
@@ -119,6 +120,17 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
     assert(productTables.rows.some((row) => row.tablename === "RenderedPage"));
     assert(productTables.rows.some((row) => row.tablename === "MediaOutput"));
     assert(productTables.rows.some((row) => row.tablename === "MediaValidationRecord"));
+    const lipSyncColumns = await client.query<{ column_name: string; is_nullable: string; column_default: string | null }>(
+      `SELECT column_name, is_nullable, column_default FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name IN ('AudioSegment', 'RenderedPage')
+       AND column_name IN ('timingMetadata', 'avatarId', 'avatarAssetVersion', 'lipSyncTimeline', 'lipSyncTimelineHash')`,
+    );
+    const columns = new Map(lipSyncColumns.rows.map((row) => [row.column_name, row]));
+    assert.equal(columns.get("timingMetadata")?.is_nullable, "YES");
+    assert.equal(columns.get("lipSyncTimeline")?.is_nullable, "YES");
+    assert.equal(columns.get("lipSyncTimelineHash")?.is_nullable, "YES");
+    assert.match(columns.get("avatarId")?.column_default ?? "", /avatar-zhou/);
+    assert.match(columns.get("avatarAssetVersion")?.column_default ?? "", /legacy-static-v1/);
   } finally {
     await client.query("RESET search_path");
     await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);

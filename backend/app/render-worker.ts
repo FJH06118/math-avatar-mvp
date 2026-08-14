@@ -90,6 +90,8 @@ export async function runClaimedRenderStep(
       revisionId: page.revisionId, pageOrder: page.pageOrder, durationMs: page.durationMs, fps: payload.data.fps,
       width: 1920, height: 1080, frameSha256: frameSha, videoSha256: videoSha,
       avatarPlacement: result.avatarPlacement, overlayType: result.overlayType ?? null, inputHash: page.inputHash,
+      avatarId: "avatar-zhou", avatarAssetVersion: "legacy-binary-v1",
+      lipSyncTimeline: undefined, lipSyncTimelineHash: undefined,
     };
     const completedCount = task.renderedPages.length + 1;
     const isFinal = completedCount === payload.data.pages.length;

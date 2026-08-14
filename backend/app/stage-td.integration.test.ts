@@ -108,6 +108,8 @@ test("AUDIO freezes approved text, retries one sentence, and derives a real time
   const srtText = await readFile(new LocalAssetStore(assetRoot).resolveForRead(srt.storageKey), "utf8");
   assert.match(srtText, /00:00:00,000 --> 00:00:00,70[0-9]/);
   assert.equal(await prisma.audioSegment.count({ where: { taskId: task.id } }), 4);
+  const timingRows = await prisma.audioSegment.findMany({ where: { taskId: task.id }, select: { timingMetadata: true } });
+  assert(timingRows.every((row) => (row.timingMetadata as { status?: string } | null)?.status === "UNAVAILABLE"));
   assert.equal(await prisma.subtitleCue.count({ where: { taskId: task.id } }), 4);
 });
 

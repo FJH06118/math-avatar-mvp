@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { z } from "zod";
+import { WordTimingCaptureSchema } from "@ppt-digital-human/contracts";
 import type { Pool } from "pg";
 import type { PrismaClient } from "../generated/prisma/client.ts";
 import type { AudioAdapter } from "./audio-adapter.ts";
@@ -16,6 +17,7 @@ const SegmentSchema = z.object({
   displayText: z.string().min(1), spokenText: z.string().min(1), inputHash: z.string().length(64),
 }).strict();
 const PayloadSchema = z.object({
+  timingCaptureVersion: z.literal("edge-word-boundary-v1"),
   voice: z.string().min(1), rate: z.string().min(1), pitch: z.string().min(1),
   revisions: z.array(z.string().min(1)).min(1), segments: z.array(SegmentSchema).min(1),
 }).strict();
@@ -69,7 +71,9 @@ export async function runClaimedAudioStep(
       if (bytes.byteLength !== cached.asset.fileSize || actualSha !== cached.asset.sha256) {
         throw new WorkerError("AUDIO_CACHE_INVALID", "缓存音频完整性检查失败。", false);
       }
-      result = { bytes, durationMs: cached.durationMs };
+      const timing = WordTimingCaptureSchema.safeParse(cached.timingMetadata);
+      if (!timing.success) throw new WorkerError("AUDIO_CACHE_INVALID", "缓存音频缺少合法 timing metadata。", false);
+      result = { bytes, durationMs: cached.durationMs, timingMetadata: timing.data };
     } else result = await dependencies.adapter.run({
       text: segment.spokenText,
       voice: payload.data.voice,
@@ -85,6 +89,10 @@ export async function runClaimedAudioStep(
     if (result.bytes.byteLength <= 2_000 || result.durationMs < 200) {
       throw new WorkerError("AUDIO_OUTPUT_INVALID", "音频文件为空或时长无效。", true);
     }
+    const timingMetadata = WordTimingCaptureSchema.parse(result.timingMetadata ?? {
+      schemaVersion: "word-timing-v1", captureVersion: "edge-word-boundary-v1", status: "UNAVAILABLE",
+      provider: "edge-tts", reason: "ADAPTER_DID_NOT_CAPTURE", boundaries: [],
+    });
     const sha256 = createHash("sha256").update(result.bytes).digest("hex");
     const storageKey = await dependencies.assets.putAudioSegment(task.projectId, sha256, result.bytes);
     const currentSegment = {
@@ -106,6 +114,7 @@ export async function runClaimedAudioStep(
       rate: payload.data.rate,
       pitch: payload.data.pitch,
       inputHash: segment.inputHash,
+      timingMetadata,
     };
     const allSegments = [...task.audioSegments, currentSegment]
       .sort((a, b) => a.slideOrder - b.slideOrder || a.segmentOrder - b.segmentOrder);
@@ -132,7 +141,7 @@ export async function runClaimedAudioStep(
       const asset = await transaction.asset.findUniqueOrThrow({
         where: { projectId_kind_sha256: { projectId: task.projectId, kind: "AUDIO_SEGMENT", sha256 } },
       });
-      await transaction.audioSegment.create({ data: { ...currentSegment, assetId: asset.id } });
+      await transaction.audioSegment.create({ data: { ...currentSegment, timingMetadata: timingMetadata as unknown as import("../generated/prisma/client.ts").Prisma.InputJsonValue, assetId: asset.id } });
       await transaction.taskStepAttempt.update({
         where: { taskStepId_attempt: { taskStepId: claim.taskStepId, attempt: claim.attempt } },
         data: { status: "SUCCEEDED", completedAt },

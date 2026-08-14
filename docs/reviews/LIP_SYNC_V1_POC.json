@@ -1,0 +1,281 @@
+{
+  "schemaVersion": "lip-sync-v1-poc-1",
+  "generatedAt": "2026-08-12T08:57:29.789Z",
+  "scope": {
+    "level": "L0",
+    "cpuOnly": true,
+    "productionCodeChanged": false,
+    "frontendUiChanged": false,
+    "publicApiChanged": false,
+    "taskModelChanged": false,
+    "deliveryFormatChanged": false,
+    "avatarAssetsCreated": false
+  },
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "nodeVersion": "v24.16.0",
+    "ffmpeg": "@ffmpeg-installer/ffmpeg@1.1.0",
+    "ffprobe": "ffprobe-static@3.1.0",
+    "audioAnalysisSampleRateHz": 16000,
+    "audioAnalysisChannels": 1
+  },
+  "dependencies": {
+    "nodeEdgeTts": {
+      "version": "1.2.10",
+      "license": "MIT",
+      "alreadyInstalled": true,
+      "wordBoundaryEnabledByPackage": true,
+      "projectConfigurationStillSavesSubtitles": false
+    },
+    "pinyinPro": {
+      "candidateVersion": "3.28.2",
+      "license": "MIT",
+      "runtimeDependencies": 0,
+      "npmUnpackedSizeBytes": 931364,
+      "installedFileCount": 35,
+      "installationLocation": "system-temporary-directory-only",
+      "addedToProject": false,
+      "packageLockChanged": false,
+      "selection": "ACCEPT_FOR_FUTURE_BACKEND_ONLY_USE"
+    }
+  },
+  "pocs": {
+    "edgeWordBoundary": {
+      "status": "PASS",
+      "publicGoldenTextSha256": "fe668f355c340a4b4d478f944eb6379c85907f8c1ebd35a1e8e7acd425b3e5d4",
+      "sourceChineseCharacterCount": 82,
+      "validationToleranceMs": 250,
+      "requirements": {
+        "nonEmptyText": true,
+        "validIntegerRanges": true,
+        "withinAudioDurationTolerance": true,
+        "monotonic": true,
+        "exactChineseSequenceMatch": true,
+        "deterministicTimelineRebuild": true
+      },
+      "voices": [
+        {
+          "id": "voice-qinghe",
+          "edgeVoice": "zh-CN-XiaoxiaoNeural",
+          "pitch": "+0Hz",
+          "status": "AVAILABLE",
+          "synthesisElapsedMs": 2393,
+          "audioDurationMs": 19104,
+          "audioBytes": 114624,
+          "audioSha256": "2e62d25236349e2faf57efd445453019d1d0aad058dab6453b8d1744544ecc53",
+          "sidecarEntries": 49,
+          "sidecarSha256": "19475c65d60712987a02d4da11b8bf0ef7d04c156f87d70a27f0a76403afcdad",
+          "firstBoundaryStartMs": 100,
+          "lastBoundaryEndMs": 18525,
+          "nonPunctuationChineseCoverage": 1,
+          "timelineSha256": "a615124eb1fe139a13ebfe4d0b2dd70dc602651b307930c5586a3a1a9d970a6c",
+          "rebuildIterations": 1000,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 10.395
+        },
+        {
+          "id": "voice-zhiyuan",
+          "edgeVoice": "zh-CN-YunyangNeural",
+          "pitch": "-2Hz",
+          "status": "AVAILABLE",
+          "synthesisElapsedMs": 2259,
+          "audioDurationMs": 17832,
+          "audioBytes": 106992,
+          "audioSha256": "3ac0fc63ab42f9e5210f9b5926c906690447a09ff6b65cd822b57da34323a5a0",
+          "sidecarEntries": 49,
+          "sidecarSha256": "fe5c17ed55d49a8c9c98c43bd524d1261f7cdd86d9a0b1cd56c1785d5ff7ad1f",
+          "firstBoundaryStartMs": 100,
+          "lastBoundaryEndMs": 17250,
+          "nonPunctuationChineseCoverage": 1,
+          "timelineSha256": "177bbe55fb8960997c9b7ff1ffa174db90f946025f4273559030a50a12eedd59",
+          "rebuildIterations": 1000,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 9.642
+        },
+        {
+          "id": "voice-mingxi",
+          "edgeVoice": "zh-CN-XiaoyiNeural",
+          "pitch": "+2Hz",
+          "status": "AVAILABLE",
+          "synthesisElapsedMs": 2391,
+          "audioDurationMs": 18240,
+          "audioBytes": 109440,
+          "audioSha256": "23715789ce15b1a1cabae7f8afcdd0a9a6ce9069e78620617c170382acce58ca",
+          "sidecarEntries": 49,
+          "sidecarSha256": "a9977fbcede39dc3d1a12bbe35b0d7448462d43bcd83a58c7616a40398d7f2de",
+          "firstBoundaryStartMs": 100,
+          "lastBoundaryEndMs": 17375,
+          "nonPunctuationChineseCoverage": 1,
+          "timelineSha256": "2eec1dbdf641f2de0ce79fd19e62becdf802b781e70d07e28abb8717189dd118",
+          "rebuildIterations": 1000,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 8.632
+        }
+      ],
+      "stabilityConclusion": "All three current voices produced valid word-boundary sidecars. Stability means deterministic reconstruction from the same validated sidecar; it does not claim that separate online syntheses are byte-identical."
+    },
+    "multiSentenceAccumulation": {
+      "status": "PASS",
+      "publicSentencesSha256": "204870d196a47345cf35791cba89f48eab89544ad36f4ea0434050a8c51ba2b0",
+      "segmentCount": 3,
+      "toleranceMs": 40,
+      "segments": [
+        {
+          "index": 0,
+          "textSha256": "0428b31663e8670cea3e30429daf9318d0b52176bba6ca3f460ac00b6fb74978",
+          "offsetMs": 0,
+          "ffprobeDurationMs": 4224,
+          "decodedPcmDurationMs": 4224,
+          "boundaryCount": 10,
+          "globalBoundaryRangeMs": [100, 3650]
+        },
+        {
+          "index": 1,
+          "textSha256": "8f832433562b683eeb81670bc7ac92903d35559a9fced426f96d8a41dc4f26a5",
+          "offsetMs": 4224,
+          "ffprobeDurationMs": 5232,
+          "decodedPcmDurationMs": 5232,
+          "boundaryCount": 15,
+          "globalBoundaryRangeMs": [4324, 8874]
+        },
+        {
+          "index": 2,
+          "textSha256": "74bffb831f87ddf45439fa97175ab91146b18efbd73b30346e36f409b591c475",
+          "offsetMs": 9456,
+          "ffprobeDurationMs": 4968,
+          "decodedPcmDurationMs": 4968,
+          "boundaryCount": 13,
+          "globalBoundaryRangeMs": [9556, 13843]
+        }
+      ],
+      "summedDecodedDurationMs": 14424,
+      "concatenatedAudioDurationMs": 14424,
+      "differenceMs": 0,
+      "finalBoundaryEndMs": 13843,
+      "finalTailMs": 581,
+      "monotonic": true,
+      "timelineSha256": "1e03b0e690fced303f7d91acc07f08c8f3ba83b9eca556bf884668ca004ac23e",
+      "rebuildIterations": 1000,
+      "rebuildAllHashesEqual": true,
+      "rebuildElapsedMs": 875.896,
+      "conclusion": "Offsets accumulated from each segment's decoded PCM duration exactly matched the decoded concatenated audio duration. Boundary offsets were not inferred from text length."
+    },
+    "pinyinRoundClassification": {
+      "status": "PASS_WITH_LIMITATIONS",
+      "goldenTextSha256": "b6a2897bba5c6bf1e20b6f5a5b5ba96488037d7a1325b9fba80ec7b37e3d9f0e",
+      "caseCount": 9,
+      "syllableCount": 62,
+      "pinyinCorrect": 62,
+      "pinyinAccuracy": 1,
+      "roundCorrect": 62,
+      "roundAccuracy": 1,
+      "coveredContexts": [
+        "polyphonic mathematical phrases",
+        "common rounded finals",
+        "digits and Latin/formula tokens",
+        "Chinese-normalized formula reading"
+      ],
+      "acceptedRoundFinals": ["u", "ü", "o", "ou", "ong", "uo", "un", "ui", "uan", "uang", "üe", "üan", "ün", "iong", "iu"],
+      "rawNonChineseGroups": 3,
+      "rawNonChinesePolicy": "UNRESOLVED_NO_ROUND",
+      "performance": {
+        "totalCalls": 9000,
+        "elapsedMs": 186.586,
+        "callsPerSecond": 48235,
+        "outputSha256": "1afde260e3b42b736020727bf2271ef2fe7cb79a2e560864b332b9cb31c15e87"
+      },
+      "limitations": [
+        "Raw digits, Latin letters, and formula symbols are not converted by pinyin-pro into spoken syllables. They must use the already-normalized spokenText or remain unresolved and must never trigger ROUND.",
+        "ROUND is a coarse final-based visual hint, not phoneme alignment or a claim of articulatory precision.",
+        "Unknown or unresolved syllables fall back locally to amplitude poses instead of failing the entire segment or guessing ROUND."
+      ],
+      "recommendation": "ROUND may be retained for the first version only behind validated Chinese spokenText and the fixed classifier; unresolved tokens must use SMALL/MEDIUM/LARGE."
+    },
+    "energyOnlyTimeline": {
+      "status": "PASS",
+      "mode": "ENERGY_ONLY",
+      "algorithmVersion": "l0-energy-poc-v1",
+      "windowMs": 40,
+      "fps": 25,
+      "minimumPoseHoldFrames": 2,
+      "maximumAmplitudeStep": 1,
+      "poses": ["CLOSED", "SMALL", "MEDIUM", "LARGE"],
+      "containsRound": false,
+      "voices": [
+        {
+          "id": "voice-qinghe",
+          "audioDurationMs": 19104,
+          "frameCount": 478,
+          "runCount": 153,
+          "poseFrameCounts": {"CLOSED": 100, "SMALL": 85, "MEDIUM": 162, "LARGE": 131},
+          "timelineSha256": "51f098cfd20e1d91148764541743eb1c782dc1942390b83fd642d60d6747eb6a",
+          "insertedSilenceMs": 480,
+          "closeLatencyMs": 0,
+          "reopenLatencyMs": 0,
+          "maximumObservedStep": 1,
+          "rebuildIterations": 200,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 72.472
+        },
+        {
+          "id": "voice-zhiyuan",
+          "audioDurationMs": 17832,
+          "frameCount": 446,
+          "runCount": 127,
+          "poseFrameCounts": {"CLOSED": 106, "SMALL": 106, "MEDIUM": 151, "LARGE": 83},
+          "timelineSha256": "a203060fc35551be8a503679259ea5d20ceeb4a01651a731d66e8b9ba6c2bb95",
+          "insertedSilenceMs": 480,
+          "closeLatencyMs": 40,
+          "reopenLatencyMs": 0,
+          "maximumObservedStep": 1,
+          "rebuildIterations": 200,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 69.533
+        },
+        {
+          "id": "voice-mingxi",
+          "audioDurationMs": 18240,
+          "frameCount": 456,
+          "runCount": 141,
+          "poseFrameCounts": {"CLOSED": 117, "SMALL": 104, "MEDIUM": 146, "LARGE": 89},
+          "timelineSha256": "4115643d39d98afa2383e6f36405ccf9c834c0705a8c17f56cabd252f6d34219",
+          "insertedSilenceMs": 480,
+          "closeLatencyMs": 80,
+          "reopenLatencyMs": 0,
+          "maximumObservedStep": 1,
+          "rebuildIterations": 200,
+          "rebuildAllHashesEqual": true,
+          "rebuildElapsedMs": 68.976
+        }
+      ],
+      "fallbackPolicy": "Missing, empty, or invalid word boundaries use only CLOSED/SMALL/MEDIUM/LARGE. ROUND is forbidden and no text-length boundary is fabricated."
+    }
+  },
+  "failureScenarios": [
+    {"id": "missing_sidecar", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "empty_sidecar", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "empty_boundary_text", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "reversed_boundary_range", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "boundary_outside_audio", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "non_monotonic_boundaries", "expectedMode": "ENERGY_ONLY", "actualMode": "ENERGY_ONLY", "pass": true, "fabricatedBoundary": false},
+    {"id": "raw_formula_or_latin_token", "expectedRound": false, "actualRound": false, "pass": true, "policy": "UNRESOLVED_NO_ROUND"}
+  ],
+  "artifacts": {
+    "committed": ["docs/reviews/LIP_SYNC_V1_POC.json"],
+    "transientOnly": ["public-golden MP3 files", "word-boundary sidecars", "decoded PCM", "temporary pinyin-pro installation"],
+    "privateCourseContentSentExternally": false
+  },
+  "stopConditions": {
+    "triggered": false,
+    "reasons": []
+  },
+  "conclusion": {
+    "overall": "PASS",
+    "readyForL1": true,
+    "selectedPrimaryMode": "BOUNDARY_ENERGY",
+    "selectedFallbackMode": "ENERGY_ONLY",
+    "roundPolicy": "ROUND is allowed only for validated Chinese spokenText with recognized rounded finals. It is forbidden for ENERGY_ONLY and unresolved tokens.",
+    "nextStage": "L1_FIXED_BASE_LOCAL_MOUTH_PATCH_ASSET_SPEC_ONLY"
+  }
+}

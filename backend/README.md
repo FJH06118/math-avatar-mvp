@@ -203,6 +203,19 @@ npm.cmd run backend:run -- `
 
 ## 5. Edge TTS 参数
 
+### 5.1 词边界与周老师唇形 Demo
+
+正式 AUDIO Worker 会将 Edge TTS 的候选 sidecar 严格解析为 `AVAILABLE` 或可审计的 `UNAVAILABLE`，并与 `AudioSegment` 原子保存。PAGE_RENDER 使用同一持久任务链生成确定性五 pose 时间轴；边界不可用时显式使用不含 `ROUND` 的 `ENERGY_ONLY`，不会退回机械二态。
+
+周老师公开自制高数页 Demo 可在联网环境运行：
+
+```powershell
+$env:PPT_DH_ZHOU_DEMO_RUN_ID = "manual-run"
+npm.cmd run demo:zhou
+```
+
+历史五档 MP4 位于 Git 忽略的 `backend/work/lip-sync-zhou-demo/<run-id>/`，机器报告写入 `docs/reviews/LIP_SYNC_V1_ZHOU_DEMO.json`。该 Demo 已被用户人工验收否决，仅保留为失败证据；`demo:zhou` 入口已移除。当前正式 PAGE_RENDER 使用 `teacher-closed.png` / `teacher-open.png` 开闭口两态。
+
 ```powershell
 $env:EDGE_TTS_VOICE = "zh-CN-YunxiNeural"
 $env:EDGE_TTS_RATE = "-8%"

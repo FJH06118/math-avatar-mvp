@@ -35,5 +35,6 @@ test("25 and 30 FPS both pass three-page encoding and attempts reject stale-dire
     assert(elapsedMs > 0);
   }
   await assert.rejects(new SharpFfmpegPageRenderAdapter().run({ sourcePath: source, audioPaths: [audio], durationMs: 1_650, fps: 25, pageOrder: 1, pageCount: 3, avatarPlacement: "right-panel", attemptDir: join(root, "25-1"), signal: new AbortController().signal }));
-  assert((await readFile(join(root, "25-1", "frame.png"))).byteLength > 2_000);
+  assert((await readFile(join(root, "25-1", "frame-closed.png"))).byteLength > 2_000);
+  assert((await readFile(join(root, "25-1", "frame-open.png"))).byteLength > 2_000);
 });

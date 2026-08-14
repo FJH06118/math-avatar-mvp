@@ -4,6 +4,20 @@
 > `docs/DECISIONS.md`、`docs/ARCHITECTURE_DECISIONS.md` 与
 > `docs/IMPLEMENTATION_PLAN.md`。
 
+## 2026-08-13 两态回退
+
+- 正式 PAGE_RENDER 使用 `teacher-closed.png` 与 `teacher-open.png` 两张完整周老师 PNG，每页各合成一次，以 120 ms 闭口 / 100 ms 开口的 concat 序列编码 H.264/AAC 页面视频。
+- PAGE_RENDER 快照以 `stage-te-binary-mouth-v1` 区分缓存。新 RenderedPage 写入 `avatar-zhou` / `legacy-binary-v1`，不写 lip-sync timeline。
+- AUDIO timing 捕获、五档素材契约及确定性驱动作为兼容/研究代码存在，但当前 PAGE_RENDER 不调用。五档架构因用户人工自然度验收失败而撤下。
+
+## 2026-08-13 唇形增强 L2～L5（历史失败实验）
+
+- `packages/contracts/src/lip-sync.ts` 是嘴型 pose、Edge word timing、RLE 时间轴和 avatar catalog/manifest 的严格共享契约；外部 JSON 先按 `unknown` 解析，未知字段、非法边界、时间轴空洞/重叠/越界、跨级跳变及 `ENERGY_ONLY + ROUND` 均被拒绝。
+- AUDIO 继续使用既有句级 Worker/attempt/取消/重试结构。Edge sidecar 仅写入 attempt，适配器在音频质量门通过后将其解析成 `AVAILABLE` 或显式 `UNAVAILABLE`；`AudioSegment.timingMetadata` 与音频登记同事务保存，缓存键冻结 timing capture version。
+- `backend/lip-sync/driver.mjs` 是该实验的确定性驱动核心；它已不再由 PAGE_RENDER 调用。
+- PAGE_RENDER 快照和缓存键冻结 `avatarId`、asset version、bundle fingerprint、timing/hash、schema/driver/config/renderer version。新 RenderedPage 原子保存实际 avatar 与时间轴 JSON/hash；历史记录继续用 `avatar-zhou` / `legacy-static-v1` 默认且 timeline 为 null。
+- 该实验生成过周老师 `BOUNDARY_ENERGY` Demo，但用户人工验收判定不自然，L5 最终为 FAIL。
+
 ## 总览
 
 当前保留 Mock/CLI 两条原型链路，并已完成阶段 T 的真实产品纵切；阶段 3 进一步接入项目管理：

@@ -1,6 +1,49 @@
 # 项目状态
 
-> 更新时间：2026-08-05。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+## 2026-08-14 Windows 本地单机软件封装规划
+
+- 已完成仓库级现状审计和 Windows 软件封装实施计划，计划文件为 docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md；本轮只写规划，没有实现桌面宿主、设置页、Provider、工作流或安装器。
+- 已确认首发边界：Windows 10/11 本地单机、用户自配 OpenAI/DeepSeek/GLM/Kimi/Anthropic API、Edge TTS、强制讲稿审核、单一内置数字人、一键捆绑运行时、100 MB/50 页/60 分钟上限，以及 MP4/SRT/元数据交付。
+- 计划复用现有 Next BFF → Hono → PostgreSQL/outbox → Worker 的真实纵切，推荐 Electron + Next standalone + 受管 PostgreSQL；不围绕旧 JSON CLI 重建第二套产品链。
+- 计划识别的主要发布缺口为：默认 Mock、无用户设置和安全密钥存储、Provider 适配不足、生成阶段仍由浏览器串联、UI 设置与最终渲染不一致、无一键运行宿主、无安装/升级/卸载链路，以及只完成三页视频容量验证。
+- 当前唇形事实不变：五档方案 L5 FAIL，生产仍为开/闭口两态，L6 STOP 继续有效。软件计划不授权恢复五档嘴型或制作其他教师素材。
+- 计划文档完成后按项目规则严格串行通过 typecheck、0-warning lint、backend:test 13/13 和 Next production build；本轮没有新增或运行计划中尚不存在的桌面专项命令。
+
+## 2026-08-13 五档唇形被用户否决并回退
+
+- 用户人工验收判定五档局部嘴型 Demo 不自然，故此前 L5 PASS 已失效，当前准确结论为 L5 FAIL。
+- 正式 PAGE_RENDER 已回退为 `teacher-closed.png` / `teacher-open.png` 两张周老师整身图的机械两态切换；渲染版本为 `stage-te-binary-mouth-v1`，素材审计版本写为 `legacy-binary-v1`。
+- 五档素材、严格契约、驱动核心和向前 migration 作为未接线的研究/兼容代码保留；新分页渲染不保存 lip-sync timeline。旧五档 Demo 与报告只保留失败证据属性。
+- 本轮未开始 L6，未制作林老师或严老师正式嘴型。
+
+## 2026-08-13 数字人唇形增强 L2～L5
+
+- 以下内容是用户播放前的历史自动门记录；用户已否决自然度，因此不再代表当前验收结论。
+- L5 使用 `BOUNDARY_ENERGY`，无降级：27,864 ms、62 个真实 word boundary、覆盖率 0.788257；CLOSED/SMALL/MEDIUM/LARGE/ROUND 帧数为 144/56/80/163/254，ROUND 占发声 pose 0.459313。
+- 最终 MP4 为 1920×1080、25 FPS、H.264/AAC、yuv420p、Fast Start，可完整解码；视频/音频/时间轴最大误差 16 ms，平均响度 -19.6 dB、峰值 -3.3 dB。时间轴重复重建 hash 完全一致。
+- 7 个代表帧人工检查通过，人物区域和课件区域隔离，无整体闪烁或明显嘴部接缝；等待用户播放验收。L6/L7/L8 未开始。
+
+> 更新时间：2026-08-12。代码和 Git 状态是事实来源；文档与代码冲突时，以代码为准并在这里记录。
+
+### 2026-08-12 数字人唇形增强 L1 周老师素材
+
+- 用户确认 `teacher-closed.png`/`teacher-open.png` 对应的周老师素材可用于项目和派生嘴型；`avatar-zhou/mouth-v1` manifest 记录确认范围、源 SHA、画布、锚点、脸部安全框、嘴部 ROI、各文件 SHA/尺寸/alpha 和确定性 bundle fingerprint。
+- L1 仅新增素材清单、周老师固定底图与五档局部嘴贴片、构建/验证/审核图脚本和证据；没有接入生产驱动、数据库、Worker、前端 UI、公开 API 或交付格式，没有制作另外两位教师素材。
+- 初版候选因整个缩放块边界在下巴形成接缝而未通过人工门；用户授权修复后改为底图回填的窄嘴部裁剪和径向羽化，保持既定 `190×120 @ (590,350)` ROI，不通过扩大 ROI 隐藏问题。
+- `node backend/assets/avatar/validate-avatar-assets.mjs` 通过 strict 本地 L1 schema、路径逃逸、PNG 解码/尺寸/alpha/hash、脸部安全框、确定性 fingerprint 和 ROI 外逐像素门禁；CLOSED/SMALL/MEDIUM/LARGE/ROUND 的 ROI 外变化均为 0。
+- 最终 100%/400% 审核图人工通过：无硬接缝、肤色跳变或牙齿闪烁风险，三档张口幅度递增且 ROUND 可区分。机器可读证据为 `docs/reviews/LIP_SYNC_V1_L1_ASSET.json`，bundle fingerprint 为 `c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8`。
+- L1 收口门禁严格串行通过：typecheck、0-warning lint、Python 13/13、Next production build；素材构建/预览脚本通过 Node 语法检查，机器验收 JSON 可解析。
+- L1 结论 PASS，具备在明确确认后进入 L2 的条件；L2 只允许最小内部契约和向前数据迁移，不能顺带实现 L3 驱动、L5 产品纵切或 L6 林/严老师素材。
+
+### 2026-08-12 数字人唇形增强 L0 POC
+
+- 严格停留在 `docs/planning/LIP_SYNC_ENHANCEMENT_PLAN.md` 的 L0：未修改生产音频/渲染路径、前端 UI、公开 API、任务模型或交付格式，未制作三位教师正式嘴型素材；全部分析为 CPU-only。
+- `node-edge-tts@1.2.10` 对三种现有正式音色的 17.8～19.1 秒公开中文金样均生成 49 项合法 word-boundary，82 个非标点汉字覆盖率均为 100%；同一 sidecar 重建时间线 1000 次哈希一致。当前生产子进程仍保持 `saveSubtitles: false`，本轮没有提前接入。
+- 三条独立句音频按解码 PCM 真实时长 `4224 + 5232 + 4968 = 14424 ms` 累计；FFmpeg 实际拼接解码时长同为 `14424 ms`，误差 `0 ms`。页级偏移没有按文字长度猜测。
+- `pinyin-pro@3.28.2` 仅安装到系统临时目录：MIT、零运行时依赖、解包约 931 KB；9 组高数/多音字/公式朗读金样共 62 个中文音节，拼音和固定 ROUND 分类均 62/62。原始数字、拉丁字母和公式符号不会自动得到音节，必须使用规范化中文 `spokenText`，否则局部标记 unresolved 且不得触发 ROUND。
+- 无边界时，三音色真实音频均能生成只含 `CLOSED/SMALL/MEDIUM/LARGE` 的确定性 `ENERGY_ONLY` 时间线；插入 480 ms 静音后最迟 80 ms 闭口，恢复发声为 0 ms，最大相邻开合步长为 1，200 次重建哈希一致且无 ROUND。缺失、空、越界、逆序等 6 类 sidecar 均明确降级，未伪造边界。
+- 机器可读证据见 `docs/reviews/LIP_SYNC_V1_POC.json`。L0 总结论为 PASS，未命中 STOP，具备进入 L1 的条件；下一阶段只允许建立“固定底图 + 嘴部局部贴片”的素材规范与周老师素材门禁，不进入驱动、数据库、Worker、正式渲染或另外两位教师素材制作。
+- L0 文档收口后的项目门禁按 AGENTS.md 严格串行通过：typecheck、0-warning lint、Python 13/13、Next production build。L0 尚未新增正式专项脚本，因此没有虚构或运行计划中只属于 L2～L8 的 `test:lip-sync`/媒体集成命令。
 
 ### 2026-08-05 三位数字人教师与即时预览
 

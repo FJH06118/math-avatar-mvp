@@ -75,9 +75,23 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 运行后端测试前，普通开发终端必须能解析 Python 3.10 或更高版本的 `python`
 命令；不要将任何本机或 Codex 私有解释器绝对路径写入项目脚本。
 
+## 当前开发状态（2026-08-14）
+
+项目当前处于“真实后端纵切已建立、桌面软件封装尚未开始”的阶段。
+
+- 阶段 T 的真实链路已具备：PPTX 上传、原页解析、讲稿规划与人工批准、Edge TTS、逐页渲染、合成、媒体硬验证，以及 MP4/SRT/元数据受控下载。
+- 真实链路目前验证到 3 页样例；解析测试覆盖到 100 页，尚未据此承诺 100 页视频稳定生成。
+- 前端默认仍使用浏览器内存 Mock；设置 NEXT_PUBLIC_PPT_DH_API_MODE=stage-t 才会进入 Next BFF → Hono → PostgreSQL → Worker 的真实链路。
+- 生产数字人当前固定为周老师开口/闭口两态整身图切换。五档局部嘴型 Demo 已被人工判定不自然并回退，L5 为 FAIL，L6 未开始。
+- 当前工作树保留唇形研究素材、契约和向前 migration，但它们没有接入正式 PAGE_RENDER。
+- 用户已确认下一阶段目标为 Windows 10/11 本地单机软件：用户配置 OpenAI、DeepSeek、GLM、Kimi 或 Anthropic Claude API，语音首发使用 Edge TTS，生成前必须审核讲稿，首发只提供一个内置数字人。
+- Windows 软件封装实施计划已经完成，见 [docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md](docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md)。计划中的 Electron 宿主、API 设置页、安全密钥存储、Provider 适配、服务端根工作流、一键安装包和升级链路尚未实现。
+
+本阶段最近一次项目门禁已串行通过：npm.cmd run typecheck、npm.cmd run lint、npm.cmd run backend:test（13/13）和 npm.cmd run build。这些命令不代表桌面安装包或多 Provider 已经交付。
+
 ## 当前能力边界
 
-- 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；目前全部业务数据来自浏览器内存 Mock API，演示资源不可下载。
+- 前端已经覆盖上传、解析进度、三栏审核工作台、生成进度、结果页及下载控件等 MVP 交互；默认使用浏览器内存 Mock API，真实模式通过 BFF 访问受控媒体。
 - 后端可以读取文本型 PPTX，提取页面结构，使用大模型或确定性回退方案规划讲稿，经人工批准后生成 Edge TTS 配音、字幕、数字人叠加视频和验收结果。
 - 阶段 T 已完成。T-A～T-F 建立上传、解析、规划/批准、音频、逐页渲染、最终合成与独立媒体硬验证；T-G 加入项目范围内的 MP4/SRT/元数据全量与 Range 下载。浏览器页面默认仍使用 Mock，真实 tracer adapter 仅在显式 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 时启用；逐屏产品接线属于阶段 3～10。
 

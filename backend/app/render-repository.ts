@@ -84,7 +84,7 @@ export class RenderRepository {
           ? "hidden" as const
           : "right-panel" as const,
       };
-      return { ...snapshot, inputHash: stableHash({ ...snapshot, fps: input.fps, rendererVersion: "stage-te-sharp-ffmpeg-v1" }) };
+      return { ...snapshot, inputHash: stableHash({ ...snapshot, fps: input.fps, rendererVersion: "stage-te-binary-mouth-v1" }) };
     });
     const payload: RenderRequestedPayload = { fps: input.fps, audioTaskId: audioTask.id, pages };
     const inputHash = stableHash({ presentationRevision: presentation.revision, payload });
@@ -99,7 +99,7 @@ export class RenderRepository {
         const created = await transaction.generationTask.create({ data: {
           id: taskId, principal, projectId, presentationId: presentation.id, kind: "GENERATE",
           idempotencyKey: input.idempotencyKey, inputHash,
-          configHash: createHash("sha256").update(`stage-te-sharp-ffmpeg-v1:${input.fps}`).digest("hex"),
+          configHash: createHash("sha256").update(`stage-te-binary-mouth-v1:${input.fps}`).digest("hex"),
           status: "QUEUED", stage: "PAGE_RENDER", progressTotal: pages.length, presentationRevision: presentation.revision,
         } });
         await transaction.taskOutbox.create({ data: {

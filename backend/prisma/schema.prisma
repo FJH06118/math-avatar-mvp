@@ -336,6 +336,7 @@ model AudioSegment {
   rate           String
   pitch          String
   inputHash      String
+  timingMetadata Json?
   createdAt      DateTime           @default(now())
   task           GenerationTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   revision       LessonPlanRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
@@ -390,6 +391,10 @@ model RenderedPage {
   avatarPlacement String
   overlayType     String?
   inputHash       String
+  avatarId        String             @default("avatar-zhou")
+  avatarAssetVersion String          @default("legacy-static-v1")
+  lipSyncTimeline Json?
+  lipSyncTimelineHash String?
   createdAt       DateTime           @default(now())
   task            GenerationTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   revision        LessonPlanRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)

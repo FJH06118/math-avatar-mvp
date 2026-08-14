@@ -4,6 +4,7 @@ export * from "./agent-evaluation";
 export * from "./asset";
 export * from "./audio";
 export * from "./lesson-plan";
+export * from "./lip-sync";
 export * from "./media";
 export * from "./delivery";
 export * from "./overlays";

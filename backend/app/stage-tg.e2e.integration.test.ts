@@ -61,6 +61,7 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   const revisionsResponse = await request(app, `/v1/projects/${upload.project.id}/lesson-plans`);
   const revisions = LessonPlanRevisionListResponseSchema.parse(await revisionsResponse.json()).data; assert.equal(revisions.length, 3);
   for (const revision of revisions) { const approved = await request(app, `/v1/revisions/${revision.id}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedRevision: revision.revision }) }); assert.equal(approved.status, 200); }
+  await prisma.project.update({ where: { id: upload.project.id }, data: { settings: { avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1, captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light" } } });
 
   const audioResponse = await request(app, `/v1/projects/${upload.project.id}/audio`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: upload.presentation.id, idempotencyKey: "stage-tg-audio-key", voice: "zh-CN-YunxiNeural", rate: "+0%", pitch: "+0Hz" }) });
   const audioTask = AudioTaskResponseSchema.parse(await audioResponse.json()).data; await dispatchPendingOutbox(prisma);

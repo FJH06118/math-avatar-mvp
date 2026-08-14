@@ -10,7 +10,7 @@ const tts = new EdgeTTS({
   voice: request.voice,
   lang: "zh-CN",
   outputFormat: "audio-24khz-48kbitrate-mono-mp3",
-  saveSubtitles: false,
+  saveSubtitles: true,
   rate: request.rate,
   pitch: request.pitch,
   volume: "+0%",

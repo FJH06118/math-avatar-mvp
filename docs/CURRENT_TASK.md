@@ -1,6 +1,55 @@
 # 当前任务
 
-> 更新时间：2026-08-05。状态：阶段 3～11 已完成；三音色真实试听、上传交互与开发地址兼容修复已实现，本轮完整串行门禁通过。
+> 更新时间：2026-08-14。状态：Windows 本地单机软件封装方案已完成规划，尚未开始实现；用户否决五档局部嘴型 Demo 后的 L5 FAIL 与 L6 STOP 继续有效。
+
+## 2026-08-14 Windows 本地单机软件封装规划
+
+- 已审阅仓库第一方文档、源码、契约、迁移、测试、脚本、配置和资产清单，并以当前代码为事实来源完成实施方案：docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md。
+- 用户确认 v1 为 Windows 10/11 本地单机软件：所有课件、讲稿、任务和媒体留在本机，仅大模型 API 与 Edge TTS 需要联网。
+- 大模型首发支持 OpenAI、DeepSeek、智谱 GLM、Kimi 和 Anthropic Claude API；语音首发使用 Edge TTS，同时只预留未来 TTS Provider 接口。
+- 正式生成前必须人工审核讲稿；首发只提供一个内置数字人；安装包必须捆绑 Node、Python、PostgreSQL、LibreOffice 和 FFmpeg 等运行时。
+- 正式容量冻结为单个 PPTX 不超过 100 MB、50 页，预计成片不超过 60 分钟。v1 导出 MP4、SRT 和元数据。
+- 自定义数字人、多人协作、云同步、移动端、模板市场、BGM、片头片尾、直播和多家正式 TTS 均不在 v1。
+- 当前只完成计划文档，没有新增依赖、数据库 migration、Provider、UI、桌面宿主或安装包。若用户批准实施，必须从计划 P0 开始；不得直接越过当前门禁进入后续阶段。
+- 规划文档收口后已严格串行通过 typecheck、0-warning lint、backend:test 13/13 和 Next production build。本轮没有新增专项测试命令，也没有把计划中的未来命令伪装成已存在或已通过。
+
+## 2026-08-13 回退为开口/闭口两态
+
+- 用户人工播放结论覆盖先前静态抽帧结论：五档局部嘴贴片“不自然、太丑”，因此 L5 改判 FAIL，不能宣称已具备进入 L6 的条件。
+- 正式 PAGE_RENDER 现只使用既有 `teacher-closed.png` 与 `teacher-open.png` 两张周老师整身图，按 120 ms 闭口 / 100 ms 开口确定性交替；不加载 `avatar-zhou/mouth-v1`，不生成 SMALL/MEDIUM/LARGE/ROUND，也不依赖 word timing 驱动渲染。
+- 新 RenderedPage 记录 `avatar-zhou` / `legacy-binary-v1`，`lipSyncTimeline` 与 hash 保持空值。向前兼容 migration 和 L0～L3 研究素材暂留，避免破坏已存在数据库记录；它们不再接入正式渲染。
+- 两态专项、25/30 FPS、页面重试、主动取消与缓存复用回归已通过。旧的五档 Demo 入口已移除，旧 MP4/报告仅是失败历史证据，不是当前可验收产物。
+- 当前 STOP：不得进入 L6。下一步如需提升自然度，必须先单独批准新的 GPU/生成式或视频驱动方案范围。
+
+## 2026-08-13 数字人唇形增强 L2～L5
+
+- L2 PASS：新增 strict 共享 lip-sync/timing/timeline/avatar 契约和单个向前 migration；历史 AudioSegment timing 为空，历史 RenderedPage 默认 `avatar-zhou` / `legacy-static-v1` 且 timeline 为空，不做破坏性 backfill。
+- L3 PASS：固定后端专用 `pinyin-pro@3.28.2`，建立严格 avatar loader 与唯一 CPU 确定性驱动；路径逃逸、PNG/尺寸/alpha/SHA/ROI/bundle 校验、显式 ENERGY_ONLY、ROUND 约束、平滑与失败终态专项通过。
+- L4 PASS：AUDIO 原子保存 timing metadata；PAGE_RENDER 正式冻结 avatar/素材/timing/driver 版本，直接从逐句源音频解 PCM，以五个稳定 pose 和 RLE concat 编码。AUDIO 5 pass + 1 opt-in skip，PAGE_RENDER 4/4，最终媒体/HTTP 4/4。
+- L5 自动媒体门曾通过，但用户播放后否决自然度，最终人工验收为 FAIL；下列 27.864 秒、62 个词边界和媒体指标仅为历史自动证据，不能覆盖人工结论。
+- 先前 7 个静态代表帧抽检未暴露连续播放中的不自然感，事实证明该检查不足；用户播放结论已将其推翻。
+- Demo：`backend/work/lip-sync-zhou-demo/final-v4/zhou-lip-sync-demo.mp4`；报告：`docs/reviews/LIP_SYNC_V1_ZHOU_DEMO.json`。
+- 当前 STOP：不得开始 L6 林/严老师正式嘴型素材，直到用户明确验收周老师 L5 Demo。
+
+## 2026-08-12 数字人唇形增强 L1 周老师素材
+
+- 用户已确认既有周老师素材可用于本项目及嘴型派生；确认状态、范围和日期已进入 manifest 与机器可读验收报告。
+- 已建立 `backend/assets/avatar/catalog.json` 和 `avatar-zhou/mouth-v1`：1254×1254 不可变底图、固定锚点、190×120 嘴部 ROI，以及 `CLOSED/SMALL/MEDIUM/LARGE/ROUND` 五档 RGBA PNG。未修改 UI、公开 API、任务模型、交付格式或生产渲染路径，也未制作林/严老师素材。
+- 第一版缩放整个 ROI，100%/400% 审核发现 SMALL/MEDIUM/LARGE 下巴硬接缝，按 STOP 条件停止；经用户明确授权后，仅在原 ROI 内改为“底图 ROI 回填 + 窄嘴部裁剪 + 径向羽化”，没有扩大 ROI 掩盖问题。
+- 最终素材自动门禁通过：strict 本地 L1 schema、相对路径安全、PNG 解码/尺寸/alpha/hash、ROI 位于脸部安全框、确定性 bundle fingerprint；五档合成后 ROI 外变化均为 0 像素。
+- 100% 与 400% 人工检查通过：没有下巴接缝或肤色跳变，SMALL→MEDIUM→LARGE 开口递增，ROUND 保持独立圆唇形态，未观察到牙齿闪烁。证据见 `docs/reviews/LIP_SYNC_V1_L1_ASSET.json` 及两张预览 PNG。
+- L1 收口已严格串行通过 `typecheck`、0-warning `lint`、`backend:test` 13/13 和 Next production `build`；新增素材脚本另通过 Node 语法检查、机器素材验证与 JSON 解析。
+- 当前 L1 已具备进入 L2 的条件，但必须等待用户明确确认。下一阶段准确范围仅为最小内部契约与向前数据迁移；不得提前进入 L3 驱动、L5 正式纵切或 L6 另外两位教师素材。
+
+## 2026-08-12 数字人唇形增强 L0 POC
+
+- 本轮只完成 POC 和证据记录，没有修改生产代码、依赖锁文件、UI、公开 API、任务模型或交付格式，也没有开始三位教师的正式嘴型素材制作。
+- Edge 边界：三种现有音色对同一公开 17.8～19.1 秒中文金样均得到 49 项合法边界，非标点中文覆盖率 100%，同一 sidecar 重建 1000 次哈希一致；结论 PASS。
+- 多句累计：三句解码时长分别为 4224/5232/4968 ms，累计 14424 ms 与 FFmpeg 实际拼接解码时长完全一致；全局边界单调且未越过逐句真实时长；结论 PASS。
+- ROUND POC：`pinyin-pro@3.28.2` 临时离线评估为 MIT、零运行时依赖、约 931 KB；9 组、62 个中文音节的上下文拼音与固定圆唇韵母分类均命中 golden。原始数字/拉丁字母/公式符号只允许 unresolved/no-ROUND，须使用既有规范化中文 `spokenText` 才能分类；结论 `PASS_WITH_LIMITATIONS`，不得随机伪造 ROUND。
+- `ENERGY_ONLY`：三音色 CPU 解码后均生成四档确定性时间线；480 ms 插入静音最迟 80 ms 闭口，最大相邻步长 1，200 次重建哈希一致，缺失/损坏 sidecar 均显式降级且不含 ROUND；结论 PASS。
+- 证据文件：`docs/reviews/LIP_SYNC_V1_POC.json`。当前具备进入 L1 的条件，但下一阶段准确范围仅为素材规范、manifest/catalog 设计和周老师固定底图/局部嘴贴片门禁；周老师真实纵切仍属于后续 L5，林/严老师素材属于周老师纵切通过后的 L6。
+- 文档收口后已按 AGENTS.md 严格串行通过 `typecheck`、0-warning `lint`、`backend:test` 13/13 与 Next production `build`。本轮没有新增生产专项命令；计划中的 `test:lip-sync` 等属于后续正式实现，未伪装为 L0 已存在或已通过。
 
 ## 2026-08-05 数字人教师形象与预览联动
 

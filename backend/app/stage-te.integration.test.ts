@@ -45,7 +45,7 @@ after(async () => {
 test("PAGE_RENDER freezes three approved pages and retries only the failed page", async () => {
   const seeded = await seedReadyAudio();
   await prisma.project.update({ where: { id: seeded.projectId }, data: { settings: {
-    avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1,
+    avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1,
     captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
     slideOverrides: [{ slideId: "slide_te_2", avatarPosition: "hidden" }],
   } } });
@@ -76,6 +76,9 @@ test("PAGE_RENDER freezes three approved pages and retries only the failed page"
   assert(pages.every((page) => page.durationMs >= 1_500 && page.fps === 25));
   assert.deepEqual(pages.map((page) => page.avatarPlacement), ["right-panel", "hidden", "right-panel"]);
   assert.equal(pages[0].overlayType, "highlightBox");
+  const storedPages = await prisma.renderedPage.findMany({ where: { taskId: task.id }, orderBy: { pageOrder: "asc" } });
+  assert(storedPages.every((page) => page.avatarId === "avatar-zhou" && page.avatarAssetVersion === "legacy-binary-v1"));
+  assert(storedPages.every((page) => page.lipSyncTimeline === null && page.lipSyncTimelineHash === null));
   for (const page of pages) {
     const assets = await prisma.asset.findMany({ where: { id: { in: [page.frameAssetId, page.videoAssetId] } } });
     assert.equal(assets.length, 2);
@@ -118,7 +121,7 @@ test("changing one slide setting reuses unchanged page assets and renders only t
   const first = await createAndRun("stage-11e-cache-first", firstAdapter);
   assert.deepEqual(firstAdapter.calls, [1, 2, 3]);
   await prisma.project.update({ where: { id: seeded.projectId }, data: { settings: {
-    avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1,
+    avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1,
     captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
     slideOverrides: [{ slideId: "slide_te_2", avatarPosition: "hidden" }],
   } } });
@@ -155,7 +158,7 @@ async function seedReadyAudio() {
   const presentationId = "presentation_stage_te";
   const audioTaskId = "task_audio_te";
   const store = new LocalAssetStore(assetRoot);
-  await prisma.project.create({ data: { id: projectId, principal, title: "T-E fixture", status: "READY" } });
+  await prisma.project.create({ data: { id: projectId, principal, title: "T-E fixture", status: "READY", settings: { avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1, captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light" } } });
   await prisma.asset.create({ data: { id: "asset_source_te", projectId, kind: "SOURCE_PPT", storageKey: "fixture/source-te.pptx", sha256: "e".repeat(64), mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", fileSize: 1 } });
   await prisma.presentation.create({ data: { id: presentationId, projectId, sourceAssetId: "asset_source_te", originalFileName: "fixture.pptx", sha256: "e".repeat(64), fileSize: 1, mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", slideCount: 3, parseStatus: "COMPLETED", parserVersion: "fixture" } });
   await prisma.generationTask.create({ data: { id: audioTaskId, principal, projectId, presentationId, kind: "AUDIO", idempotencyKey: "audio-stage-te", inputHash: "audio-input", configHash: "audio-config", status: "SUCCEEDED", stage: "AUDIO", progressCompleted: 3, progressTotal: 3, completedAt: new Date() } });

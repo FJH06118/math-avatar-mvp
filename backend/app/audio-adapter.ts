@@ -4,6 +4,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WorkerError } from "./worker-error.ts";
+import { WordTimingCaptureSchema, type WordTimingCapture } from "@ppt-digital-human/contracts";
 
 const require = createRequire(import.meta.url);
 const ffprobeModule = require("ffprobe-static") as string | { path?: string };
@@ -28,6 +29,7 @@ export interface AudioAdapterResult {
   sampleRateHz?: number;
   meanDb?: number;
   peakDb?: number;
+  timingMetadata?: WordTimingCapture;
 }
 
 export interface AudioAdapter {
@@ -58,13 +60,38 @@ export class EdgeTtsAudioAdapter implements AudioAdapter {
         throw new WorkerError("AUDIO_EMPTY", "音频文件为空或过小。", true);
       }
       const quality = await inspectAudioFile(outputPath);
-      return { bytes: await readFile(outputPath), ...quality };
+      const timingMetadata = await readTimingSidecar(`${outputPath}.json`, quality.durationMs);
+      return { bytes: await readFile(outputPath), ...quality, timingMetadata };
     } catch (error) {
       if (error instanceof WorkerError) throw error;
       throw new WorkerError("AUDIO_OUTPUT_INVALID", "音频产物无法读取或校验。", true);
     } finally {
       input.signal.removeEventListener("abort", abort);
     }
+  }
+}
+
+async function readTimingSidecar(path: string, durationMs: number): Promise<WordTimingCapture> {
+  const unavailable = (reason: string) => WordTimingCaptureSchema.parse({
+    schemaVersion: "word-timing-v1", captureVersion: "edge-word-boundary-v1", status: "UNAVAILABLE",
+    provider: "edge-tts", reason, boundaries: [],
+  });
+  try {
+    const raw: unknown = JSON.parse(await readFile(path, "utf8"));
+    if (!Array.isArray(raw) || raw.length === 0) return unavailable("SIDECAR_EMPTY");
+    const boundaries = raw.map((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("entry invalid");
+      const record = value as Record<string, unknown>;
+      if (Object.keys(record).sort().join(",") !== "end,part,start") throw new Error("entry keys invalid");
+      if (typeof record.part !== "string" || !record.part.trim() || !Number.isInteger(record.start) || !Number.isInteger(record.end)) throw new Error("entry values invalid");
+      const startMs = record.start as number;
+      const rawEnd = record.end as number;
+      if (startMs < 0 || rawEnd <= startMs || rawEnd > durationMs + 250) throw new Error("entry range invalid");
+      return { text: record.part.trim(), startMs, endMs: Math.min(rawEnd, durationMs) };
+    });
+    return WordTimingCaptureSchema.parse({ schemaVersion: "word-timing-v1", captureVersion: "edge-word-boundary-v1", status: "AVAILABLE", provider: "edge-tts", boundaries });
+  } catch {
+    return unavailable("SIDECAR_MISSING_OR_INVALID");
   }
 }
 
