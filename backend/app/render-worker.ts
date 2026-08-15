@@ -50,6 +50,10 @@ export async function runClaimedRenderStep(
       .then((owned) => { if (!owned) controller.abort(); }).catch(() => controller.abort()).finally(() => { heartbeatRunning = false; });
   }, Math.max(100, Math.floor(dependencies.leaseMs / 3)));
   try {
+    await verifyInputAsset(dependencies.assets, source);
+    for (const audio of page.audio) {
+      await verifyInputAsset(dependencies.assets, byId.get(audio.assetId)!);
+    }
     const cached = await dependencies.prisma.renderedPage.findFirst({
       where: {
         inputHash: page.inputHash,
@@ -93,8 +97,6 @@ export async function runClaimedRenderStep(
       avatarId: "avatar-zhou", avatarAssetVersion: "legacy-binary-v1",
       lipSyncTimeline: undefined, lipSyncTimelineHash: undefined,
     };
-    const completedCount = task.renderedPages.length + 1;
-    const isFinal = completedCount === payload.data.pages.length;
     const now = new Date();
     await dependencies.prisma.$transaction(async (transaction) => {
       const owned = await transaction.generationTaskStep.updateMany({ where: { id: step.id, workerId, currentAttempt: claim.attempt, status: "RUNNING" }, data: {
@@ -114,11 +116,31 @@ export async function runClaimedRenderStep(
       const video = await transaction.asset.findUniqueOrThrow({ where: { projectId_kind_sha256: { projectId: task.projectId, kind: "PAGE_VIDEO", sha256: videoSha } } });
       await transaction.renderedPage.create({ data: { ...currentPage, frameAssetId: frame.id, videoAssetId: video.id } });
       await transaction.taskStepAttempt.update({ where: { taskStepId_attempt: { taskStepId: step.id, attempt: claim.attempt } }, data: { status: "SUCCEEDED", completedAt: now } });
+      const completedCount = await transaction.renderedPage.count({ where: { taskId: task.id } });
+      const isFinal = completedCount === payload.data.pages.length;
       await transaction.generationTask.update({ where: { id: task.id }, data: {
         status: isFinal ? "SUCCEEDED" : "RUNNING", progressCompleted: completedCount, completedAt: isFinal ? now : null,
         heartbeatAt: now, statusVersion: { increment: 1 }, errorCode: null, errorMessage: null,
       } });
     });
+    // A concurrent worker may have committed its page after this transaction
+    // took its snapshot. Reconcile once more after commit so the last page
+    // cannot leave the parent task stuck in RUNNING.
+    const committedCount = await dependencies.prisma.renderedPage.count({ where: { taskId: task.id } });
+    if (committedCount === payload.data.pages.length) {
+      await dependencies.prisma.generationTask.updateMany({
+        where: { id: task.id, status: { in: ["CREATED", "QUEUED", "RUNNING"] }, cancellationRequestedAt: null },
+        data: {
+          status: "SUCCEEDED",
+          progressCompleted: committedCount,
+          completedAt: new Date(),
+          heartbeatAt: new Date(),
+          statusVersion: { increment: 1 },
+          errorCode: null,
+          errorMessage: null,
+        },
+      });
+    }
     return "SUCCEEDED";
   } catch (error) {
     const current = await dependencies.prisma.generationTask.findUnique({ where: { id: task.id } });
@@ -138,6 +160,17 @@ async function readVerifiedAsset(
     throw new WorkerError("RENDER_CACHE_INVALID", "分页渲染缓存完整性检查失败。", false);
   }
   return bytes;
+}
+
+async function verifyInputAsset(
+  assets: LocalAssetStore,
+  asset: { storageKey: string; fileSize: number; sha256: string },
+): Promise<void> {
+  const bytes = await readFile(assets.resolveForRead(asset.storageKey));
+  const actualSha = createHash("sha256").update(bytes).digest("hex");
+  if (bytes.byteLength !== asset.fileSize || actualSha !== asset.sha256) {
+    throw new WorkerError("RENDER_ASSET_INTEGRITY_FAILED", "渲染输入文件完整性检查失败。", false);
+  }
 }
 
 function safeAttemptDir(root: string, taskId: string, stepId: string, attempt: number): string {

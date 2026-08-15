@@ -17,6 +17,15 @@
 
 根目录名称目前沿用原来的“数字人前端”，但它现在代表完整项目；前端和后端实现分别只放在 `frontend/` 与 `backend/`。
 
+## GitHub 仓库分工
+
+从 2026-08-15 起，项目按两个仓库协作：
+
+- **网页与共享服务**：当前仓库 [`FJH06118/math-avatar-mvp`](https://github.com/FJH06118/math-avatar-mvp)。继续维护 Next.js 网页、Hono/Worker 后端、共享 Contract 和产品文档。
+- **Windows 软件**：独立仓库 [`FJH06118/math-avatar-desktop`](https://github.com/FJH06118/math-avatar-desktop)。只放 Electron/Tauri 桌面宿主、API 设置、安全存储、运行时编排和安装包；不复制后端业务代码，通过版本化接口接入本仓库的共享服务。
+
+桌面仓库当前是可继续开发的 P0 骨架，尚未宣称已有安装包或 Provider 原生适配。两仓库的同步边界、版本策略和后续实现顺序见 [Windows 软件封装计划](docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md)。
+
 ## 快速开始
 
 环境要求：
@@ -86,6 +95,7 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 - 当前工作树保留唇形研究素材、契约和向前 migration，但它们没有接入正式 PAGE_RENDER。
 - 用户已确认下一阶段目标为 Windows 10/11 本地单机软件：用户配置 OpenAI、DeepSeek、GLM、Kimi 或 Anthropic Claude API，语音首发使用 Edge TTS，生成前必须审核讲稿，首发只提供一个内置数字人。
 - Windows 软件封装实施计划已经完成，见 [docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md](docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md)。计划中的 Electron 宿主、API 设置页、安全密钥存储、Provider 适配、服务端根工作流、一键安装包和升级链路尚未实现。
+- 2026-08-14 代码审查修复已完成：逐页批准门禁、项目作用域媒体下载、并发渲染终态、取消/租约竞态、源文件完整性、复合快照和服务端快照重试均已接入；当前仍未进入 Windows 桌面宿主与多 Provider 实现阶段。
 
 本阶段最近一次项目门禁已串行通过：npm.cmd run typecheck、npm.cmd run lint、npm.cmd run backend:test（13/13）和 npm.cmd run build。这些命令不代表桌面安装包或多 Provider 已经交付。
 

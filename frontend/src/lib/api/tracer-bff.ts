@@ -18,6 +18,7 @@ import {
   WorkspaceLockResponseSchema,
   WorkspaceSnapshotResponseSchema,
   TeachingSettingsResponseSchema,
+  StableIdSchema,
 } from "@ppt-digital-human/contracts";
 
 export function getApplicationConfig(): {
@@ -93,4 +94,9 @@ export function bffInvalidRequestResponse(message: string): Response {
     }),
     { status: 400 },
   );
+}
+
+export function getRequiredProjectScope(request: Request): string | null {
+  const projectId = new URL(request.url).searchParams.get("projectId");
+  return StableIdSchema.safeParse(projectId).success ? projectId : null;
 }

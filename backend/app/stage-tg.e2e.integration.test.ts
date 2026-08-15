@@ -70,7 +70,10 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
 
   const renderResponse = await request(app, `/v1/projects/${upload.project.id}/renders`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: upload.presentation.id, audioTaskId: audioTask.id, idempotencyKey: "stage-tg-render-key", fps: 25 }) });
   const renderTask = RenderTaskResponseSchema.parse(await renderResponse.json()).data; await dispatchPendingOutbox(prisma);
-  for (let i = 0; i < 3; i += 1) { const claim = await claimNextProductStep(pool, "tg-render", 60_000, 3, "PAGE_RENDER"); assert(claim); assert.equal(await runClaimedRenderStep({ prisma, pool, assets: store, adapter: new SharpFfmpegPageRenderAdapter(), attemptRoot, leaseMs: 60_000 }, claim, "tg-render"), "SUCCEEDED"); }
+  const renderClaims = await Promise.all([0, 1, 2].map((index) => claimNextProductStep(pool, `tg-render-${index}`, 60_000, 3, "PAGE_RENDER")));
+  assert(renderClaims.every(Boolean));
+  const renderResults = await Promise.all(renderClaims.map((claim, index) => runClaimedRenderStep({ prisma, pool, assets: store, adapter: new SharpFfmpegPageRenderAdapter(), attemptRoot, leaseMs: 60_000 }, claim!, `tg-render-${index}`)));
+  assert.deepEqual(renderResults, ["SUCCEEDED", "SUCCEEDED", "SUCCEEDED"]);
   assert.equal((await prisma.generationTask.findUniqueOrThrow({ where: { id: renderTask.id } })).status, "SUCCEEDED");
 
   const compositeResponse = await request(app, `/v1/projects/${upload.project.id}/composites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: upload.presentation.id, renderTaskId: renderTask.id, audioTaskId: audioTask.id, idempotencyKey: "stage-tg-composite-key" }) });
@@ -78,19 +81,22 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   const compositeClaim = await claimNextProductStep(pool, "tg-composite", 60_000, 3, "COMPOSITE"); assert(compositeClaim); assert.equal(await runClaimedCompositeStep({ prisma, pool, assets: store, adapter: new FfmpegCompositeAdapter(), attemptRoot, leaseMs: 60_000 }, compositeClaim, "tg-composite"), "SUCCEEDED");
   const validationClaim = await claimNextProductStep(pool, "tg-validate", 60_000, 3, "VALIDATE"); assert(validationClaim); assert.equal(await runClaimedValidationStep({ prisma, pool, assets: store, adapter: new FfmpegMediaValidationAdapter(), attemptRoot, leaseMs: 60_000 }, validationClaim, "tg-validate"), "SUCCEEDED");
 
-  const manifestResponse = await request(app, `/v1/tasks/${compositeTask.id}/delivery`); assert.equal(manifestResponse.status, 200);
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/delivery`)).status, 400);
+  const scopedDelivery = `?projectId=${encodeURIComponent(upload.project.id)}`;
+  const manifestResponse = await request(app, `/v1/tasks/${compositeTask.id}/delivery${scopedDelivery}`); assert.equal(manifestResponse.status, 200);
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/delivery?projectId=project_other`)).status, 404);
   const manifestText = await manifestResponse.text(); assert.doesNotMatch(manifestText, /storageKey|assetRoot|[A-Z]:\\|t-assets/i);
   const manifest = DeliveryManifestResponseSchema.parse(JSON.parse(manifestText)).data; assert.deepEqual(manifest.files.map((file) => file.kind), ["video", "captions", "metadata"]);
   const taskCountBeforeRefresh = await prisma.generationTask.count({ where: { projectId: upload.project.id } });
-  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/delivery`)).status, 200);
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/delivery${scopedDelivery}`)).status, 200);
   assert.equal(await prisma.generationTask.count({ where: { projectId: upload.project.id } }), taskCountBeforeRefresh);
-  const vttResponse = await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt`);
+  const vttResponse = await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt${scopedDelivery}`);
   assert.equal(vttResponse.status, 200);
   assert.equal(vttResponse.headers.get("content-type"), "text/vtt; charset=utf-8");
   assert.match(await vttResponse.text(), /^WEBVTT\n\n1\n00:00:00\.000 -->/);
-  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt`, {}, "another-user")).status, 404);
+  assert.equal((await request(app, `/v1/tasks/${compositeTask.id}/captions.vtt${scopedDelivery}`, {}, "another-user")).status, 404);
   for (const file of manifest.files) {
-    const backendPath = file.kind === "metadata" ? `/v1/tasks/${compositeTask.id}/delivery/metadata` : `/v1/assets/${file.assetId}/content`;
+    const backendPath = file.kind === "metadata" ? `/v1/tasks/${compositeTask.id}/delivery/metadata${scopedDelivery}` : `/v1/assets/${file.assetId}/content${scopedDelivery}`;
     const full = await request(app, backendPath); assert.equal(full.status, 200); const bytes = new Uint8Array(await full.arrayBuffer()); assert.equal(bytes.byteLength, file.fileSize); assert.equal(createHash("sha256").update(bytes).digest("hex"), file.sha256); assert.equal(full.headers.get("etag"), `"${file.sha256}"`);
     const partial = await request(app, backendPath, { headers: { Range: "bytes=0-99" } }); assert.equal(partial.status, 206); assert.match(partial.headers.get("content-range") ?? "", /^bytes 0-/);
     assert.equal((await request(app, backendPath, { headers: { "If-None-Match": `"${file.sha256}"` } })).status, 304);

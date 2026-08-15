@@ -9,6 +9,7 @@ import { after, before, beforeEach, test } from "node:test";
 import {
   ParseAdapterDeckSchema,
   ParseSnapshotResponseSchema,
+  ProjectResponseSchema,
   TracerTaskResponseSchema,
   TracerUploadResponseSchema,
 } from "@ppt-digital-human/contracts";
@@ -204,6 +205,48 @@ test("cancelled parse task cannot be claimed", async () => {
   assert.equal(await claimNextProductStep(pool, "worker-after-cancel", 500), null);
   const task = await prisma.generationTask.findUniqueOrThrow({ where: { id: receipt.task.id } });
   assert.equal(task.status, "CANCELLED");
+});
+
+test("retry replays the original task snapshot instead of current workspace state", async () => {
+  const receipt = await createParseTask("stage-tb-retry-source");
+  await dispatchPendingOutbox(prisma);
+  assert.equal((await cancelTask(receipt.task.id)).status, 200);
+  const app = createApplication({ prisma, assetRoot, internalToken });
+  const response = await app.request(`/v1/tasks/${receipt.task.id}/retry`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Internal-Token": internalToken,
+      "X-Principal": principal,
+    },
+    body: JSON.stringify({ projectId: receipt.project.id, idempotencyKey: "retry-stage-tb-001" }),
+  });
+  assert.equal(response.status, 201);
+  const retried = TracerTaskResponseSchema.parse(await response.json()).data;
+  assert.notEqual(retried.id, receipt.task.id);
+  assert.equal(retried.projectId, receipt.project.id);
+  assert.equal(retried.inputHash, receipt.task.inputHash);
+  assert.equal(retried.status, "QUEUED");
+  const projectResponse = await app.request(`/v1/projects/${receipt.project.id}`, {
+    headers: { "X-Internal-Token": internalToken, "X-Principal": principal },
+  });
+  assert.equal(ProjectResponseSchema.parse(await projectResponse.json()).data.status, "parsing");
+  const event = await prisma.taskOutbox.findFirstOrThrow({ where: { taskId: retried.id } });
+  assert.equal(event.eventType, "PARSE_REQUESTED");
+  const stepId = await dispatchOutboxEvent(prisma, event.id);
+  assert.equal(await prisma.generationTaskStep.count({ where: { taskId: retried.id } }), 1);
+  assert.equal(stepId, (await prisma.generationTaskStep.findFirstOrThrow({ where: { taskId: retried.id } })).id);
+  const replay = await app.request(`/v1/tasks/${receipt.task.id}/retry`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Internal-Token": internalToken,
+      "X-Principal": principal,
+    },
+    body: JSON.stringify({ projectId: receipt.project.id, idempotencyKey: "retry-stage-tb-001" }),
+  });
+  assert.equal(replay.status, 200);
+  assert.equal(TracerTaskResponseSchema.parse(await replay.json()).data.id, retried.id);
 });
 
 test("active cancellation aborts the adapter and preserves one CANCELLED terminal state", async () => {

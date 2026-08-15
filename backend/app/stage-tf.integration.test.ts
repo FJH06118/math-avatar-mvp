@@ -37,10 +37,10 @@ test("COMPOSITE stays non-terminal until all media hard gates pass", async () =>
   assert.equal(await runClaimedCompositeStep({ prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: new FfmpegCompositeAdapter(), attemptRoot, leaseMs: 30_000 }, compositeClaim, "tf-composite"), "SUCCEEDED");
   const pendingValidation = await prisma.generationTask.findUniqueOrThrow({ where: { id: task.id } });
   assert.equal(pendingValidation.status, "QUEUED"); assert.equal(pendingValidation.stage, "VALIDATE");
-  assert.equal((await request(app, `/v1/tasks/${task.id}/media`)).status, 409);
+  assert.equal((await request(app, `/v1/tasks/${task.id}/media?projectId=${seeded.projectId}`)).status, 409);
   const validateClaim = await claimNextProductStep(pool, "tf-validate", 30_000, 3, "VALIDATE"); assert(validateClaim);
   assert.equal(await runClaimedValidationStep({ prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: new FfmpegMediaValidationAdapter(), attemptRoot, leaseMs: 30_000 }, validateClaim, "tf-validate"), "SUCCEEDED");
-  const response = await request(app, `/v1/tasks/${task.id}/media`); assert.equal(response.status, 200);
+  const response = await request(app, `/v1/tasks/${task.id}/media?projectId=${seeded.projectId}`); assert.equal(response.status, 200);
   const media = FinalMediaResponseSchema.parse(await response.json()).data;
   assert.equal(media.validation.status, "passed"); assert.deepEqual(media.validation.pageCoverage, [1, 2, 3]);
   assert.equal(media.validation.videoCodec, "h264"); assert.equal(media.validation.audioCodec, "aac");
@@ -64,8 +64,8 @@ test("a failed hard gate rejects the candidate and fails the task", async () => 
   assert.equal(await runClaimedValidationStep({ prisma, pool, assets: new LocalAssetStore(assetRoot), adapter: new RejectingValidator(), attemptRoot, leaseMs: 30_000 }, validateClaim, "tf-validate-fail"), "FAILED");
   const failed = await prisma.generationTask.findUniqueOrThrow({ where: { id: task.id }, include: { mediaOutput: { include: { videoAsset: true } } } });
   assert.equal(failed.status, "FAILED"); assert.equal(failed.mediaOutput?.status, "REJECTED"); assert.equal(failed.mediaOutput?.videoAsset.lifecycle, "INVALID");
-  assert.equal((await request(app, `/v1/tasks/${task.id}/media`)).status, 409);
-  assert.equal((await request(app, `/v1/tasks/${task.id}/delivery`)).status, 404);
+  assert.equal((await request(app, `/v1/tasks/${task.id}/media?projectId=${seeded.projectId}`)).status, 409);
+  assert.equal((await request(app, `/v1/tasks/${task.id}/delivery?projectId=${seeded.projectId}`)).status, 404);
 });
 
 test("validation rejects a candidate whose persisted bytes no longer match its asset record", async () => {
@@ -101,6 +101,7 @@ async function seedRenderedPages() {
   await prisma.presentation.create({ data: { id: presentationId, projectId, sourceAssetId: "asset_source_tf", originalFileName: "fixture.pptx", sha256: "f".repeat(64), fileSize: 1, mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", slideCount: 3, parseStatus: "COMPLETED", parserVersion: "fixture" } });
   await prisma.generationTask.create({ data: { id: audioTaskId, principal, projectId, presentationId, kind: "AUDIO", idempotencyKey: "audio-tf", inputHash: "audio", configHash: "audio", status: "SUCCEEDED", stage: "AUDIO", progressCompleted: 3, progressTotal: 3, completedAt: new Date() } });
   await prisma.generationTask.create({ data: { id: renderTaskId, principal, projectId, presentationId, kind: "GENERATE", idempotencyKey: "render-tf", inputHash: "render", configHash: "render", status: "SUCCEEDED", stage: "PAGE_RENDER", progressCompleted: 3, progressTotal: 3, completedAt: new Date() } });
+  await prisma.taskOutbox.create({ data: { id: "outbox-render-tf", taskId: renderTaskId, eventKey: "render.requested:render-tf", eventType: "RENDER_REQUESTED", payload: { audioTaskId }, publishedAt: new Date() } });
   const temp = await mkdtemp(join(tmpdir(), "ppt-dh-tf-tone-")); const tonePath = join(temp, "tone.mp3");
   execFileSync(ffmpeg, ["-y", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=550:duration=1.65", "-ar", "24000", "-ac", "1", "-b:a", "48k", tonePath]);
   const tone = await readFile(tonePath); await rm(temp, { recursive: true, force: true });

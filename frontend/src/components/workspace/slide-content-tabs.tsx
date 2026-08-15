@@ -5,6 +5,7 @@ import {
   SigmaIcon,
   LockIcon,
   LockOpenIcon,
+  CheckCircle2Icon,
 } from "lucide-react";
 
 import {
@@ -21,6 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import type { Avatar, ParsedSlide } from "@/types";
 
 import { FormulaList } from "./formula-list";
@@ -34,6 +36,8 @@ interface SlideContentTabsProps {
   onScriptChange: (value: string) => void;
   onLockChange?: (locked: boolean) => void;
   isLocking?: boolean;
+  onApprove?: () => void;
+  isApproving?: boolean;
   avatar?: Avatar;
   avatarPosition?: "left" | "right" | "hidden";
 }
@@ -52,6 +56,8 @@ export function SlideContentTabs({
   onScriptChange,
   onLockChange,
   isLocking = false,
+  onApprove,
+  isApproving = false,
   avatar,
   avatarPosition,
 }: SlideContentTabsProps) {
@@ -74,12 +80,29 @@ export function SlideContentTabs({
           <span className="text-sm text-muted-foreground">
             修订 {slide.lessonPlanRevision} · {slide.sceneCount} 个分镜
           </span>
+          {slide.lessonPlanRevisionId && slide.lessonPlanApproval !== "approved" && onApprove ? (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="ml-auto"
+              disabled={isApproving || isLocking}
+              onClick={onApprove}
+            >
+              {isApproving ? (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              ) : (
+                <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+              )}
+              {isApproving ? "正在批准…" : "批准本页讲稿"}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="ml-auto"
-            disabled={isLocking}
+            className={slide.lessonPlanApproval === "approved" ? "ml-auto" : undefined}
+            disabled={isLocking || isApproving}
             onClick={() => onLockChange?.(!slide.isLocked)}
           >
             {slide.isLocked ? (

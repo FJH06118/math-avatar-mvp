@@ -1,4 +1,6 @@
-import { join, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { resolve, sep } from "node:path";
 import type { Pool } from "pg";
 import type { PrismaClient } from "../generated/prisma/client.ts";
 import type { ParseAdapter } from "./parse-adapter.ts";
@@ -9,7 +11,7 @@ import {
   type ProductClaim,
 } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
-import { toWorkerError } from "./worker-error.ts";
+import { toWorkerError, WorkerError } from "./worker-error.ts";
 
 export interface ParseWorkerDependencies {
   prisma: PrismaClient;
@@ -73,6 +75,7 @@ export async function runClaimedParseStep(
     claim.attempt,
   );
   try {
+    await verifyAssetOnDisk(dependencies.assets, task.presentation.sourceAsset);
     const result = await dependencies.adapter.run({
       sourcePath: dependencies.assets.resolveForRead(task.presentation.sourceAsset.storageKey),
       attemptDir,
@@ -108,6 +111,17 @@ export async function runClaimedParseStep(
   } finally {
     clearInterval(timer);
     controller.abort();
+  }
+}
+
+async function verifyAssetOnDisk(
+  assets: LocalAssetStore,
+  asset: { storageKey: string; fileSize: number; sha256: string },
+): Promise<void> {
+  const bytes = await readFile(assets.resolveForRead(asset.storageKey));
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  if (bytes.byteLength !== asset.fileSize || sha256 !== asset.sha256) {
+    throw new WorkerError("SOURCE_ASSET_INTEGRITY_FAILED", "源课件在解析前完整性校验失败。", false);
   }
 }
 

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
 import { FinalMediaSchema, MediaValidationReportSchema, type CompositeTaskCreateRequest } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
@@ -21,7 +22,7 @@ export class MediaRepository {
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
     const renderTask = await this.prisma.generationTask.findFirst({
       where: { id: input.renderTaskId, principal, projectId, presentationId: presentation.id, kind: "GENERATE", stage: "PAGE_RENDER", status: "SUCCEEDED" },
-      include: { renderedPages: { orderBy: { pageOrder: "asc" } } },
+      include: { renderedPages: { orderBy: { pageOrder: "asc" } }, outbox: { where: { eventType: "RENDER_REQUESTED" }, take: 1 } },
     });
     if (!renderTask || renderTask.renderedPages.length !== presentation.slideCount) throw new AppHttpError(409, "PAGE_RENDER_NOT_READY", "必须先完成全部分页视频。", false);
     const audioTask = await this.prisma.generationTask.findFirst({
@@ -29,6 +30,10 @@ export class MediaRepository {
       include: { audioTimeline: true },
     });
     if (!audioTask?.audioTimeline) throw new AppHttpError(409, "AUDIO_NOT_READY", "音频时间轴尚未完成。", false);
+    const renderSnapshot = z.object({ audioTaskId: z.string().min(1) }).passthrough().safeParse(renderTask.outbox[0]?.payload);
+    if (!renderSnapshot.success || renderSnapshot.data.audioTaskId !== audioTask.id) {
+      throw new AppHttpError(409, "RENDER_AUDIO_MISMATCH", "渲染任务与音频任务不属于同一个冻结快照。", false);
+    }
     const captions = await this.prisma.asset.findFirst({ where: { id: audioTask.audioTimeline.srtAssetId, projectId, lifecycle: "AVAILABLE" } });
     if (!captions) throw new AppHttpError(409, "CAPTIONS_NOT_READY", "字幕资产不可用。", false);
     const fps = renderTask.renderedPages[0]?.fps;
@@ -68,8 +73,8 @@ export class MediaRepository {
     }
   }
 
-  async getFinalMedia(principal: string, taskId: string) {
-    const task = await this.prisma.generationTask.findFirst({ where: { id: taskId, principal, kind: "VALIDATE" }, include: { mediaOutput: { include: { validation: true } } } });
+  async getFinalMedia(principal: string, taskId: string, projectId: string) {
+    const task = await this.prisma.generationTask.findFirst({ where: { id: taskId, principal, projectId, kind: "VALIDATE" }, include: { mediaOutput: { include: { validation: true } } } });
     if (!task) throw new AppHttpError(404, "MEDIA_TASK_NOT_FOUND", "媒体任务不存在。", false);
     if (task.status !== "SUCCEEDED" || task.mediaOutput?.status !== "VALIDATED" || !task.mediaOutput.validation) throw new AppHttpError(409, "MEDIA_NOT_READY", "媒体尚未通过最终验证。", task.status !== "FAILED");
     return FinalMediaSchema.parse({

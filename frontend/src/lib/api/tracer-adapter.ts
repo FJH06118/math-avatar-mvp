@@ -14,6 +14,7 @@ import {
   getTracerWorkspace,
   getTracerRenderedPages,
   getTracerTask,
+  retryTracerTask,
   reviseTracerLessonPlan,
   setTracerRevisionLocked,
   uploadTracerPresentation,
@@ -22,6 +23,7 @@ import {
 export const tracerApiAdapter = {
   uploadPresentation: uploadTracerPresentation,
   getTask: getTracerTask,
+  retryTask: retryTracerTask,
   getParseSnapshot: getTracerParseSnapshot,
   getWorkspace: getTracerWorkspace,
   cancelTask: cancelTracerTask,

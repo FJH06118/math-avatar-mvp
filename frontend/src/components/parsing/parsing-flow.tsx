@@ -83,10 +83,16 @@ export function ParsingFlow({
   const snapshotQuery = useQuery({
     queryKey: ["parse-snapshot", jobId],
     queryFn: () => realAdapter!.getParseSnapshot(jobId as string),
-    enabled: Boolean(realAdapter && jobId),
+    enabled: Boolean(
+      realAdapter &&
+        jobId &&
+        jobQuery.data?.status !== "failed" &&
+        jobQuery.data?.status !== "cancelled",
+    ),
     refetchInterval: (query) => {
       const task = query.state.data?.task;
-      return task?.status === "SUCCEEDED" ||
+      return jobQuery.data?.status === "completed" ||
+        task?.status === "SUCCEEDED" ||
         task?.status === "FAILED" ||
         task?.status === "CANCELLED"
         ? false
@@ -101,7 +107,7 @@ export function ParsingFlow({
   });
 
   const retryMutation = useMutation({
-    mutationFn: (id: string) => retryJob(id),
+    mutationFn: (id: string) => retryJob(id, {}, { projectId }),
     onSuccess: (job) =>
       queryClient.setQueryData<Job>(["jobs", job.id], job),
   });
@@ -187,7 +193,7 @@ export function ParsingFlow({
         </Badge>
       }
       actions={
-        job.status === "running" ? (
+        job.status === "running" || job.status === "queued" ? (
           <ConfirmDialog
             title="取消课件解析？"
             description="当前解析进度会停止，你可以稍后从项目列表重新开始。"

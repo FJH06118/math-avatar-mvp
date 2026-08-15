@@ -54,6 +54,8 @@ export function UploadDropzone({
           disabled && "cursor-not-allowed opacity-60",
         ),
         "aria-label": "选择或拖拽上传 PPT 文件",
+        role: "presentation",
+        tabIndex: -1,
       })}
     >
       <input {...getInputProps()} />

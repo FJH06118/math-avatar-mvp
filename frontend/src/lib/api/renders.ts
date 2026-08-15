@@ -24,10 +24,13 @@ export async function getRenderResult(
     const finalTaskId = taskId ?? project.renderJobId;
     if (!finalTaskId) throw new MockApiError("尚未找到已完成的媒体验证任务。", "RESULT_NOT_READY");
     const [media, delivery, task] = await Promise.all([
-      realAdapter.getFinalMedia(finalTaskId, options.signal),
-      realAdapter.getDelivery(finalTaskId, options.signal),
+      realAdapter.getFinalMedia(finalTaskId, options.signal, id),
+      realAdapter.getDelivery(finalTaskId, options.signal, id),
       realAdapter.getTask(finalTaskId, options.signal),
     ]);
+    if (task.projectId !== id || delivery.metadata.projectId !== id) {
+      throw new MockApiError("结果任务不属于当前项目。", "RESULT_PROJECT_MISMATCH");
+    }
     const video = delivery.files.find((file) => file.kind === "video");
     const captions = delivery.files.find((file) => file.kind === "captions");
     if (!video || !captions) throw new MockApiError("交付清单不完整。", "DELIVERY_INCOMPLETE");
@@ -37,7 +40,7 @@ export async function getRenderResult(
       jobId: finalTaskId,
       title: delivery.metadata.title,
       videoUrl: video.downloadUrl,
-      captionTrackUrl: `/api/t/tasks/${encodeURIComponent(finalTaskId)}/captions.vtt`,
+      captionTrackUrl: `/api/t/tasks/${encodeURIComponent(finalTaskId)}/captions.vtt?projectId=${encodeURIComponent(id)}`,
       mp4Url: video.downloadUrl,
       srtUrl: captions.downloadUrl,
       durationSeconds: Math.round(media.totalDurationMs / 1_000),
@@ -98,7 +101,11 @@ export async function prepareRenderDownload(
   if (realAdapter) {
     ProjectIdSchema.parse(projectId);
     if (!taskId) throw new MockApiError("缺少最终媒体任务。", "RESULT_NOT_READY");
-    const manifest = await realAdapter.getDelivery(taskId, options.signal);
+    const id = ProjectIdSchema.parse(projectId);
+    const manifest = await realAdapter.getDelivery(taskId, options.signal, id);
+    if (manifest.metadata.projectId !== id) {
+      throw new MockApiError("结果任务不属于当前项目。", "RESULT_PROJECT_MISMATCH");
+    }
     const kind = asset === "mp4" ? "video" : asset === "srt" ? "captions" : "metadata";
     const file = manifest.files.find((item) => item.kind === kind);
     if (!file) throw new MockApiError("下载文件暂不可用。", "ASSET_UNAVAILABLE");

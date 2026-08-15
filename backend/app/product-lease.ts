@@ -65,12 +65,19 @@ export async function claimNextProductStep(
        VALUES ($1, $2, $3, $4, 'RUNNING', NOW())`,
       [randomUUID(), step.id, step.currentAttempt, workerId],
     );
-    await client.query(
+    const taskUpdate = await client.query(
       `UPDATE "GenerationTask" SET "status" = 'RUNNING',
        "startedAt" = COALESCE("startedAt", NOW()), "heartbeatAt" = NOW(), "updatedAt" = NOW()
-       WHERE "id" = $1`,
+       WHERE "id" = $1
+         AND "cancellationRequestedAt" IS NULL
+         AND "status" IN ('CREATED', 'QUEUED', 'RUNNING')
+       RETURNING "id"`,
       [step.taskId],
     );
+    if (taskUpdate.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      return null;
+    }
     await client.query("COMMIT");
     return { taskId: step.taskId, taskStepId: step.id, attempt: step.currentAttempt };
   } catch (error) {

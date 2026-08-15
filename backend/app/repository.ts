@@ -271,6 +271,80 @@ export class ProductRepository {
     });
   }
 
+  async retryTask(
+    principal: string,
+    taskId: string,
+    projectId: string,
+    idempotencyKey: string,
+  ): Promise<{ task: GenerationTask; created: boolean }> {
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        const source = await transaction.generationTask.findFirst({
+          where: { id: taskId, principal, projectId },
+          include: {
+            outbox: {
+              where: { eventType: { in: ["PARSE_REQUESTED", "PLAN_REQUESTED", "AUDIO_REQUESTED", "RENDER_REQUESTED", "COMPOSITE_REQUESTED"] } },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+            },
+          },
+        });
+        if (!source) throw new AppHttpError(404, "TASK_NOT_FOUND", "任务不存在。", false);
+        if (!(["FAILED", "CANCELLED"] as string[]).includes(source.status)) {
+          throw new AppHttpError(409, "TASK_NOT_RETRYABLE", "只有失败或已取消的任务可以重试。", false);
+        }
+        const event = source.outbox[0];
+        const retryStage = event ? retryStageForEvent(event.eventType) : undefined;
+        if (!event || !retryStage) {
+          throw new AppHttpError(409, "RETRY_SNAPSHOT_MISSING", "原任务缺少可重放的输入快照。", false);
+        }
+        const existing = await transaction.generationTask.findFirst({
+          where: { principal, kind: source.kind, idempotencyKey },
+        });
+        if (existing) {
+          if (existing.projectId !== projectId || existing.inputHash !== source.inputHash) {
+            throw new AppHttpError(409, "RETRY_IDEMPOTENCY_CONFLICT", "该重试幂等键已用于不同的任务快照。", false);
+          }
+          return { task: existing, created: false };
+        }
+        const retryId = `task_${randomUUID()}`;
+        const task = await transaction.generationTask.create({
+          data: {
+            id: retryId,
+            principal,
+            projectId,
+            presentationId: source.presentationId,
+            kind: source.kind,
+            idempotencyKey,
+            inputHash: source.inputHash,
+            configHash: source.configHash,
+            status: "QUEUED",
+            stage: retryStage,
+            progressCompleted: 0,
+            progressTotal: Math.max(1, source.progressTotal),
+            presentationRevision: source.presentationRevision,
+            retryCount: source.retryCount + 1,
+          },
+        });
+        await transaction.taskOutbox.create({
+          data: {
+            id: `outbox_${randomUUID()}`,
+            taskId: retryId,
+            eventKey: `${event.eventType.toLowerCase()}:${retryId}`,
+            eventType: event.eventType,
+            payload: event.payload as Prisma.InputJsonValue,
+          },
+        });
+        return { task, created: true };
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AppHttpError(409, "RETRY_IDEMPOTENCY_CONFLICT", "该重试幂等键已用于不同的任务快照。", false);
+      }
+      throw error;
+    }
+  }
+
   async cancelTask(
     principal: string,
     taskId: string,
@@ -283,6 +357,18 @@ export class ProductRepository {
       if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(task.status)) {
         return { outcome: "terminal" as const, task };
       }
+
+      // Claim transactions lock the step before they update the task. Lock the
+      // same rows in that order here to avoid a claim/cancel deadlock.
+      const steps = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "GenerationTaskStep"
+        WHERE "taskId" = ${task.id}
+          AND "status" IN ('QUEUED', 'RUNNING')
+        ORDER BY "id"
+        FOR UPDATE
+      `;
+      const stepIds = steps.map((step) => step.id);
       const accepted = await transaction.generationTask.updateMany({
         where: {
           id: task.id,
@@ -299,11 +385,6 @@ export class ProductRepository {
         const terminal = await transaction.generationTask.findUniqueOrThrow({ where: { id: task.id } });
         return { outcome: "terminal" as const, task: terminal };
       }
-      const steps = await transaction.generationTaskStep.findMany({
-        where: { taskId: task.id, status: { in: ["QUEUED", "RUNNING"] } },
-        select: { id: true },
-      });
-      const stepIds = steps.map((step) => step.id);
       await transaction.generationTaskStep.updateMany({
         where: { id: { in: stepIds } },
         data: { status: "CANCELLED", workerId: null, leaseExpiresAt: null },
@@ -318,6 +399,18 @@ export class ProductRepository {
       };
     });
   }
+}
+
+function retryStageForEvent(
+  eventType: string,
+): "PARSE" | "PLAN" | "AUDIO" | "PAGE_RENDER" | "COMPOSITE" | undefined {
+  return {
+    PARSE_REQUESTED: "PARSE",
+    PLAN_REQUESTED: "PLAN",
+    AUDIO_REQUESTED: "AUDIO",
+    RENDER_REQUESTED: "PAGE_RENDER",
+    COMPOSITE_REQUESTED: "COMPOSITE",
+  }[eventType] as "PARSE" | "PLAN" | "AUDIO" | "PAGE_RENDER" | "COMPOSITE" | undefined;
 }
 
 export function idempotencyConflict(): AppHttpError {

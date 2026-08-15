@@ -1,5 +1,13 @@
 # 项目状态
 
+## 2026-08-14 代码审查修复（本轮）
+
+- 前端：生成按钮现在受逐页批准门禁约束；计划重试使用新的幂等 token，真实任务重试调用服务端快照复制接口；解析失败/取消后停止无意义轮询；上传拖放区不再制造嵌套交互语义。
+- 后端：结果媒体、交付清单、字幕、元数据和资产内容均按 `projectId` 做服务端归属校验；并发分页渲染按事务内已提交页面数判断终态；取消与 claim 使用一致的 step→task 锁顺序；claim 不会重新领取已请求取消的任务。
+- 完整性：PARSE/PAGE_RENDER 在读取源文件前复核文件大小与 SHA-256；COMPOSITE 校验音频任务快照；失败任务投影为 `failed`，不会被误显示为可交付。
+- 已验证：组件测试 16/16、Stage 11A 专项 9/9、Stage 11E 专项 4/4、Stage 11F 集成测试 4/4 已通过；typecheck、lint、backend:test、contracts/unit/build/routes 也已串行通过。
+- 未完成项保持诚实记录：Windows 安装包/桌面宿主、Provider 原生适配，以及 GitHub PR 的 CI/审查仍未完成；真实任务重试已改为服务端复制原始 outbox 快照。
+
 ## 2026-08-14 Windows 本地单机软件封装规划
 
 - 已完成仓库级现状审计和 Windows 软件封装实施计划，计划文件为 docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md；本轮只写规划，没有实现桌面宿主、设置页、Provider、工作流或安装器。

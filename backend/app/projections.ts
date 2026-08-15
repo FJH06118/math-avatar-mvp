@@ -68,9 +68,7 @@ export function projectRecord(record: ProjectRecord): Project {
   const latestTask = record.tasks[0];
   const publicStatus = (() => {
     if (record.status === "ARCHIVED") return "archived";
-    if (record.status === "FAILED") return "failed";
-    if (record.status === "PARSING") return "parsing";
-    if (record.status === "DRAFT") return "draft";
+    if (latestTask?.status === "FAILED") return "failed";
     if (
       latestTask?.kind === "VALIDATE" &&
       latestTask.status === "SUCCEEDED"
@@ -86,6 +84,15 @@ export function projectRecord(record: ProjectRecord): Project {
     ) {
       return "rendering";
     }
+    if (
+      latestTask?.kind === "PARSE" &&
+      ["CREATED", "QUEUED", "RUNNING"].includes(latestTask.status)
+    ) {
+      return "parsing";
+    }
+    if (record.status === "FAILED") return "failed";
+    if (record.status === "PARSING") return "parsing";
+    if (record.status === "DRAFT") return "draft";
     return "ready";
   })();
 

@@ -65,6 +65,23 @@ describe("stage 6 workspace slide", () => {
     expect(onLockChange).toHaveBeenCalledWith(false);
   });
 
+  it("requires an explicit approval action for pending revisions", () => {
+    const onApprove = vi.fn();
+    render(
+      <SlideContentTabs
+        slide={slide}
+        scriptValue={slide.teachingScript}
+        activeTab="preview"
+        onTabChange={vi.fn()}
+        onScriptChange={vi.fn()}
+        onApprove={onApprove}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "批准本页讲稿" }));
+    expect(onApprove).toHaveBeenCalledOnce();
+  });
+
   it("switches the digital teacher shown in the page preview", () => {
     const props = {
       slide,

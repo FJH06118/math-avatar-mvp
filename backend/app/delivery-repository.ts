@@ -6,9 +6,9 @@ import { AppHttpError } from "./errors.ts";
 export class DeliveryRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async getBundle(principal: string, taskId: string) {
+  async getBundle(principal: string, taskId: string, projectId: string) {
     const task = await this.prisma.generationTask.findFirst({
-      where: { id: taskId, principal, kind: "VALIDATE", status: "SUCCEEDED" },
+      where: { id: taskId, principal, projectId, kind: "VALIDATE", status: "SUCCEEDED" },
       include: {
         project: true,
         presentation: true,
@@ -38,9 +38,9 @@ export class DeliveryRepository {
         taskId: task.id,
         metadata,
         files: [
-          { kind: "video", assetId: output.videoAsset.id, fileName: `video-${task.id}.mp4`, mimeType: output.videoAsset.mimeType, fileSize: output.videoAsset.fileSize, sha256: output.videoAsset.sha256, downloadUrl: `/api/t/assets/${output.videoAsset.id}` },
-          { kind: "captions", assetId: output.captionsAsset.id, fileName: `captions-${task.id}.srt`, mimeType: output.captionsAsset.mimeType, fileSize: output.captionsAsset.fileSize, sha256: output.captionsAsset.sha256, downloadUrl: `/api/t/assets/${output.captionsAsset.id}` },
-          { kind: "metadata", assetId: null, fileName: `metadata-${task.id}.json`, mimeType: "application/json; charset=utf-8", fileSize: metadataBytes.byteLength, sha256: metadataSha, downloadUrl: `/api/t/tasks/${task.id}/delivery/metadata` },
+          { kind: "video", assetId: output.videoAsset.id, fileName: `video-${task.id}.mp4`, mimeType: output.videoAsset.mimeType, fileSize: output.videoAsset.fileSize, sha256: output.videoAsset.sha256, downloadUrl: `/api/t/assets/${output.videoAsset.id}?projectId=${encodeURIComponent(task.projectId)}` },
+          { kind: "captions", assetId: output.captionsAsset.id, fileName: `captions-${task.id}.srt`, mimeType: output.captionsAsset.mimeType, fileSize: output.captionsAsset.fileSize, sha256: output.captionsAsset.sha256, downloadUrl: `/api/t/assets/${output.captionsAsset.id}?projectId=${encodeURIComponent(task.projectId)}` },
+          { kind: "metadata", assetId: null, fileName: `metadata-${task.id}.json`, mimeType: "application/json; charset=utf-8", fileSize: metadataBytes.byteLength, sha256: metadataSha, downloadUrl: `/api/t/tasks/${task.id}/delivery/metadata?projectId=${encodeURIComponent(task.projectId)}` },
         ],
       }),
       metadataBytes,
@@ -48,21 +48,21 @@ export class DeliveryRepository {
     };
   }
 
-  async getDeliverableAsset(principal: string, assetId: string) {
-    const asset = await this.prisma.asset.findFirst({ where: { id: assetId, lifecycle: "AVAILABLE", project: { principal } } });
+  async getDeliverableAsset(principal: string, assetId: string, projectId: string) {
+    const asset = await this.prisma.asset.findFirst({ where: { id: assetId, projectId, lifecycle: "AVAILABLE", project: { principal } } });
     if (!asset) throw new AppHttpError(404, "ASSET_NOT_FOUND", "交付资产不存在。", false);
     const output = await this.prisma.mediaOutput.findFirst({
-      where: { status: "VALIDATED", task: { principal, status: "SUCCEEDED" }, OR: [{ videoAssetId: asset.id }, { captionsAssetId: asset.id }] },
+      where: { status: "VALIDATED", task: { principal, projectId, status: "SUCCEEDED" }, OR: [{ videoAssetId: asset.id }, { captionsAssetId: asset.id }] },
       select: { id: true },
     });
     if (!output) throw new AppHttpError(404, "ASSET_NOT_FOUND", "交付资产不存在。", false);
     return asset;
   }
 
-  async getCaptionsAsset(principal: string, taskId: string) {
-    const bundle = await this.getBundle(principal, taskId);
+  async getCaptionsAsset(principal: string, taskId: string, projectId: string) {
+    const bundle = await this.getBundle(principal, taskId, projectId);
     const captions = bundle.manifest.files.find((file) => file.kind === "captions");
     if (!captions?.assetId) throw new AppHttpError(404, "CAPTIONS_NOT_FOUND", "字幕不存在。", false);
-    return this.getDeliverableAsset(principal, captions.assetId);
+    return this.getDeliverableAsset(principal, captions.assetId, projectId);
   }
 }

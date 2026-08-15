@@ -30,6 +30,7 @@ import {
   WorkspaceSnapshotResponseSchema,
   TeachingSettingsResponseSchema,
   TeachingSettingsUpdateInputSchema,
+  RetryTaskRequestSchema,
   type LessonPlanRevision,
   type LessonPlanRevisionEditRequest,
   type PlanTaskCreateRequest,
@@ -175,6 +176,24 @@ export async function getTracerTask(taskId: string, signal?: AbortSignal): Promi
     throwPublicError(body);
   }
   return TracerTaskResponseSchema.parse(body).data;
+}
+
+export async function retryTracerTask(
+  taskId: string,
+  input: { projectId: string; idempotencyKey: string },
+  signal?: AbortSignal,
+): Promise<Task> {
+  StableIdSchema.parse(taskId);
+  const body = RetryTaskRequestSchema.parse(input);
+  const response = await fetch(`/api/t/tasks/${encodeURIComponent(taskId)}/retry`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return TracerTaskResponseSchema.parse(payload).data;
 }
 
 export async function getTracerParseSnapshot(
@@ -380,14 +399,14 @@ export async function createTracerCompositeTask(projectId: string, input: Compos
   return CompositeTaskResponseSchema.parse(payload).data;
 }
 
-export async function getTracerFinalMedia(taskId: string, signal?: AbortSignal): Promise<FinalMedia> {
-  StableIdSchema.parse(taskId); const response = await fetch(`/api/t/tasks/${encodeURIComponent(taskId)}/media`, { signal });
+export async function getTracerFinalMedia(taskId: string, signal: AbortSignal | undefined, projectId: string): Promise<FinalMedia> {
+  StableIdSchema.parse(taskId); StableIdSchema.parse(projectId); const response = await fetch(`/api/t/tasks/${encodeURIComponent(taskId)}/media?projectId=${encodeURIComponent(projectId)}`, { signal });
   const payload: unknown = await response.json(); if (!response.ok) throwPublicError(payload);
   return FinalMediaResponseSchema.parse(payload).data;
 }
 
-export async function getTracerDelivery(taskId: string, signal?: AbortSignal): Promise<DeliveryManifest> {
-  StableIdSchema.parse(taskId); const response = await fetch(`/api/t/tasks/${encodeURIComponent(taskId)}/delivery`, { signal });
+export async function getTracerDelivery(taskId: string, signal: AbortSignal | undefined, projectId: string): Promise<DeliveryManifest> {
+  StableIdSchema.parse(taskId); StableIdSchema.parse(projectId); const response = await fetch(`/api/t/tasks/${encodeURIComponent(taskId)}/delivery?projectId=${encodeURIComponent(projectId)}`, { signal });
   const payload: unknown = await response.json(); if (!response.ok) throwPublicError(payload);
   return DeliveryManifestResponseSchema.parse(payload).data;
 }

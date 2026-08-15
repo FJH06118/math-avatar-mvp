@@ -127,13 +127,13 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     )?.avatarPosition ?? previewSettings.avatarPosition;
 
   const createPlanMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (retryToken?: string) => {
       if (!realAdapter || !data.slides[0]) {
         throw new Error("真实规划服务未启用。");
       }
       return realAdapter.createPlanTask(data.project.id, {
         presentationId: data.slides[0].presentationId,
-        idempotencyKey: `plan_${data.project.id}_${data.slides[0].presentationId}`,
+        idempotencyKey: `plan_${data.project.id}_${data.slides[0].presentationId}_${retryToken ?? "initial"}`,
         audience: "大学一年级学生",
         style: "严谨、逐页讲解、保留原页",
         targetMinutes: Math.max(1, Math.round(data.slides.length * 1.5)),
@@ -192,6 +192,11 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   const missingRevision = data.slides.some(
     (slide) => !slide.lessonPlanRevisionId,
   );
+  const pendingApproval = data.slides.some(
+    (slide) =>
+      Boolean(slide.lessonPlanRevisionId) &&
+      slide.lessonPlanApproval !== "approved",
+  );
   const canGenerate =
     settingsValid &&
     !hasSaveError &&
@@ -199,12 +204,15 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     !isSaving &&
     data.slides.length > 0 &&
     !missingRevision &&
+    !pendingApproval &&
     data.slides.every((slide) =>
       (drafts[slide.id] ?? slide.teachingScript).trim(),
     );
 
   const generateDisabledReason = missingRevision
     ? "请先生成并审核全部页面的初始讲稿。"
+    : pendingApproval
+    ? "请先显式批准全部页面的当前讲稿。"
     : !settingsValid
     ? "请先补全授课配置。"
     : hasSaveError
@@ -262,14 +270,7 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   });
 
   const createRenderMutation = useMutation({
-    mutationFn: async () => {
-      await Promise.all(
-        data.slides
-          .filter((slide) => slide.lessonPlanApproval === "pending")
-          .map((slide) => approveSlideRevision(slide)),
-      );
-      return createRenderJob(data.project.id);
-    },
+    mutationFn: () => createRenderJob(data.project.id),
     onSuccess: (job) =>
       router.push(
         `/projects/${data.project.id}/generating?jobId=${job.id}`,
@@ -290,6 +291,26 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
               ),
             }
           : current,
+      );
+    },
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: (slide: ParsedSlide) => approveSlideRevision(slide),
+    onSuccess: (_, approvedSlide) => {
+      queryClient.setQueryData<WorkspaceData>(
+        ["workspace", data.project.id],
+        (current) =>
+          current
+            ? {
+                ...current,
+                slides: current.slides.map((slide) =>
+                  slide.id === approvedSlide.id
+                    ? { ...slide, lessonPlanApproval: "approved" }
+                    : slide,
+                ),
+              }
+            : current,
       );
     },
   });
@@ -399,6 +420,8 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
           onScriptChange={handleScriptChange}
           onLockChange={(locked) => lockMutation.mutate({ slide: selectedSlide, locked })}
           isLocking={lockMutation.isPending}
+          onApprove={() => approvalMutation.mutate(selectedSlide)}
+          isApproving={approvalMutation.isPending}
         />
         <TeachingSettingsForm
           projectId={data.project.id}
@@ -438,7 +461,11 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
                   variant="outline"
                   className="shrink-0"
                   disabled={createPlanMutation.isPending}
-                  onClick={() => createPlanMutation.mutate()}
+                  onClick={() =>
+                    createPlanMutation.mutate(
+                      planTaskId ? `retry_${crypto.randomUUID()}` : undefined,
+                    )
+                  }
                 >
                   {createPlanMutation.isPending ? (
                     <Spinner data-icon="inline-start" aria-hidden="true" />
@@ -446,6 +473,20 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
                   {createPlanMutation.isPending ? "正在创建..." : "生成初始讲稿"}
                 </Button>
               ) : null}
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
+
+      {approvalMutation.isError ? (
+        <div className="px-4 pb-4 sm:px-6 lg:px-8">
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>无法批准当前讲稿</AlertTitle>
+            <AlertDescription>
+              {getUserFacingErrorMessage(
+                approvalMutation.error,
+                "批准失败，请刷新当前页面后重试。",
+              )}
             </AlertDescription>
           </Alert>
         </div>

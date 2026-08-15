@@ -131,6 +131,15 @@ export const GenerateTaskInputSchema = z
 export type Task = z.infer<typeof TaskSchema>;
 export type TaskStep = z.infer<typeof TaskStepSchema>;
 
+export const RetryTaskRequestSchema = z
+  .object({
+    projectId: ProjectIdSchema,
+    idempotencyKey: StableIdSchema,
+  })
+  .strict();
+
+export type RetryTaskRequest = z.infer<typeof RetryTaskRequestSchema>;
+
 // Current Mock API task projection. The production task contract above remains
 // uppercase and persistent; this view keeps the existing demo UI stable.
 export const JobTypeSchema = z.enum(["parsing", "rendering"]);

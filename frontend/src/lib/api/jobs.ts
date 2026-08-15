@@ -216,15 +216,16 @@ export async function retryJob(
   if (realAdapter) {
     if (!context) throw new RealApiError("缺少任务恢复上下文。", "RETRY_CONTEXT_MISSING", false);
     const task = await realAdapter.getTask(TaskIdSchema.parse(jobId), options.signal);
-    const retryToken = `retry_${task.retryCount + 1}_${task.id}`;
-    if (task.stage === "AUDIO") return createRenderJob(context.projectId, options, retryToken);
-    if (task.stage === "PAGE_RENDER" && context.audioTaskId) {
-      return createPageRenderJob(context.projectId, context.audioTaskId, retryToken);
+    const projectId = ProjectIdSchema.parse(context.projectId);
+    if (task.projectId !== projectId) {
+      throw new RealApiError("任务不属于当前项目。", "TASK_PROJECT_MISMATCH", false);
     }
-    if ((task.stage === "COMPOSITE" || task.stage === "VALIDATE") && context.audioTaskId && context.renderTaskId) {
-      return createCompositeRenderJob(context.projectId, context.audioTaskId, context.renderTaskId, retryToken);
-    }
-    throw new RealApiError("当前任务缺少可重试的上游快照。", "RETRY_CONTEXT_MISSING", false);
+    return realTaskToJob(
+      await realAdapter.retryTask(task.id, {
+        projectId,
+        idempotencyKey: `retry_${crypto.randomUUID()}`,
+      }, options.signal),
+    );
   }
   await simulateRequest(options, 420);
   const id = TaskIdSchema.parse(jobId);

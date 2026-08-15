@@ -32,6 +32,8 @@ import {
   WorkspaceSnapshotResponseSchema,
   TeachingSettingsResponseSchema,
   TeachingSettingsUpdateInputSchema,
+  StableIdSchema,
+  RetryTaskRequestSchema,
 } from "@ppt-digital-human/contracts";
 import { Hono } from "hono";
 import type { PrismaClient } from "../generated/prisma/client.ts";
@@ -303,7 +305,12 @@ export function createApplication(dependencies: AppDependencies): Hono {
       );
     }
     const projectId = `project_${randomUUID()}`;
-    const stored = await assetStore.putSource(projectId, sha256, bytes);
+    const stored = await assetStore.putSource(
+      projectId,
+      sha256,
+      bytes,
+      presentation.originalFileName.toLowerCase().endsWith(".ppt") ? "ppt" : "pptx",
+    );
     const aggregate = await repository.persistUpload({
       projectId,
       principal,
@@ -410,6 +417,29 @@ export function createApplication(dependencies: AppDependencies): Hono {
     }
     return context.json(
       TracerTaskResponseSchema.parse({ data: projectTask(result.task!), meta: apiMeta(requestId) }),
+    );
+  });
+
+  app.post("/v1/tasks/:taskId/retry", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(
+      context.req.header("x-internal-token"),
+      context.req.header("x-principal"),
+      dependencies.internalToken,
+    );
+    const parsed = RetryTaskRequestSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
+    const result = await repository.retryTask(
+      principal,
+      context.req.param("taskId"),
+      parsed.data.projectId,
+      parsed.data.idempotencyKey,
+    );
+    return context.json(
+      TracerTaskResponseSchema.parse({ data: projectTask(result.task), meta: apiMeta(requestId) }),
+      result.created ? 201 : 200,
     );
   });
 
@@ -532,26 +562,30 @@ export function createApplication(dependencies: AppDependencies): Hono {
   app.get("/v1/tasks/:taskId/media", async (context) => {
     const requestId = `request_${randomUUID()}`;
     const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
-    const output = await media.getFinalMedia(principal, context.req.param("taskId"));
+    const projectId = requiredProjectScope(context.req.query("projectId"));
+    const output = await media.getFinalMedia(principal, context.req.param("taskId"), projectId);
     return context.json(FinalMediaResponseSchema.parse({ data: output, meta: apiMeta(requestId) }));
   });
 
   app.get("/v1/tasks/:taskId/delivery", async (context) => {
     const requestId = `request_${randomUUID()}`;
     const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
-    const bundle = await delivery.getBundle(principal, context.req.param("taskId"));
+    const projectId = requiredProjectScope(context.req.query("projectId"));
+    const bundle = await delivery.getBundle(principal, context.req.param("taskId"), projectId);
     return context.json(DeliveryManifestResponseSchema.parse({ data: bundle.manifest, meta: apiMeta(requestId) }));
   });
 
   app.get("/v1/tasks/:taskId/delivery/metadata", async (context) => {
     const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
-    const bundle = await delivery.getBundle(principal, context.req.param("taskId"));
+    const projectId = requiredProjectScope(context.req.query("projectId"));
+    const bundle = await delivery.getBundle(principal, context.req.param("taskId"), projectId);
     return binaryResponse(bundle.metadataBytes, bundle.metadataSha, "application/json; charset=utf-8", `metadata-${context.req.param("taskId")}.json`, context.req.header("range"), context.req.header("if-none-match"));
   });
 
   app.get("/v1/tasks/:taskId/captions.vtt", async (context) => {
     const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
-    const asset = await delivery.getCaptionsAsset(principal, context.req.param("taskId"));
+    const projectId = requiredProjectScope(context.req.query("projectId"));
+    const asset = await delivery.getCaptionsAsset(principal, context.req.param("taskId"), projectId);
     const source = await readFile(assetStore.resolveForRead(asset.storageKey));
     if (source.byteLength !== asset.fileSize || createHash("sha256").update(source).digest("hex") !== asset.sha256) {
       throw new AppHttpError(409, "ASSET_INTEGRITY_FAILED", "字幕资产完整性检查失败。", false);
@@ -563,7 +597,8 @@ export function createApplication(dependencies: AppDependencies): Hono {
 
   app.get("/v1/assets/:assetId/content", async (context) => {
     const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
-    const asset = await delivery.getDeliverableAsset(principal, context.req.param("assetId"));
+    const projectId = requiredProjectScope(context.req.query("projectId"));
+    const asset = await delivery.getDeliverableAsset(principal, context.req.param("assetId"), projectId);
     const bytes = await readFile(assetStore.resolveForRead(asset.storageKey));
     const actualSha = createHash("sha256").update(bytes).digest("hex");
     if (bytes.byteLength !== asset.fileSize || actualSha !== asset.sha256) throw new AppHttpError(409, "ASSET_INTEGRITY_FAILED", "交付资产完整性检查失败。", false);
@@ -630,6 +665,14 @@ export function createApplication(dependencies: AppDependencies): Hono {
   });
 
   return app;
+}
+
+function requiredProjectScope(value: string | undefined): string {
+  const parsed = StableIdSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new AppHttpError(400, "PROJECT_SCOPE_REQUIRED", "结果资源请求必须带有合法的项目 ID。", false);
+  }
+  return parsed.data;
 }
 
 function authenticate(token: string | undefined, principal: string | undefined, expected: string): string {
