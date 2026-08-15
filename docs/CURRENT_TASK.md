@@ -1,5 +1,14 @@
 # 当前任务
 
+## 2026-08-15 仓库拆分与发布
+
+- 当前仓库继续作为网页与共享服务仓库：Next.js 前端、Hono/Worker 后端、共享 Contract、Edge TTS、渲染、验证和产品文档均保留在这里。
+- 已创建并发布独立桌面仓库 [`FJH06118/math-avatar-desktop`](https://github.com/FJH06118/math-avatar-desktop)，当前只包含 Windows 软件 P0 骨架、目录约定和边界说明。
+- 桌面仓库暂未实现 Electron/Tauri 宿主、安装包、API 设置页、安全密钥存储或 Provider 原生适配；下一步仍从 Windows 软件计划 P0-1 开始，不复制后端业务代码。
+- 网页仓库当前修复提交已推送到 Draft PR [#1](https://github.com/FJH06118/math-avatar-mvp/pull/1)；PR 保持 Draft，等待后续桌面宿主和 Provider 实现后再决定是否转为 Ready。
+
+> 更新时间：2026-08-15。两个仓库均不包含用户 API Key、真实课件或本地媒体。
+
 ## 2026-08-14 代码审查修复（本轮）
 
 - 已恢复正式生成前的逐页人工批准门禁；存在未批准讲稿时，前端不会自动批准或提交生成。
