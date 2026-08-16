@@ -1,10 +1,11 @@
 # 项目状态
 
-## 2026-08-17 Windows 桌面 P2 进行中
+## 2026-08-17 Windows 桌面 P2 已完成本机验证
 
-- P1 已完成本地 commit/tag：桌面 `e19ef99` / `desktop-p1-complete`，网页 `448c1db` / `web-p1-complete`；未推送，两个工作树在进入 P2 前均为 clean。
-- 当前阶段只接通设置和安全密钥边界：Provider profile 的公开/持久化字段不含完整 Key，密钥由桌面主进程 safeStorage/DPAPI 版本化保存，Hono/Worker 仅通过受控父子 IPC 请求。
-- P2 尚未完成；Provider Gateway、真实上游连接、设置 UI、安装/升级产物仍不得写成已完成。最终仍需 clean Windows VM 和发布制品证据。
+- P1 已完成本地 commit/tag：桌面 `e19ef99` / `desktop-p1-complete`，网页 `448c1db` / `web-p1-complete`；P2 代码分别为桌面 `bd63d5c`、网页 `7c7ba13`，未推送。
+- P2 已接通设置和安全密钥边界：Provider profile 的公开/持久化字段不含完整 Key，密钥由桌面主进程 safeStorage/DPAPI 版本化保存，Hono/Worker 通过受控父子 IPC 请求；新版 Contract 制品 SHA-256 为 `0402e137ffc01d121ef1029e460895f0b224d70a480345e4e3b9dc8863048463`。
+- P2 门禁已通过：共享 Contract 42/42，Provider 2/2，完整 backend integration 31 pass/1 外部 Edge skip，网页 typecheck/lint/build/routes 通过；桌面 typecheck/lint/test 19 pass/2 P1 环境 skip，密文落盘/IPC 脱敏通过。Provider test 仍是配置级检查，不代表真实上游连接。
+- Provider Gateway、真实上游连接、设置 UI、安装/升级产物仍不得写成已完成；最终仍需 clean Windows VM 和发布制品证据。
 
 ## 2026-08-17 Windows 桌面 P1 本机纵切状态
 
