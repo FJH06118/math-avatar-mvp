@@ -18,6 +18,7 @@ import {
   WorkspaceLockResponseSchema,
   WorkspaceSnapshotResponseSchema,
   TeachingSettingsResponseSchema,
+  WorkflowRunResponseSchema,
   ApplicationSettingsResponseSchema,
   ProviderProfileListResponseSchema,
   ProviderProfileResponseSchema,
@@ -50,7 +51,7 @@ export function getApplicationConfig(): {
 
 export async function parseApplicationResponse(
   response: Response,
-  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "application-settings" | "provider-list" | "provider" | "provider-test" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list",
+  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "application-settings" | "provider-list" | "provider" | "provider-test" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list" | "workflow",
 ) {
   const body: unknown = await response.json();
   if (response.ok) {
@@ -74,6 +75,7 @@ export async function parseApplicationResponse(
     if (kind === "delivery") return DeliveryManifestResponseSchema.parse(body);
     if (kind === "project") return ProjectResponseSchema.parse(body);
     if (kind === "project-list") return ProjectListResponseSchema.parse(body);
+    if (kind === "workflow") return WorkflowRunResponseSchema.parse(body);
     if (kind === "revision") return LessonPlanRevisionResponseSchema.parse(body);
     return LessonPlanRevisionListResponseSchema.parse(body);
   }

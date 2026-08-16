@@ -143,6 +143,7 @@ model Project {
   slides        Slide[]
   lessonPlans   LessonPlan[]
   tasks         GenerationTask[]
+  workflowRuns  WorkflowRun[]
 
   @@index([principal, updatedAt])
 }
@@ -218,6 +219,7 @@ model Presentation {
   tasks            GenerationTask[]
   slides           Slide[]
   lessonPlans      LessonPlan[]
+  workflowRuns     WorkflowRun[]
 }
 
 model Slide {
@@ -339,6 +341,45 @@ model GenerationTask {
 
   @@unique([principal, kind, idempotencyKey])
   @@index([principal, projectId, updatedAt])
+}
+
+model WorkflowRun {
+  id                      String   @id
+  principal               String
+  projectId               String
+  presentationId          String
+  idempotencyKey          String
+  inputHash               String
+  inputSnapshot           Json
+  status                  String   @default("QUEUED")
+  currentStage            String   @default("AUDIO")
+  progressCompleted       Int      @default(0)
+  progressTotal           Int      @default(1)
+  currentSlideId          String?
+  planTaskId              String?
+  audioTaskId             String?
+  renderTaskId            String?
+  compositeTaskId         String?
+  retryCount              Int      @default(0)
+  lastRetryIdempotencyKey String?
+  pendingRetryIdempotencyKey String?
+  cancellationRequestedAt DateTime?
+  leaseOwner              String?
+  leaseExpiresAt          DateTime?
+  heartbeatAt             DateTime?
+  statusVersion           Int      @default(1)
+  startedAt               DateTime?
+  completedAt             DateTime?
+  errorCode               String?
+  errorMessage            String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  project                 Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  presentation            Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@unique([principal, idempotencyKey])
+  @@index([principal, projectId, updatedAt])
+  @@index([status, leaseExpiresAt, updatedAt])
 }
 
 model AudioSegment {

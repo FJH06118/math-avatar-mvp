@@ -11,9 +11,9 @@ export default async function VideoGenerationPage({
   searchParams,
 }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ jobId?: string; audioTaskId?: string; renderTaskId?: string }>;
+  searchParams: Promise<{ jobId?: string }>;
 }) {
-  const [{ projectId }, { jobId, audioTaskId, renderTaskId }] = await Promise.all([
+  const [{ projectId }, { jobId }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -21,8 +21,6 @@ export default async function VideoGenerationPage({
     <GenerationFlow
       projectId={projectId}
       initialJobId={jobId}
-      initialAudioTaskId={audioTaskId}
-      initialRenderTaskId={renderTaskId}
     />
   );
 }

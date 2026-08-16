@@ -31,6 +31,12 @@ import {
   TeachingSettingsResponseSchema,
   TeachingSettingsUpdateInputSchema,
   RetryTaskRequestSchema,
+  WorkflowRunCreateInputSchema,
+  WorkflowRunResponseSchema,
+  WorkflowRunRetryInputSchema,
+  type WorkflowRun,
+  type WorkflowRunCreateInput,
+  type WorkflowRunRetryInput,
   type LessonPlanRevision,
   type LessonPlanRevisionEditRequest,
   type PlanTaskCreateRequest,
@@ -176,6 +182,67 @@ export async function getTracerTask(taskId: string, signal?: AbortSignal): Promi
     throwPublicError(body);
   }
   return TracerTaskResponseSchema.parse(body).data;
+}
+
+export async function createTracerWorkflow(
+  projectId: string,
+  input: WorkflowRunCreateInput,
+  signal?: AbortSignal,
+): Promise<WorkflowRun> {
+  StableIdSchema.parse(projectId);
+  const body = WorkflowRunCreateInputSchema.parse(input);
+  const response = await fetch(`/api/t/projects/${encodeURIComponent(projectId)}/workflows`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return WorkflowRunResponseSchema.parse(payload).data;
+}
+
+export async function getTracerWorkflow(
+  workflowId: string,
+  signal?: AbortSignal,
+): Promise<WorkflowRun> {
+  StableIdSchema.parse(workflowId);
+  const response = await fetch(`/api/t/workflows/${encodeURIComponent(workflowId)}`, { signal });
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return WorkflowRunResponseSchema.parse(payload).data;
+}
+
+export async function cancelTracerWorkflow(
+  workflowId: string,
+  signal?: AbortSignal,
+): Promise<WorkflowRun> {
+  StableIdSchema.parse(workflowId);
+  const response = await fetch(`/api/t/workflows/${encodeURIComponent(workflowId)}/cancel`, {
+    method: "POST",
+    signal,
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return WorkflowRunResponseSchema.parse(payload).data;
+}
+
+export async function retryTracerWorkflow(
+  workflowId: string,
+  input: WorkflowRunRetryInput,
+  signal?: AbortSignal,
+): Promise<WorkflowRun> {
+  StableIdSchema.parse(workflowId);
+  const body = WorkflowRunRetryInputSchema.parse(input);
+  const response = await fetch(`/api/t/workflows/${encodeURIComponent(workflowId)}/retry`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return WorkflowRunResponseSchema.parse(payload).data;
 }
 
 export async function retryTracerTask(

@@ -4,6 +4,7 @@ import {
   ProjectIdSchema,
   TaskIdSchema,
   type Task,
+  type WorkflowRun,
 } from "@ppt-digital-human/contracts";
 
 import {
@@ -18,9 +19,6 @@ import { requireRecord, simulateRequest } from "./shared";
 import { getEnabledTracerApiAdapter } from "./tracer-adapter";
 import { getRealProject, RealApiError } from "./real-tracer";
 import {
-  edgePitchFor,
-  edgeRateFor,
-  edgeVoiceFor,
   normalizeSupportedTeachingSettings,
 } from "./teaching-settings";
 
@@ -81,6 +79,70 @@ export function realTaskToJob(task: Task): Job {
   });
 }
 
+export function realWorkflowToJob(run: WorkflowRun): Job {
+  const status = {
+    QUEUED: "queued",
+    RUNNING: "running",
+    SUCCEEDED: "completed",
+    FAILED: "failed",
+    CANCELLED: "cancelled",
+  } as const;
+  const jobStatus = status[run.status];
+  const stageOrder = ["PLAN", "AUDIO", "PAGE_RENDER", "COMPOSITE", "VALIDATE"] as const;
+  const stageMeta = {
+    PLAN: { id: "plan", label: "生成讲稿", description: "生成逐页讲稿与场景规划。" },
+    AUDIO: { id: "audio", label: "合成语音与字幕", description: "逐句合成语音并生成真实字幕时间轴。" },
+    PAGE_RENDER: { id: "page_render", label: "渲染逐页视频", description: "按原页、安全站位和音频渲染分页视频。" },
+    COMPOSITE: { id: "composite", label: "合成完整视频", description: "拼接分页视频、音频与字幕。" },
+    VALIDATE: { id: "validate", label: "验证交付媒体", description: "执行完整解码、覆盖、黑帧、声音和安全区硬门。" },
+  } as const;
+  const currentIndex = stageOrder.indexOf(run.currentStage);
+  const stages = stageOrder.map((stage, index) => {
+    const meta = stageMeta[stage];
+    const isCurrent = stage === run.currentStage;
+    const stageStatus = jobStatus === "completed"
+      ? "completed"
+      : jobStatus === "failed" && isCurrent
+        ? "failed"
+        : index < currentIndex
+          ? "completed"
+          : isCurrent && jobStatus === "running"
+            ? "running"
+            : "pending";
+    return {
+      id: meta.id,
+      label: meta.label,
+      description: isCurrent && run.errorMessage
+        ? run.errorMessage
+        : jobStatus === "completed" || index < currentIndex
+          ? `${meta.label}已完成。`
+          : `${meta.description} 服务端已完成 ${isCurrent ? `${run.progressCompleted}/${run.progressTotal}` : "0/0"} 个工作单元。`,
+      status: stageStatus,
+      progress: isCurrent
+        ? Math.round((run.progressCompleted / run.progressTotal) * 100)
+        : index < currentIndex || jobStatus === "completed"
+          ? 100
+          : 0,
+    };
+  });
+  return JobSchema.parse({
+    id: run.id,
+    projectId: run.projectId,
+    type: "rendering",
+    status: jobStatus,
+    progress: Math.round((run.progressCompleted / run.progressTotal) * 100),
+    currentStageId: stageMeta[run.currentStage].id,
+    currentSlideId: run.currentSlideId,
+    finalTaskId: run.finalTaskId,
+    stages,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    error: run.errorMessage,
+    errorCode: run.errorCode,
+    retryable: run.status === "FAILED" || run.status === "CANCELLED" ? true : undefined,
+  });
+}
+
 export async function createParsingJob(
   projectId: string,
   options: MockRequestOptions = {},
@@ -122,18 +184,14 @@ export async function createRenderJob(
     if (!firstSlide) throw new RealApiError("项目没有可生成的页面。", "WORKSPACE_EMPTY", false);
     const key = workflowKey("audio", projectId, [
       ...workspace.slides.map((slide) => `${slide.currentRevision?.id}:${slide.currentRevision?.revision}`),
-      JSON.stringify(project.settings),
+      JSON.stringify(normalizeSupportedTeachingSettings(project.settings)),
       retryToken ?? "initial",
     ]);
-    const settings = normalizeSupportedTeachingSettings(project.settings);
-    const task = await realAdapter.createAudioTask(projectId, {
+    const workflow = await realAdapter.createWorkflow(projectId, {
       presentationId: firstSlide.parsed.presentationId,
       idempotencyKey: key,
-      voice: edgeVoiceFor(settings.voiceId),
-      rate: edgeRateFor(settings.speechRate),
-      pitch: edgePitchFor(settings.voiceId),
     }, options.signal);
-    return realTaskToJob(task);
+    return realWorkflowToJob(workflow);
   }
   await simulateRequest(options, 620);
   const id = ProjectIdSchema.parse(projectId);
@@ -144,34 +202,33 @@ export async function createRenderJob(
   return job;
 }
 
-export async function createPageRenderJob(projectId: string, audioTaskId: string, retryToken?: string): Promise<Job> {
+export async function getWorkflowJob(
+  workflowId: string,
+  options: MockRequestOptions = {},
+): Promise<Job> {
   const realAdapter = getEnabledTracerApiAdapter();
   if (!realAdapter) throw new RealApiError("真实渲染服务未启用。", "REAL_ADAPTER_DISABLED", false);
-  const workspace = await realAdapter.getWorkspace(ProjectIdSchema.parse(projectId));
-  const presentationId = workspace.slides[0]?.parsed.presentationId;
-  if (!presentationId) throw new RealApiError("项目没有可生成的页面。", "WORKSPACE_EMPTY", false);
-  const task = await realAdapter.createRenderTask(projectId, {
-    presentationId,
-    audioTaskId: TaskIdSchema.parse(audioTaskId),
-    idempotencyKey: workflowKey("pages", projectId, [audioTaskId, retryToken ?? "initial"]),
-    fps: 25,
-  });
-  return realTaskToJob(task);
+  return realWorkflowToJob(await realAdapter.getWorkflow(workflowId, options.signal));
 }
 
-export async function createCompositeRenderJob(projectId: string, audioTaskId: string, renderTaskId: string, retryToken?: string): Promise<Job> {
+export async function cancelWorkflowJob(
+  workflowId: string,
+  options: MockRequestOptions = {},
+): Promise<Job> {
   const realAdapter = getEnabledTracerApiAdapter();
-  if (!realAdapter) throw new RealApiError("真实合成服务未启用。", "REAL_ADAPTER_DISABLED", false);
-  const workspace = await realAdapter.getWorkspace(ProjectIdSchema.parse(projectId));
-  const presentationId = workspace.slides[0]?.parsed.presentationId;
-  if (!presentationId) throw new RealApiError("项目没有可生成的页面。", "WORKSPACE_EMPTY", false);
-  const task = await realAdapter.createCompositeTask(projectId, {
-    presentationId,
-    audioTaskId: TaskIdSchema.parse(audioTaskId),
-    renderTaskId: TaskIdSchema.parse(renderTaskId),
-    idempotencyKey: workflowKey("media", projectId, [audioTaskId, renderTaskId, retryToken ?? "initial"]),
-  });
-  return realTaskToJob(task);
+  if (!realAdapter) throw new RealApiError("真实渲染服务未启用。", "REAL_ADAPTER_DISABLED", false);
+  return realWorkflowToJob(await realAdapter.cancelWorkflow(workflowId, options.signal));
+}
+
+export async function retryWorkflowJob(
+  workflowId: string,
+  options: MockRequestOptions = {},
+): Promise<Job> {
+  const realAdapter = getEnabledTracerApiAdapter();
+  if (!realAdapter) throw new RealApiError("真实渲染服务未启用。", "REAL_ADAPTER_DISABLED", false);
+  return realWorkflowToJob(await realAdapter.retryWorkflow(workflowId, {
+    idempotencyKey: `workflow_retry_${crypto.randomUUID()}`,
+  }, options.signal));
 }
 
 export async function getJob(

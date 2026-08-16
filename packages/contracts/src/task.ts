@@ -176,6 +176,7 @@ export const JobSchema = z
     progress: ProgressSchema,
     currentStageId: StableIdSchema,
     currentSlideId: SlideIdSchema.optional(),
+    finalTaskId: TaskIdSchema.optional(),
     stages: z.array(JobStageSchema).min(1).max(20),
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,

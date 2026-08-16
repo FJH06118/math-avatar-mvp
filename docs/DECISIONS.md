@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-43 P5 使用 WorkflowRun 作为生成链唯一根事实来源
+
+- **决策**：正式生成由一次幂等 `WorkflowRun` 创建开始；服务端 orchestrator 依次创建/等待 AUDIO、PAGE_RENDER、COMPOSITE 和 VALIDATE 子任务。浏览器只轮询根公共投影，不再在阶段成功后创建下一阶段。
+- **原因**：把依赖关系、取消、重试、租约接管和应用重启恢复集中到 PostgreSQL，避免关闭浏览器丢失下一阶段，也避免客户端与 Worker 各维护一份队列状态。
+- **影响**：根输入快照冻结批准 revision、设置和 Provider 非秘密选择；子任务仍使用既有 repository/outbox/step/attempt 与幂等键。根只有在最终 VALIDATE 子任务成功后才显示完成；根取消必须向当前子任务传播，以触发外部 TTS/FFmpeg/LibreOffice 子进程的已有取消控制。
+
 ### D-41 P4 以显式批准作为讲稿人工审核确认，双文本进入任务快照
 
 - **决策**：解析低置信度、解析警告、非 valid 公式和 L2/L3 推导统一投影为 `reviewFlags`。未批准且存在标记的页面在 AUDIO、PAGE_RENDER、COMPOSITE 入口返回稳定 `HUMAN_REVIEW_REQUIRED`；没有标记但未批准仍返回 `LESSON_PLAN_NOT_APPROVED`。用户修改 `displayText` 与 `spokenText` 后，必须显式批准当前不可变 revision，批准才是解除审核门的唯一确认动作。

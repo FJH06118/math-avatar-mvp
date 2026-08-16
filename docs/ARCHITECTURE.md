@@ -1,5 +1,12 @@
 # 当前真实架构
 
+## 2026-08-17 P5 服务端 WorkflowRun 根编排
+
+- `WorkflowRun` 是生成页唯一的持久根聚合：输入 hash/snapshot、当前阶段、子任务 ID、重试/取消状态、根租约和最终错误均落在 PostgreSQL。输入快照不含 API Key，只含 Provider 的非秘密选择和已批准 revision ID。
+- `WorkflowRunRepository` 负责 principal 作用域、幂等创建、取消和重试；`WorkflowOrchestrator` 复用现有 Audio/Render/Media/LessonPlan repository 创建子任务，子任务的 outbox、step、attempt 和外部进程取消语义保持单一事实来源。
+- `workflow-worker` 通过 `FOR UPDATE SKIP LOCKED` 领取 QUEUED/RUNNING 根工作流，过期 lease 可被另一 worker 接管。浏览器真实生成页只 POST 一次 WorkflowRun，并轮询 `/v1/workflows/:workflowId` 公共投影；关闭、刷新或结果跳转不会再由浏览器创建下一阶段。
+- 根投影的 `finalTaskId` 只有合成/验证子任务存在时才出现；只有 VALIDATE 子任务成功且媒体验证终态可用，WorkflowRun 才是 `SUCCEEDED`。失败、取消和重试均使用稳定错误/幂等边界。
+
 ## 2026-08-17 P4 讲稿审核与双文本任务快照
 
 - `packages/contracts/src/review.ts` 定义审核阈值与 `reviewFlags`；Parse/Workspace projection 计算低置信度、解析警告、公式和高风险推导标记。`backend/app/lesson-plan-review.ts` 是 AUDIO、PAGE_RENDER、COMPOSITE 共用的服务端门禁，错误只返回稳定码和页面 ID/标记，不暴露模型或磁盘内部数据。
@@ -155,7 +162,7 @@ T-G 的 `DeliveryRepository` 从任务、MediaOutput、ValidationRecord 与 Asse
 
 阶段 7 把教学设置持久化到 Project 聚合并用 version 做乐观并发。试听不是浏览器计时器：BFF 创建单句持久 AUDIO task，Worker 复用既有 TTS 校验，完成后通过按 principal 授权且复核哈希的同源音频端点播放。逐页 hidden 设置冻结进 PAGE_RENDER payload；Worker 根据该快照决定是否合成数字人，避免任务运行时读取可变设置。
 
-阶段 8 的生成页是持久任务协调客户端，不是队列：它轮询 Task 公共投影，并只在服务端成功终态后调用下一阶段已有的幂等创建端点。当前任务与依赖 task ID 保存在 URL，使刷新/重挂载恢复同一任务；Worker、outbox、lease、重试 attempt 与最终状态仍完全由后端拥有。
+阶段 8 的生成页现在只协调一个持久 WorkflowRun，不是队列：它轮询根公共投影，下一阶段由服务端 orchestrator 在根 lease 下推进。根输入和子任务 ID 由 PostgreSQL 保存，浏览器 URL 只需保留根 ID；Worker、outbox、product lease、重试 attempt 与最终状态仍完全由后端拥有。
 
 阶段 9 结果页以最终 VALIDATE taskId 聚合 FinalMedia、DeliveryManifest 与 Task 公共投影。播放器和下载只使用同源 BFF URL；下载前可重新获取 manifest，但该读取路径不创建任何 generation task。当前本地 HTTP adapter 的 URL 不设到期时间，未来对象存储可在不改变 manifest 语义的前提下换成短期签名地址。
 

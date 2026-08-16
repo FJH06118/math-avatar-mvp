@@ -21,3 +21,4 @@ export * from "./slide";
 export * from "./task";
 export * from "./tracer";
 export * from "./workspace";
+export * from "./workflow";

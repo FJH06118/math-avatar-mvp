@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -32,12 +32,13 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import {
   cancelJob,
-  createCompositeRenderJob,
-  createPageRenderJob,
   createRenderJob,
+  cancelWorkflowJob,
+  getWorkflowJob,
   getUserFacingErrorMessage,
   getJob,
   retryJob,
+  retryWorkflowJob,
 } from "@/lib/api";
 import { getEnabledTracerApiAdapter } from "@/lib/api/tracer-adapter";
 import { cn } from "@/lib/utils";
@@ -46,29 +47,21 @@ import type { Job } from "@/types";
 interface GenerationFlowProps {
   projectId: string;
   initialJobId?: string;
-  initialAudioTaskId?: string;
-  initialRenderTaskId?: string;
 }
 
 export function GenerationFlow({
   projectId,
   initialJobId,
-  initialAudioTaskId,
-  initialRenderTaskId,
 }: GenerationFlowProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState(initialJobId);
-  const [audioTaskId, setAudioTaskId] = useState(initialAudioTaskId);
-  const [renderTaskId, setRenderTaskId] = useState(initialRenderTaskId);
   const realAdapter = getEnabledTracerApiAdapter();
-  const advancedTaskRef = useRef(new Set<string>());
 
   const createJobMutation = useMutation({
     mutationFn: () => createRenderJob(projectId),
     onSuccess: (job) => {
       setJobId(job.id);
-      if (realAdapter) setAudioTaskId(job.id);
     },
   });
 
@@ -80,7 +73,7 @@ export function GenerationFlow({
 
   const jobQuery = useQuery({
     queryKey: ["jobs", jobId],
-    queryFn: () => getJob(jobId as string),
+    queryFn: () => realAdapter ? getWorkflowJob(jobId as string) : getJob(jobId as string),
     enabled: Boolean(jobId),
     refetchInterval: (query) => {
       const job = query.state.data;
@@ -93,48 +86,19 @@ export function GenerationFlow({
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => cancelJob(id),
+    mutationFn: (id: string) => realAdapter ? cancelWorkflowJob(id) : cancelJob(id),
     onSuccess: (job) =>
       queryClient.setQueryData<Job>(["jobs", job.id], job),
   });
 
   const retryMutation = useMutation({
-    mutationFn: (id: string) => retryJob(id, {}, { projectId, audioTaskId, renderTaskId }),
+    mutationFn: (id: string) => realAdapter
+      ? retryWorkflowJob(id)
+      : retryJob(id, {}, { projectId }),
     onSuccess: (nextJob) => {
-      const nextAudioTaskId = nextJob.currentStageId === "audio" ? nextJob.id : audioTaskId;
-      const nextRenderTaskId = nextJob.currentStageId === "page_render" ? nextJob.id : renderTaskId;
-      if (nextJob.currentStageId === "audio") {
-        setAudioTaskId(nextJob.id);
-        setRenderTaskId(undefined);
-      }
-      if (nextJob.currentStageId === "page_render") setRenderTaskId(nextJob.id);
       setJobId(nextJob.id);
       queryClient.setQueryData<Job>(["jobs", nextJob.id], nextJob);
-      const params = new URLSearchParams({ jobId: nextJob.id });
-      if (nextAudioTaskId) params.set("audioTaskId", nextAudioTaskId);
-      if (nextRenderTaskId && nextJob.currentStageId !== "audio") params.set("renderTaskId", nextRenderTaskId);
-      router.replace(`/projects/${projectId}/generating?${params.toString()}`);
-    },
-  });
-
-  const advanceMutation = useMutation({
-    mutationFn: async ({ stage, completedTaskId }: { stage: "audio" | "page_render"; completedTaskId: string }) => {
-      if (stage === "audio") return createPageRenderJob(projectId, completedTaskId);
-      if (!audioTaskId) throw new Error("缺少已完成的音频任务。 ");
-      return createCompositeRenderJob(projectId, audioTaskId, completedTaskId);
-    },
-    onSuccess: (nextJob, variables) => {
-      if (variables.stage === "audio") {
-        setAudioTaskId(variables.completedTaskId);
-        setRenderTaskId(nextJob.id);
-      } else {
-        setRenderTaskId(variables.completedTaskId);
-      }
-      setJobId(nextJob.id);
-      const params = new URLSearchParams({ jobId: nextJob.id });
-      params.set("audioTaskId", variables.stage === "audio" ? variables.completedTaskId : audioTaskId!);
-      if (variables.stage === "page_render") params.set("renderTaskId", variables.completedTaskId);
-      router.replace(`/projects/${projectId}/generating?${params.toString()}`);
+      router.replace(`/projects/${projectId}/generating?jobId=${nextJob.id}`);
     },
   });
 
@@ -144,22 +108,12 @@ export function GenerationFlow({
     if (job?.status !== "completed") {
       return;
     }
-    if (realAdapter && job.currentStageId === "audio" && !advancedTaskRef.current.has(job.id)) {
-      advancedTaskRef.current.add(job.id);
-      advanceMutation.mutate({ stage: "audio", completedTaskId: job.id });
-      return;
-    }
-    if (realAdapter && job.currentStageId === "page_render" && !advancedTaskRef.current.has(job.id)) {
-      advancedTaskRef.current.add(job.id);
-      advanceMutation.mutate({ stage: "page_render", completedTaskId: job.id });
-      return;
-    }
     const timer = window.setTimeout(
-      () => router.replace(`/projects/${projectId}/result?jobId=${job.id}`),
+      () => router.replace(`/projects/${projectId}/result?jobId=${job.finalTaskId ?? job.id}`),
       1_000,
     );
     return () => window.clearTimeout(timer);
-  }, [advanceMutation, job, projectId, realAdapter, router]);
+  }, [job, projectId, router]);
 
   if (createJobMutation.isPending || (!jobId && !createJobMutation.isError)) {
     return <TaskFlowSkeleton title="正在创建视频生成任务" />;
@@ -214,10 +168,6 @@ export function GenerationFlow({
   const activeStage = job.stages.find(
     (stage) => stage.id === job.currentStageId,
   );
-  const isIntermediateComplete = Boolean(
-    realAdapter && job.status === "completed" && ["audio", "page_render"].includes(job.currentStageId),
-  );
-
   return (
     <WorkflowFrame
       currentStep={3}
@@ -233,7 +183,7 @@ export function GenerationFlow({
           variant={job.status === "failed" ? "destructive" : "secondary"}
         >
           {job.status === "completed"
-            ? isIntermediateComplete ? "阶段完成" : "生成完成"
+            ? "生成完成"
             : job.status === "failed"
               ? "生成失败"
               : job.status === "cancelled"
@@ -301,32 +251,17 @@ export function GenerationFlow({
                 : "视频生成已取消"}
         </p>
 
-        {cancelMutation.isError || retryMutation.isError || advanceMutation.isError ? (
+        {cancelMutation.isError || retryMutation.isError ? (
           <Alert variant="destructive" role="alert">
             <AlertTitle>任务操作失败</AlertTitle>
             <AlertDescription>
               {getUserFacingErrorMessage(
-                cancelMutation.error ?? retryMutation.error ?? advanceMutation.error,
+                cancelMutation.error ?? retryMutation.error,
                 "请求没有生效，请检查连接后重试。",
               )}
             </AlertDescription>
           </Alert>
         ) : null}
-        {advanceMutation.isError && (job.currentStageId === "audio" || job.currentStageId === "page_render") ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="self-start"
-            onClick={() => advanceMutation.mutate({
-              stage: job.currentStageId === "audio" ? "audio" : "page_render",
-              completedTaskId: job.id,
-            })}
-          >
-            <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
-            重试进入下一阶段
-          </Button>
-        ) : null}
-
         {job.status === "failed" ? (
           <ErrorState
             title="视频生成失败"
@@ -346,13 +281,7 @@ export function GenerationFlow({
           </Alert>
         ) : null}
 
-        {isIntermediateComplete ? (
-          <Alert>
-            <Spinner aria-hidden="true" />
-            <AlertTitle>当前阶段已完成</AlertTitle>
-            <AlertDescription>正在通过服务端幂等边界创建下一阶段任务。</AlertDescription>
-          </Alert>
-        ) : job.status === "completed" ? (
+        {job.status === "completed" ? (
           <Alert>
             <CheckCircle2Icon aria-hidden="true" />
             <AlertTitle>授课视频生成完成</AlertTitle>
@@ -370,10 +299,9 @@ export function GenerationFlow({
           </p>
         ) : null}
 
-        {job.status === "running" && job.currentStageId !== "audio" ? (
+        {job.status === "running" && realAdapter ? (
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            已冻结音频任务 {audioTaskId ?? "—"}
-            {renderTaskId ? `；分页渲染任务 ${renderTaskId}` : ""}
+            服务端工作流已持久化当前阶段，关闭浏览器不会中断后续推进。
           </p>
         ) : null}
 

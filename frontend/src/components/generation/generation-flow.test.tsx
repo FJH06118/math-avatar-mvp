@@ -5,26 +5,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationFlow } from "./generation-flow";
 
 const mocks = vi.hoisted(() => ({
-  replace: vi.fn(), getJob: vi.fn(), createRenderJob: vi.fn(),
+  replace: vi.fn(), getJob: vi.fn(), getWorkflowJob: vi.fn(), createRenderJob: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: mocks.replace }) }));
 vi.mock("@/lib/api/tracer-adapter", () => ({ getEnabledTracerApiAdapter: () => ({}) }));
 vi.mock("@/lib/api", () => ({
-  cancelJob: vi.fn(), createCompositeRenderJob: vi.fn(), createPageRenderJob: vi.fn(),
-  createRenderJob: mocks.createRenderJob, getJob: mocks.getJob, retryJob: vi.fn(),
+  cancelJob: vi.fn(), cancelWorkflowJob: vi.fn(),
+  createRenderJob: mocks.createRenderJob, getJob: mocks.getJob,
+  getWorkflowJob: mocks.getWorkflowJob, retryJob: vi.fn(), retryWorkflowJob: vi.fn(),
   getUserFacingErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 
 beforeEach(() => {
   mocks.replace.mockReset();
   mocks.getJob.mockReset();
+  mocks.getWorkflowJob.mockReset();
   mocks.createRenderJob.mockReset();
 });
 
 describe("stage 8 persistent generation flow", () => {
   it("resumes the supplied server task without creating a duplicate", async () => {
-    mocks.getJob.mockResolvedValue({
+    mocks.getWorkflowJob.mockResolvedValue({
       id: "task_stage8_audio", projectId: "project_stage8", type: "rendering", status: "running",
       progress: 50, currentStageId: "audio", currentSlideId: "slide_stage8_2",
       stages: [{ id: "audio", label: "合成语音与字幕", description: "服务端已完成 1/2 个工作单元。", status: "running", progress: 50 }],
@@ -33,7 +35,7 @@ describe("stage 8 persistent generation flow", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
-        <GenerationFlow projectId="project_stage8" initialJobId="task_stage8_audio" initialAudioTaskId="task_stage8_audio" />
+        <GenerationFlow projectId="project_stage8" initialJobId="workflow_stage8" />
       </QueryClientProvider>,
     );
 

@@ -34,6 +34,9 @@ import {
   TeachingSettingsUpdateInputSchema,
   StableIdSchema,
   RetryTaskRequestSchema,
+  WorkflowRunCreateInputSchema,
+  WorkflowRunResponseSchema,
+  WorkflowRunRetryInputSchema,
 } from "@ppt-digital-human/contracts";
 import { Hono } from "hono";
 import type { PrismaClient } from "../generated/prisma/client.ts";
@@ -53,6 +56,7 @@ import { createProviderRoutes } from "./provider-routes.ts";
 import { ProviderRepository } from "./provider-repository.ts";
 import { ProviderService } from "./provider-service.ts";
 import { UnavailableSecretClient, type SecretClient } from "./secret-client.ts";
+import { WorkflowRunRepository } from "./workflow-repository.ts";
 
 export interface AppDependencies {
   prisma: PrismaClient;
@@ -79,6 +83,7 @@ export function createApplication(dependencies: AppDependencies): Hono {
     new ProviderRepository(dependencies.prisma),
     dependencies.secretClient ?? new UnavailableSecretClient(),
   );
+  const workflows = new WorkflowRunRepository(dependencies.prisma);
 
   app.get("/health", (context) => context.json({ status: "ok" }));
 
@@ -579,6 +584,93 @@ export function createApplication(dependencies: AppDependencies): Hono {
     if (!parsed.success) throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
     const result = await media.createTask(principal, context.req.param("projectId"), parsed.data);
     return context.json(CompositeTaskResponseSchema.parse({ data: projectTask(result.task), meta: apiMeta(requestId) }), result.created ? 201 : 200);
+  });
+
+  app.post("/v1/projects/:projectId/workflows", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(
+      context.req.header("x-internal-token"),
+      context.req.header("x-principal"),
+      dependencies.internalToken,
+    );
+    const parsed = WorkflowRunCreateInputSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
+    }
+    const result = await workflows.create(
+      principal,
+      context.req.param("projectId"),
+      parsed.data,
+    );
+    return context.json(
+      WorkflowRunResponseSchema.parse({
+        data: workflows.toPublic(result.run),
+        meta: apiMeta(requestId),
+      }),
+      result.created ? 201 : 200,
+    );
+  });
+
+  app.get("/v1/workflows/:workflowId", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(
+      context.req.header("x-internal-token"),
+      context.req.header("x-principal"),
+      dependencies.internalToken,
+    );
+    const run = await workflows.getPublic(principal, context.req.param("workflowId"));
+    if (!run) {
+      throw new AppHttpError(404, "WORKFLOW_NOT_FOUND", "生成工作流不存在。", false);
+    }
+    return context.json(WorkflowRunResponseSchema.parse({ data: run, meta: apiMeta(requestId) }));
+  });
+
+  app.post("/v1/workflows/:workflowId/cancel", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(
+      context.req.header("x-internal-token"),
+      context.req.header("x-principal"),
+      dependencies.internalToken,
+    );
+    const result = await workflows.cancel(principal, context.req.param("workflowId"));
+    if (result.outcome === "not_found") {
+      throw new AppHttpError(404, "WORKFLOW_NOT_FOUND", "生成工作流不存在。", false);
+    }
+    if (result.outcome === "terminal") {
+      throw new AppHttpError(409, "WORKFLOW_ALREADY_TERMINAL", "生成工作流已经进入终态。", false);
+    }
+    const run = await workflows.getPublic(principal, context.req.param("workflowId"));
+    if (!run) throw new AppHttpError(404, "WORKFLOW_NOT_FOUND", "生成工作流不存在。", false);
+    return context.json(WorkflowRunResponseSchema.parse({ data: run, meta: apiMeta(requestId) }));
+  });
+
+  app.post("/v1/workflows/:workflowId/retry", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(
+      context.req.header("x-internal-token"),
+      context.req.header("x-principal"),
+      dependencies.internalToken,
+    );
+    const parsed = WorkflowRunRetryInputSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
+    }
+    const result = await workflows.retry(
+      principal,
+      context.req.param("workflowId"),
+      parsed.data,
+    );
+    return context.json(
+      WorkflowRunResponseSchema.parse({
+        data: workflows.toPublic(result.run),
+        meta: apiMeta(requestId),
+      }),
+      result.created ? 202 : 200,
+    );
   });
 
   app.get("/v1/tasks/:taskId/media", async (context) => {

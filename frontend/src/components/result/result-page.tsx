@@ -96,7 +96,7 @@ export function ResultPage({ projectId, taskId }: ResultPageProps) {
   const regenerateMutation = useMutation({
     mutationFn: () => createRenderJob(projectId),
     onSuccess: (job) =>
-      router.push(`/projects/${projectId}/generating?jobId=${job.id}&audioTaskId=${job.id}`),
+      router.push(`/projects/${projectId}/generating?jobId=${job.id}`),
   });
 
   if (resultQuery.isPending) {

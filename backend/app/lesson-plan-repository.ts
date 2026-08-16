@@ -5,6 +5,7 @@ import {
   type LessonPlanRevision,
   type LessonPlanRevisionEditRequest,
   type PlanTaskCreateRequest,
+  type ProviderSelectionSnapshot,
   ProviderSelectionSnapshotSchema,
 } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
@@ -14,7 +15,12 @@ import { stableHash, stableId } from "./lesson-plan-builder.ts";
 export class LessonPlanRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async createPlanTask(principal: string, projectId: string, input: PlanTaskCreateRequest) {
+  async createPlanTask(
+    principal: string,
+    projectId: string,
+    input: PlanTaskCreateRequest,
+    providerSelectionOverride?: ProviderSelectionSnapshot,
+  ) {
     const presentation = await this.prisma.presentation.findFirst({
       where: { id: input.presentationId, projectId, project: { principal } },
       include: { slides: { orderBy: { slideNumber: "asc" } } },
@@ -23,7 +29,9 @@ export class LessonPlanRepository {
     if (presentation.parseStatus !== "COMPLETED" || presentation.slides.length === 0) {
       throw new AppHttpError(409, "PRESENTATION_NOT_PARSED", "演示文稿尚未完成解析。", false);
     }
-    const providerSelection = await findDefaultProviderSelection(this.prisma, principal);
+    const providerSelection =
+      providerSelectionOverride ??
+      (await findDefaultProviderSelection(this.prisma, principal));
     const inputHash = stableHash({
       presentationId: presentation.id,
       revision: presentation.revision,
@@ -166,7 +174,7 @@ export class LessonPlanRepository {
   }
 }
 
-async function findDefaultProviderSelection(prisma: PrismaClient, principal: string) {
+export async function findDefaultProviderSelection(prisma: PrismaClient, principal: string) {
   const provider = await prisma.providerProfile.findFirst({
     where: { principal, isDefault: true },
   });

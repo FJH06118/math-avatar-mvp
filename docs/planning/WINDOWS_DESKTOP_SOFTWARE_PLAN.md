@@ -598,6 +598,8 @@ STOP：
 - 崩溃恢复会重复扣费调用 LLM/TTS，或产生两份最终媒体记录。
 - 根取消无法停止正在运行的外部子进程。
 
+当前代码收口记录（2026-08-17）：`WorkflowRun` Contract、Prisma 表、repository、orchestrator、workflow worker、Hono/BFF 端点和真实生成页接线已实现；PostgreSQL workflow integration 3/3 通过。实际 Windows 宿主重启、外部子进程硬崩溃回收、clean VM、离线 staging、正式 migration runtime 和升级回滚仍未取得证据，不能写成 P5 的完整外部验收通过。
+
 ### P6：首次启动、设置页和生产模式
 
 目标：

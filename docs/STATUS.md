@@ -1,5 +1,13 @@
 # 项目状态
 
+## 2026-08-17 P5 服务端根工作流
+
+- 已新增 `WorkflowRun` Contract、`WorkflowRun` Prisma 模型和两次向前 migration（根工作流表、重试幂等键）；根输入快照保存批准 revision ID、实际授课设置和 Provider 非秘密快照。
+- 服务端 orchestrator 负责 AUDIO、PAGE_RENDER、COMPOSITE、VALIDATE 的创建和推进，客户端生成页只创建/轮询一个根工作流；任务创建仍由现有 repository/outbox 完成，避免第二套队列和重复扣费边界。
+- 根取消会请求当前子任务取消，根重试以新的子任务幂等键恢复失败/取消阶段；workflow lease 支持过期接管。最终 VALIDATE 子任务失败时根工作流保持 FAILED，不会投影为完成。
+- P5 专项：`workflow.integration.test.ts` 3/3；包含全阶段推进、根幂等重放、过期 lease、取消传播、重试和最终验证失败。新增 Contract 测试已纳入共享 Contract 套件。
+- 结论：`PASS_WITH_EVIDENCE_GAPS`。尚无另一台 Windows 电脑、clean VM、完整离线 staging、正式 migration runtime、宿主硬崩溃/外部子进程回收和升级回滚证据；这些仍是 `EXTERNAL_VALIDATION_PENDING`。
+
 ## 2026-08-17 P4 讲稿审核、双文本编辑与真实设置收敛
 
 - 已将解析置信度、解析警告、公式状态和 L2/L3 推导风险投影为共享 `reviewFlags`。未批准且存在标记的页面在 AUDIO、PAGE_RENDER、COMPOSITE 三个服务端入口统一返回 `HUMAN_REVIEW_REQUIRED`；无标记的未批准页面继续返回 `LESSON_PLAN_NOT_APPROVED`。生成流程不自动批准，显式批准后才记录人工确认。

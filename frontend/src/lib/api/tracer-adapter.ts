@@ -4,6 +4,10 @@ import {
   createTracerAudioTask,
   createTracerVoicePreviewTask,
   createTracerCompositeTask,
+  createTracerWorkflow,
+  getTracerWorkflow,
+  cancelTracerWorkflow,
+  retryTracerWorkflow,
   createTracerPlanTask,
   createTracerRenderTask,
   getTracerAudioTimeline,
@@ -40,6 +44,10 @@ export const tracerApiAdapter = {
   createCompositeTask: createTracerCompositeTask,
   getFinalMedia: getTracerFinalMedia,
   getDelivery: getTracerDelivery,
+  createWorkflow: createTracerWorkflow,
+  getWorkflow: getTracerWorkflow,
+  cancelWorkflow: cancelTracerWorkflow,
+  retryWorkflow: retryTracerWorkflow,
 } as const;
 
 export function getEnabledTracerApiAdapter(value = process.env.NEXT_PUBLIC_PPT_DH_API_MODE) {

@@ -1,5 +1,17 @@
 # 当前任务
 
+## 2026-08-17 P5 服务端根工作流（本地收口，外部验证待补）
+
+- 已新增共享 `WorkflowRun` strict Contract、PostgreSQL `WorkflowRun` 模型与向前 migration；输入快照冻结已批准 revision、授课设置和 Provider 非秘密选择，公开投影只返回稳定 ID、阶段、进度和脱敏错误。
+- `backend/app/workflow-repository.ts` 提供创建幂等、取消、重试和 principal 隔离；`workflow-orchestrator.ts` 在服务端推进 AUDIO→PAGE_RENDER→COMPOSITE→VALIDATE，子任务继续复用既有 repository/outbox/lease；`workflow-worker.ts` 支持过期根租约接管。
+- 生成页真实模式现在只创建/轮询一个 WorkflowRun，浏览器不再创建下一阶段；结果页仍使用最终 `VALIDATE` task 读取交付清单。Mock 链路保持兼容。
+- P5 专项已通过：WorkflowRun PostgreSQL integration 3/3，覆盖同幂等键重放、过期租约恢复、全阶段服务端推进、根取消向子任务传播、重试新子任务和最终验证失败不完成。
+- P5 结论为 `PASS_WITH_EVIDENCE_GAPS`：本机真实数据库与现有 Worker 语义已验证；实际 Windows 宿主重启、外部 TTS/FFmpeg 子进程硬崩溃回收、clean VM、离线 staging、正式 migration runtime 和升级回滚仍属于 `EXTERNAL_VALIDATION_PENDING`。
+
+## 下一阶段：P6 首次启动、设置页和生产模式
+
+- P6 只处理 Windows 首次启动向导、Provider/Edge 设置、健康面板、诊断导出和生产模式禁止 Mock；不得把安装器、签名或 clean VM 验收提前写成完成。
+
 ## 2026-08-17 P4 讲稿审核、双文本编辑与真实设置收敛（本地收口，外部验证待补）
 
 - P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `339a46a` / `web-p2-complete`、桌面 `bd63d5c` / `desktop-p2-complete` 完成，均未推送。
@@ -11,11 +23,6 @@
 - P4 结论为 `PASS_WITH_EVIDENCE_GAPS`：显式批准仍是唯一人工确认动作，低置信度/公式/高风险页面在批准前不能创建视频任务；真实 Edge、Provider、clean VM、离线 staging、正式 migration runtime、硬崩溃回收和升级回滚仍待外部验证。
 - P2 的安全门是本地数据库/API/日志扫描无完整测试 Key，版本冲突、principal 隔离、strict unknown fields、非法 URL、默认 Profile 删除保护和密钥轮换测试通过；若 safeStorage/密钥 IPC 写入失败，设置请求必须失败且数据库不能留下已配置的半成品。
 - P1 的 clean VM、完整离线 staging、正式 migration runtime、宿主硬崩溃回收和升级回滚证据仍是后续缺口；不得因为 P2 本机测试通过而宣称可安装发布。
-
-## 下一阶段：P5 Edge TTS 真实链路与媒体质量证据
-
-- P5 只处理计划中规定的真实 Edge TTS、媒体质量和可追溯快照证据；不要把安装器或发布证据提前混入本阶段。
-- P3 STOP 仍有效：任一 Provider 不能稳定通过共享 Contract，错误分类造成认证无限重试，或原始响应/明文 Key 进入 UI、日志、数据库、浏览器响应和诊断包，立即停止。
 
 ## 2026-08-17 Windows 桌面 P1 本机运行时纵切
 

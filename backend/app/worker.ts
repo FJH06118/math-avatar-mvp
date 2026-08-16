@@ -17,6 +17,8 @@ import { runClaimedRenderStep } from "./render-worker.ts";
 import { FfmpegCompositeAdapter, FfmpegMediaValidationAdapter } from "./media-adapter.ts";
 import { runClaimedCompositeStep, runClaimedValidationStep } from "./media-worker.ts";
 import { isRuntimeShutdownMessage, sendRuntimeReady } from "./runtime-control.ts";
+import { claimNextWorkflow, runClaimedWorkflow } from "./workflow-worker.ts";
+import { WorkflowOrchestrator } from "./workflow-orchestrator.ts";
 
 const config = loadWorkerConfig();
 const prisma = createProductPrismaClient(config.databaseUrl);
@@ -32,6 +34,7 @@ const audioAdapter = new EdgeTtsAudioAdapter();
 const renderAdapter = new SharpFfmpegPageRenderAdapter();
 const compositeAdapter = new FfmpegCompositeAdapter();
 const validationAdapter = new FfmpegMediaValidationAdapter();
+const workflowOrchestrator = new WorkflowOrchestrator(prisma);
 
 process.once("SIGINT", () => abort.abort());
 process.once("SIGTERM", () => abort.abort());
@@ -52,6 +55,15 @@ try {
       (await claimNextProductStep(pool, workerId, 60_000, 3, "COMPOSITE")) ??
       (await claimNextProductStep(pool, workerId, 60_000, 3, "VALIDATE"));
     if (!claim) {
+      const workflowClaim = await claimNextWorkflow(pool, workerId, 30_000);
+      if (workflowClaim) {
+        await runClaimedWorkflow(
+          { prisma, orchestrator: workflowOrchestrator },
+          workflowClaim,
+          workerId,
+        );
+        continue;
+      }
       await delay(500, undefined, { signal: abort.signal }).catch(() => undefined);
       continue;
     }
