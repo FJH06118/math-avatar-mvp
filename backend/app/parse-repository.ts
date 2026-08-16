@@ -2,6 +2,7 @@ import { FormulaSchema, ParseSnapshotSchema } from "@ppt-digital-human/contracts
 import type { PrismaClient } from "../generated/prisma/client.ts";
 
 import { AppHttpError } from "./errors.ts";
+import { reviewFlagsForSlide } from "./lesson-plan-review.ts";
 import { projectTask } from "./projections.ts";
 
 export class ParseRepository {
@@ -28,30 +29,35 @@ export class ParseRepository {
     }
     return ParseSnapshotSchema.parse({
       task: projectTask(task),
-      slides: slides.map((slide) => ({
-        id: slide.id,
-        projectId: slide.projectId,
-        presentationId: slide.presentationId,
-        slideNumber: slide.slideNumber,
-        title: slide.title,
-        slideType: slide.slideType,
-        extractedText: slide.extractedText,
-        formulaCount: Array.isArray(slide.formulaJson) ? slide.formulaJson.length : 0,
-        formulas: Array.isArray(slide.formulaJson)
+      slides: slides.map((slide) => {
+        const formulas = Array.isArray(slide.formulaJson)
           ? slide.formulaJson.flatMap((value) => {
               const parsed = FormulaSchema.safeParse(value);
               return parsed.success ? [parsed.data] : [];
             })
-          : [],
-        parseConfidence: slide.parseConfidence,
-        parseWarnings: Array.isArray(slide.parseWarnings)
+          : [];
+        const parseWarnings = Array.isArray(slide.parseWarnings)
           ? slide.parseWarnings.filter((value): value is string => typeof value === "string")
-          : [],
-        originalPage: {
-          assetId: slide.renderAssetId!,
-          url: `/api/t/assets/${slide.renderAssetId}/preview`,
-        },
-      })),
+          : [];
+        return {
+          id: slide.id,
+          projectId: slide.projectId,
+          presentationId: slide.presentationId,
+          slideNumber: slide.slideNumber,
+          title: slide.title,
+          slideType: slide.slideType,
+          extractedText: slide.extractedText,
+          formulaCount: Array.isArray(slide.formulaJson) ? slide.formulaJson.length : 0,
+          formulas,
+          parseConfidence: slide.parseConfidence,
+          parseWarnings,
+          reviewFlags: reviewFlagsForSlide(slide),
+          originalPage: {
+            assetId: slide.renderAssetId!,
+            url: `/api/t/assets/${slide.renderAssetId}/preview`,
+          },
+        };
+      }),
     });
   }
 

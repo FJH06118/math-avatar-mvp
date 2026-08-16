@@ -10,9 +10,10 @@ import {
 import type { UploadAggregate } from "./repository.ts";
 import type { ProjectRecord } from "./repository.ts";
 import type { GenerationTask } from "../generated/prisma/client.ts";
+import { normalizeSupportedTeachingSettings } from "./teaching-settings.ts";
 
 const DEFAULT_SETTINGS = {
-  avatarId: "avatar-lin",
+  avatarId: "avatar-zhou",
   voiceId: "voice-qinghe",
   speechRate: 1,
   captionsEnabled: true,
@@ -114,7 +115,9 @@ export function projectRecord(record: ProjectRecord): Project {
       ["PAGE_RENDER", "COMPOSITE", "VALIDATE"].includes(latestTask.kind)
         ? latestTask.id
         : undefined,
-    settings: parsedSettings.success ? parsedSettings.data : DEFAULT_SETTINGS,
+    settings: parsedSettings.success
+      ? normalizeSupportedTeachingSettings(parsedSettings.data)
+      : DEFAULT_SETTINGS,
     version: record.version,
   });
 }

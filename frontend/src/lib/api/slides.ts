@@ -24,6 +24,12 @@ function workspaceSlideToParsed(
 ): ParsedSlide {
   const revision = item.currentRevision;
   const isSkipped = revision?.scenes.every((scene) => scene.isSkipped) ?? false;
+  const displayText = revision?.narration
+    .map((segment) => segment.displayText)
+    .join("\n\n");
+  const spokenText = revision?.narration
+    .map((segment) => segment.spokenText)
+    .join("\n\n");
   return parseSlide({
     id: item.parsed.id,
     projectId: item.parsed.projectId,
@@ -34,8 +40,9 @@ function workspaceSlideToParsed(
       (revision?.teachingGoal ?? item.parsed.extractedText.slice(0, 5_000)) ||
       "待生成讲稿",
     extractedText: item.parsed.extractedText,
-    teachingScript:
-      revision?.narration.map((segment) => segment.displayText).join("\n\n") ?? "待生成讲稿",
+    teachingScript: displayText ?? "待生成讲稿",
+    displayText,
+    spokenText,
     originalPageUrl: item.parsed.originalPage.url,
     sourceAssetId: item.parsed.originalPage.assetId,
     renderAssetId: item.parsed.originalPage.assetId,
@@ -44,6 +51,7 @@ function workspaceSlideToParsed(
     safeRegions: [],
     parseConfidence: item.parsed.parseConfidence,
     parseWarnings: item.parsed.parseWarnings,
+    reviewFlags: item.parsed.reviewFlags,
     isSkipped,
     skipReason: isSkipped ? "当前讲稿修订已跳过本页" : undefined,
     revision: revision?.revision ?? 1,
@@ -108,8 +116,11 @@ export async function updateSlideScript(
         teachingGoal: revision.teachingGoal,
         narration: [{
           id: revision.narration[0]?.id ?? `narration_${id}`,
-          displayText: validInput.teachingScript,
-          spokenText: validInput.teachingScript,
+          displayText: validInput.displayText ?? validInput.teachingScript!,
+          spokenText:
+            validInput.spokenText ??
+            validInput.teachingScript ??
+            validInput.displayText!,
         }],
         derivation: revision.derivation,
         scenes: revision.scenes,
@@ -127,7 +138,11 @@ export async function updateSlideScript(
   const id = SlideIdSchema.parse(slideId);
   const validInput = parseUpdateSlideScriptInput(input);
   const slide = requireRecord(mockDb.slides.get(id), "幻灯片");
-  slide.teachingScript = validInput.teachingScript;
+  const displayText = validInput.displayText ?? validInput.teachingScript!;
+  const spokenText = validInput.spokenText ?? validInput.teachingScript ?? displayText;
+  slide.teachingScript = displayText;
+  slide.displayText = displayText;
+  slide.spokenText = spokenText;
   slide.updatedAt = new Date().toISOString();
   const project = mockDb.projects.get(slide.projectId);
   if (project) {

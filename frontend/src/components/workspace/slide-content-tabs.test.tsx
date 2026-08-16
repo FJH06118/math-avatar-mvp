@@ -33,6 +33,7 @@ const slide: ParsedSlide = {
   safeRegions: [],
   parseConfidence: 0.99,
   parseWarnings: [],
+  reviewFlags: [],
   isSkipped: false,
   revision: 2,
   lessonPlanRevisionId: "revision_stage6_2",
@@ -51,10 +52,12 @@ describe("stage 6 workspace slide", () => {
     render(
       <SlideContentTabs
         slide={slide}
-        scriptValue={slide.teachingScript}
+        displayText={slide.teachingScript}
+        spokenText={slide.teachingScript}
         activeTab="preview"
         onTabChange={vi.fn()}
-        onScriptChange={vi.fn()}
+        onDisplayTextChange={vi.fn()}
+        onSpokenTextChange={vi.fn()}
         onLockChange={onLockChange}
       />,
     );
@@ -70,10 +73,12 @@ describe("stage 6 workspace slide", () => {
     render(
       <SlideContentTabs
         slide={slide}
-        scriptValue={slide.teachingScript}
+        displayText={slide.teachingScript}
+        spokenText={slide.teachingScript}
         activeTab="preview"
         onTabChange={vi.fn()}
-        onScriptChange={vi.fn()}
+        onDisplayTextChange={vi.fn()}
+        onSpokenTextChange={vi.fn()}
         onApprove={onApprove}
       />,
     );
@@ -85,10 +90,12 @@ describe("stage 6 workspace slide", () => {
   it("switches the digital teacher shown in the page preview", () => {
     const props = {
       slide,
-      scriptValue: slide.teachingScript,
+      displayText: slide.teachingScript,
+      spokenText: slide.teachingScript,
       activeTab: "preview" as const,
       onTabChange: vi.fn(),
-      onScriptChange: vi.fn(),
+      onDisplayTextChange: vi.fn(),
+      onSpokenTextChange: vi.fn(),
       avatarPosition: "right" as const,
     };
     const { rerender } = render(
@@ -127,14 +134,38 @@ describe("stage 6 workspace slide", () => {
     render(
       <SlideContentTabs
         slide={slide}
-        scriptValue={slide.teachingScript}
+        displayText={slide.teachingScript}
+        spokenText={slide.teachingScript}
         activeTab="script"
         onTabChange={vi.fn()}
-        onScriptChange={vi.fn()}
+        onDisplayTextChange={vi.fn()}
+        onSpokenTextChange={vi.fn()}
       />,
     );
     expect(
-      (screen.getByRole("textbox", { name: /本页授课讲稿/ }) as HTMLTextAreaElement).disabled,
+      (screen.getByRole("textbox", { name: /朗读文本/ }) as HTMLTextAreaElement).disabled,
     ).toBe(true);
+  });
+
+  it("keeps subtitle display text and spoken text independently editable", () => {
+    const onDisplayTextChange = vi.fn();
+    const onSpokenTextChange = vi.fn();
+    render(
+      <SlideContentTabs
+        slide={{ ...slide, isLocked: false }}
+        displayText="字幕断句"
+        spokenText="公式的中文读法"
+        activeTab="script"
+        onTabChange={vi.fn()}
+        onDisplayTextChange={onDisplayTextChange}
+        onSpokenTextChange={onSpokenTextChange}
+      />,
+    );
+
+    expect((screen.getByRole("textbox", { name: "字幕显示文本" }) as HTMLTextAreaElement).value).toBe("字幕断句");
+    expect((screen.getByRole("textbox", { name: "朗读文本" }) as HTMLTextAreaElement).value).toBe("公式的中文读法");
+    fireEvent.change(screen.getByRole("textbox", { name: "朗读文本" }), { target: { value: "修正后的公式读法" } });
+    expect(onDisplayTextChange).not.toHaveBeenCalled();
+    expect(onSpokenTextChange).toHaveBeenCalledWith("修正后的公式读法");
   });
 });

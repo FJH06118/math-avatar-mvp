@@ -53,6 +53,11 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   const upload = TracerUploadResponseSchema.parse(await uploadResponse.json()).data;
   await dispatchPendingOutbox(prisma); const parseClaim = await claimNextProductStep(pool, "tg-parse", 30_000, 3, "PARSE"); assert(parseClaim);
   assert.equal(await runClaimedParseStep({ prisma, pool, assets: store, adapter: new PythonParseAdapter("python"), attemptRoot, leaseMs: 30_000 }, parseClaim, "tg-parse"), "SUCCEEDED");
+  // This end-to-end fixture represents a deck that was explicitly confirmed by a reviewer.
+  await prisma.slide.updateMany({
+    where: { projectId: upload.project.id, presentationId: upload.presentation.id },
+    data: { parseConfidence: 0.99, parseWarnings: [], formulaJson: [] },
+  });
 
   const planResponse = await request(app, `/v1/projects/${upload.project.id}/plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: upload.presentation.id, idempotencyKey: "stage-tg-plan-key", audience: "大学一年级", style: "逐页严谨", targetMinutes: 3 }) });
   const planTask = PlanTaskResponseSchema.parse(await planResponse.json()).data; await dispatchPendingOutbox(prisma);

@@ -1,5 +1,11 @@
 # 当前真实架构
 
+## 2026-08-17 P4 讲稿审核与双文本任务快照
+
+- `packages/contracts/src/review.ts` 定义审核阈值与 `reviewFlags`；Parse/Workspace projection 计算低置信度、解析警告、公式和高风险推导标记。`backend/app/lesson-plan-review.ts` 是 AUDIO、PAGE_RENDER、COMPOSITE 共用的服务端门禁，错误只返回稳定码和页面 ID/标记，不暴露模型或磁盘内部数据。
+- 工作台的 `displayText` 进入字幕显示和字幕 cue，`spokenText` 进入 Edge TTS；用户修订产生 pending revision，只有显式批准后才能创建音频。AUDIO outbox 冻结逐句双文本、voice/rate/pitch 与 revision ID，后续渲染继续校验当前批准 revision。
+- `frontend/src/components/workspace/teaching-settings-form.tsx` 与 `backend/app/teaching-settings.ts` 共享同一能力边界：周老师、三种 Edge 音色、语速和逐页 hidden。试听与最终 AUDIO 复用 `frontend/src/lib/api/teaching-settings.ts` 的 Edge 映射；未接入渲染器的设置在服务端和 UI 中均被规范化/隐藏。
+
 ## 2026-08-17 P3 Provider Gateway
 
 - `backend/app/providers/` 现在按协议拆分 OpenAI Chat Completions 与 Anthropic Messages；OpenAI、DeepSeek、GLM、Kimi 共享请求形态但保留独立 adapter，模型 ID 继续来自配置/profile，不在代码中写入“最新模型”。

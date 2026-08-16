@@ -11,7 +11,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -27,31 +26,37 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
 import { getVoicePreview, updateTeachingSettings } from "@/lib/api";
 import { getEnabledTracerApiAdapter } from "@/lib/api/tracer-adapter";
+import {
+  edgePitchFor,
+  edgeRateFor,
+  edgeVoiceFor,
+  normalizeSupportedTeachingSettings,
+  SUPPORTED_AVATAR_ID,
+  SUPPORTED_VOICE_IDS,
+} from "@/lib/api/teaching-settings";
 import type {
   Avatar,
   TeachingSettings,
   Voice,
 } from "@/types";
 
-import { TeachingVisualSettings } from "./teaching-visual-settings";
 import type { WorkspaceSaveState } from "./workspace-header";
 
 const settingsSchema = z.object({
-  avatarId: z.string().min(1, "请选择数字人教师。"),
-  voiceId: z.string().min(1, "请选择授课音色。"),
+  avatarId: z.literal(SUPPORTED_AVATAR_ID),
+  voiceId: z.enum(SUPPORTED_VOICE_IDS),
   speechRate: z.number().min(0.75).max(1.5),
-  captionsEnabled: z.boolean(),
-  captionStyle: z.enum(["clear", "focus", "minimal"]),
-  avatarPosition: z.enum(["left", "right"]),
-  background: z.enum(["classroom", "light", "board"]),
+  captionsEnabled: z.literal(true),
+  captionStyle: z.literal("clear"),
+  avatarPosition: z.literal("right"),
+  background: z.literal("light"),
   slideOverrides: z
     .array(
       z.object({
         slideId: z.string().min(1),
-        avatarPosition: z.enum(["left", "right", "hidden"]),
+        avatarPosition: z.literal("hidden"),
       }),
     )
     .optional(),
@@ -100,24 +105,40 @@ export function TeachingSettingsForm({
   const lastPreviewedRef = useRef<string | null>(null);
   const failedValuesRef = useRef<string | null>(null);
 
-  const avatarItems = useMemo(
-    () => avatars.map((avatar) => ({ value: avatar.id, label: avatar.name })),
+  const supportedSettings = useMemo(
+    () => settingsSchema.parse(normalizeSupportedTeachingSettings(settings)),
+    [settings],
+  );
+  const supportedAvatars = useMemo(
+    () => avatars.filter((avatar) => avatar.id === SUPPORTED_AVATAR_ID),
     [avatars],
   );
-  const voiceItems = useMemo(
-    () => voices.map((voice) => ({ value: voice.id, label: voice.name })),
+  const supportedVoices = useMemo(
+    () => voices.filter((voice) =>
+      SUPPORTED_VOICE_IDS.includes(
+        voice.id as (typeof SUPPORTED_VOICE_IDS)[number],
+      ),
+    ),
     [voices],
+  );
+  const avatarItems = useMemo(
+    () => supportedAvatars.map((avatar) => ({ value: avatar.id, label: avatar.name })),
+    [supportedAvatars],
+  );
+  const voiceItems = useMemo(
+    () => supportedVoices.map((voice) => ({ value: voice.id, label: voice.name })),
+    [supportedVoices],
   );
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: settings,
+    defaultValues: supportedSettings,
     mode: "onChange",
   });
   const values = useWatch({ control: form.control });
   const valuesKey = JSON.stringify(values);
-  const currentVoice = voices.find((voice) => voice.id === values.voiceId);
-  const currentAvatar = avatars.find((avatar) => avatar.id === values.avatarId);
+  const currentVoice = supportedVoices.find((voice) => voice.id === values.voiceId);
+  const currentAvatar = supportedAvatars.find((avatar) => avatar.id === values.avatarId);
   const currentSlideOverride = values.slideOverrides?.find(
     (override) => override?.slideId === selectedSlideId,
   )?.avatarPosition;
@@ -154,7 +175,7 @@ export function TeachingSettingsForm({
         },
       );
       if (currentKey === attemptedKey) {
-        form.reset(savedSettings);
+        form.reset(settingsSchema.parse(savedSettings));
         onSaveStateChange("saved");
       } else {
         onSaveStateChange("unsaved");
@@ -257,7 +278,7 @@ export function TeachingSettingsForm({
           <div>
             <h2 className="text-base font-semibold">授课配置</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              设置数字人、音色和画面样式，修改后自动保存。
+              当前阶段使用周老师与 Edge TTS 音色；修改语速或本页隐藏设置后自动保存。
             </p>
           </div>
 
@@ -294,7 +315,7 @@ export function TeachingSettingsForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {avatars.map((avatar) => (
+                      {supportedAvatars.map((avatar) => (
                         <SelectItem key={avatar.id} value={avatar.id}>
                           {avatar.imageUrl ? (
                             <Image
@@ -348,7 +369,7 @@ export function TeachingSettingsForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {voices.map((voice) => (
+                      {supportedVoices.map((voice) => (
                         <SelectItem key={voice.id} value={voice.id}>
                           <span>{voice.name}</span>
                           <span className="text-muted-foreground">
@@ -452,39 +473,11 @@ export function TeachingSettingsForm({
             )}
           />
 
-          <Controller
-            name="captionsEnabled"
-            control={form.control}
-            render={({ field }) => (
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel htmlFor="captions-enabled">显示字幕</FieldLabel>
-                  <FieldDescription>
-                    为视频生成可下载的中文字幕。
-                  </FieldDescription>
-                </FieldContent>
-                <Switch
-                  id="captions-enabled"
-                  name={field.name}
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </Field>
-            )}
-          />
-
-          <TeachingVisualSettings
-            control={form.control}
-            captionsEnabled={values.captionsEnabled ?? true}
-          />
-
           <Field>
             <FieldLabel htmlFor="slide-avatar-position">本页数字人站位</FieldLabel>
             <Select
               items={[
                 { value: "inherit", label: "沿用全局站位" },
-                { value: "left", label: "左侧" },
-                { value: "right", label: "右侧" },
                 { value: "hidden", label: "本页隐藏" },
               ]}
               name="slide-avatar-position"
@@ -500,7 +493,7 @@ export function TeachingSettingsForm({
                         ...retained,
                         {
                           slideId: selectedSlideId,
-                          avatarPosition: value as "left" | "right" | "hidden",
+                          avatarPosition: "hidden",
                         },
                       ]
                     : retained,
@@ -521,7 +514,7 @@ export function TeachingSettingsForm({
               </SelectContent>
             </Select>
             <FieldDescription>
-              当前页“{selectedSlideTitle}”可覆盖全局站位；内容拥挤时允许隐藏数字人。
+              当前页“{selectedSlideTitle}”默认使用右侧站位；内容拥挤时允许隐藏周老师。
             </FieldDescription>
           </Field>
 
@@ -561,25 +554,4 @@ export function TeachingSettingsForm({
       </form>
     </aside>
   );
-}
-
-function edgeVoiceFor(voiceId: string): string {
-  return {
-    "voice-qinghe": "zh-CN-XiaoxiaoNeural",
-    "voice-zhiyuan": "zh-CN-YunyangNeural",
-    "voice-mingxi": "zh-CN-XiaoyiNeural",
-  }[voiceId] ?? "zh-CN-XiaoxiaoNeural";
-}
-
-function edgeRateFor(speechRate: number): string {
-  const percentage = Math.round((speechRate - 1) * 100);
-  return `${percentage >= 0 ? "+" : ""}${percentage}%`;
-}
-
-function edgePitchFor(voiceId: string): string {
-  return {
-    "voice-qinghe": "+0Hz",
-    "voice-zhiyuan": "-2Hz",
-    "voice-mingxi": "+2Hz",
-  }[voiceId] ?? "+0Hz";
 }

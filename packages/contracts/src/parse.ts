@@ -8,6 +8,7 @@ import {
   StableIdSchema,
 } from "./primitives";
 import { TaskSchema } from "./task";
+import { ReviewFlagSchema } from "./review";
 import { FormulaSchema } from "./slide";
 
 const ParsedTextBlockSchema = z
@@ -101,6 +102,7 @@ export const ParsedSlideSummarySchema = z
     formulas: z.array(FormulaSchema).max(500),
     parseConfidence: z.number().min(0).max(1),
     parseWarnings: z.array(z.string().min(1).max(1_000)).max(100),
+    reviewFlags: z.array(ReviewFlagSchema).max(10).default([]),
     originalPage: z
       .object({
         assetId: AssetIdSchema,

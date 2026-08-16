@@ -8,7 +8,9 @@ import {
   LessonPlanRevisionSchema,
   SceneSchema,
   SignedDownloadSchema,
+  UpdateSlideScriptInputSchema,
   createApprovedLessonPlanRevisionSchema,
+  deriveParseReviewFlags,
 } from "./index";
 
 const baseScene = {
@@ -181,5 +183,40 @@ describe("shared contract hard gates", () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("keeps subtitle text and spoken text independently editable", () => {
+    expect(
+      UpdateSlideScriptInputSchema.parse({
+        displayText: "字幕中的断句。",
+        spokenText: "适合 Edge TTS 的朗读句子。",
+      }),
+    ).toEqual({
+      displayText: "字幕中的断句。",
+      spokenText: "适合 Edge TTS 的朗读句子。",
+    });
+    expect(UpdateSlideScriptInputSchema.parse({ teachingScript: "兼容旧版输入。" })).toEqual({
+      teachingScript: "兼容旧版输入。",
+    });
+    expect(
+      UpdateSlideScriptInputSchema.safeParse({ displayText: "只有字幕" }).success,
+    ).toBe(false);
+  });
+
+  it("marks parse warnings, non-valid formulas, and low confidence for review", () => {
+    expect(
+      deriveParseReviewFlags({
+        parseConfidence: 0.89,
+        parseWarnings: ["需要核对"],
+        formulas: [{ status: "warning" }],
+      }),
+    ).toEqual(["LOW_CONFIDENCE", "PARSE_WARNING", "FORMULA_REVIEW"]);
+    expect(
+      deriveParseReviewFlags({
+        parseConfidence: 0.9,
+        parseWarnings: [],
+        formulas: [{ status: "valid" }],
+      }),
+    ).toEqual([]);
   });
 });

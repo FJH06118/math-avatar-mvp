@@ -5,6 +5,18 @@
 
 ## 已确定
 
+### D-41 P4 以显式批准作为讲稿人工审核确认，双文本进入任务快照
+
+- **决策**：解析低置信度、解析警告、非 valid 公式和 L2/L3 推导统一投影为 `reviewFlags`。未批准且存在标记的页面在 AUDIO、PAGE_RENDER、COMPOSITE 入口返回稳定 `HUMAN_REVIEW_REQUIRED`；没有标记但未批准仍返回 `LESSON_PLAN_NOT_APPROVED`。用户修改 `displayText` 与 `spokenText` 后，必须显式批准当前不可变 revision，批准才是解除审核门的唯一确认动作。
+- **原因**：生成按钮不能替用户批准，也不能仅依赖前端状态；公式朗读需要可直接修正，同时审核状态必须进入持久 revision/任务快照，才能防止陈旧文本或未经审核页面进入音频和视频。
+- **影响**：字幕显示文本与 Edge TTS 朗读文本分开保存并冻结；试听和最终 AUDIO 使用同一 Edge voice/rate/pitch 映射。真实供应商和外部媒体验证仍不因本地门禁通过而自动视为完成。
+
+### D-42 P4 设置 UI 只暴露已接入最终渲染器的能力
+
+- **决策**：首发设置只显示周老师、三种 Edge TTS 音色、0.75×～1.50× 语速和逐页隐藏周老师；服务端将历史/不受支持的头像、背景、caption 样式、左右全局站位和非隐藏覆盖规范化为当前渲染器实际能力。
+- **原因**：渲染器固定使用 `avatar-zhou`/`legacy-binary-v1`，字幕与背景样式未形成可冻结的渲染输入；继续展示这些控件会让预览、配置和最终视频产生错误预期。
+- **影响**：设置 Contract 仍保留兼容字段以避免破坏旧记录，但公开项目投影、前端表单和 PAGE_RENDER 快照只使用支持的值；未来接入新渲染能力时必须新增版本化契约和对应任务快照测试。
+
 ### D-40 P3 使用统一 Provider Gateway，任务优先使用冻结快照
 
 - **决策**：PLAN Worker 统一通过 Gateway 调用 OpenAI、DeepSeek、GLM、Kimi 和 Anthropic；协议适配器只负责请求/响应形态，输出一律经过 `unknown` 边界、`stage-tc-agent-v1` strict Contract 和最多一次 JSON 包装修复。Provider Profile 快照优先于环境回退，按 principal、profileVersion、keyVersion 和完整非秘密配置校验后从桌面密钥代理读取对应 key 版本。

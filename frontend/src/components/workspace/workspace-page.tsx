@@ -47,7 +47,20 @@ interface WorkspaceData {
   voices: Voice[];
 }
 
-type SlideDrafts = Record<string, string>;
+interface SlideDraft {
+  displayText: string;
+  spokenText: string;
+}
+
+type SlideDrafts = Record<string, SlideDraft>;
+
+function slideDraft(slide: ParsedSlide): SlideDraft {
+  const displayText = slide.displayText ?? slide.teachingScript;
+  return {
+    displayText,
+    spokenText: slide.spokenText ?? displayText,
+  };
+}
 
 export function WorkspacePage({ projectId }: WorkspacePageProps) {
   const workspaceQuery = useQuery({
@@ -163,9 +176,14 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   const dirtyDrafts = useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(drafts).filter(([slideId, script]) => {
+        Object.entries(drafts).filter(([slideId, draft]) => {
           const original = data.slides.find((slide) => slide.id === slideId);
-          return original && original.teachingScript !== script;
+          if (!original) return false;
+          const persisted = slideDraft(original);
+          return (
+            persisted.displayText !== draft.displayText ||
+            persisted.spokenText !== draft.spokenText
+          );
         }),
       ),
     [data.slides, drafts],
@@ -205,24 +223,37 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     data.slides.length > 0 &&
     !missingRevision &&
     !pendingApproval &&
-    data.slides.every((slide) =>
-      (drafts[slide.id] ?? slide.teachingScript).trim(),
+    data.slides.every((slide) => {
+      const draft = drafts[slide.id] ?? slideDraft(slide);
+      return draft.displayText.trim() && draft.spokenText.trim();
+    }) &&
+    data.slides.every(
+      (slide) =>
+        slide.lessonPlanApproval === "approved" || slide.reviewFlags.length === 0,
     );
+
+  const reviewBlocked = data.slides.some(
+    (slide) =>
+      slide.lessonPlanApproval !== "approved" && slide.reviewFlags.length > 0,
+  );
 
   const generateDisabledReason = missingRevision
     ? "请先生成并审核全部页面的初始讲稿。"
     : pendingApproval
     ? "请先显式批准全部页面的当前讲稿。"
+    : reviewBlocked
+    ? "请先处理所有低置信度、解析警告、公式或高风险推导页面，再生成视频。"
     : !settingsValid
     ? "请先补全授课配置。"
     : hasSaveError
       ? "保存失败，请先重新保存讲稿或授课配置。"
     : hasUnsavedChanges || isSaving
       ? "请等待讲稿和授课配置保存完成。"
-      : data.slides.some(
-            (slide) => !(drafts[slide.id] ?? slide.teachingScript).trim(),
-          )
-        ? "每一页都需要填写授课讲稿。"
+      : data.slides.some((slide) => {
+          const draft = drafts[slide.id] ?? slideDraft(slide);
+          return !draft.displayText.trim() || !draft.spokenText.trim();
+        })
+        ? "每一页都需要填写字幕显示文本和朗读文本。"
         : data.slides.length === 0
           ? "项目中没有可生成的幻灯片。"
           : undefined;
@@ -230,8 +261,8 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
   const saveMutation = useMutation({
     mutationFn: async (snapshot: SlideDrafts) =>
       Promise.all(
-        Object.entries(snapshot).map(([slideId, teachingScript]) =>
-          updateSlideScript(slideId, { teachingScript }),
+        Object.entries(snapshot).map(([slideId, draft]) =>
+          updateSlideScript(slideId, draft),
         ),
       ),
     onMutate: (snapshot) => {
@@ -255,10 +286,10 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
       );
       setDrafts((current) => {
         const next = { ...current };
-        for (const [slideId, savedScript] of Object.entries(
+        for (const [slideId, savedDraft] of Object.entries(
           savingSnapshotRef.current,
         )) {
-          if (current[slideId] === savedScript) {
+          if (current[slideId] === savedDraft) {
             delete next[slideId];
           }
         }
@@ -350,12 +381,18 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     };
   }, [hasUnsavedChanges]);
 
-  function handleScriptChange(value: string) {
+  function handleTextChange(field: keyof SlideDraft, value: string) {
     if (!selectedSlide) {
       return;
     }
     setScriptSaveState("unsaved");
-    setDrafts((current) => ({ ...current, [selectedSlide.id]: value }));
+    setDrafts((current) => ({
+      ...current,
+      [selectedSlide.id]: {
+        ...(current[selectedSlide.id] ?? slideDraft(selectedSlide)),
+        [field]: value,
+      },
+    }));
   }
 
   function replaceWorkspaceState(
@@ -412,12 +449,12 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
           slide={selectedSlide}
           avatar={previewAvatar}
           avatarPosition={previewAvatarPosition}
-          scriptValue={
-            drafts[selectedSlide.id] ?? selectedSlide.teachingScript
-          }
+          displayText={(drafts[selectedSlide.id] ?? slideDraft(selectedSlide)).displayText}
+          spokenText={(drafts[selectedSlide.id] ?? slideDraft(selectedSlide)).spokenText}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          onScriptChange={handleScriptChange}
+          onDisplayTextChange={(value) => handleTextChange("displayText", value)}
+          onSpokenTextChange={(value) => handleTextChange("spokenText", value)}
           onLockChange={(locked) => lockMutation.mutate({ slide: selectedSlide, locked })}
           isLocking={lockMutation.isPending}
           onApprove={() => approvalMutation.mutate(selectedSlide)}

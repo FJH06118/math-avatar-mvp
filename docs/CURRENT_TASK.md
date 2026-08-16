@@ -1,19 +1,20 @@
 # 当前任务
 
-## 2026-08-17 Windows 桌面 P3 五家 LLM Provider Gateway（本地收口，外部验证待补）
+## 2026-08-17 P4 讲稿审核、双文本编辑与真实设置收敛（本地收口，外部验证待补）
 
 - P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `339a46a` / `web-p2-complete`、桌面 `bd63d5c` / `desktop-p2-complete` 完成，均未推送。
-- 本轮已实现 P3：统一 Provider Gateway、OpenAI/DeepSeek/GLM/Kimi/Anthropic adapter、P2 快照与密钥版本解析、稳定错误分类、严格输出校验和一次 JSON 包装修复；没有实现设置 UI、安装包或发布渠道。
+- P3 已实现统一 Provider Gateway、OpenAI/DeepSeek/GLM/Kimi/Anthropic adapter、P2 快照与密钥版本解析、稳定错误分类、严格输出校验和一次 JSON 包装修复；P3 本地提交为网页 `ccd1de4` / `web-p3-complete`，未推送。
+- 本轮已实现 P4：共享 `reviewFlags`、低置信度/解析警告/公式/高风险推导审核状态，AUDIO、PAGE_RENDER、COMPOSITE 三处服务端人工审核门禁，`displayText`/`spokenText` 独立编辑与冻结，Edge 试听/最终任务共用同一音色、语速和音高映射，以及只展示周老师、Edge 音色、语速和逐页隐藏站位的设置收敛。
 - P2 的共享 Provider/Application Settings strict Contract、非秘密 ProviderProfile 数据模型、Hono 设置 API、桌面 safeStorage/DPAPI 密钥代理和 Next 同源 BFF 继续作为 P3 的密钥边界；P3 不把完整 API Key 放入任务快照、日志、数据库或浏览器响应。
 - API Key 只能作为受控输入短暂经过 BrowserWindow→Next BFF→Hono→Electron 主进程 IPC；持久化仅保留加密密文、credentialRef、版本和末四位。公开 schema、错误、日志和诊断均不得包含完整 Key。
-- P3 本地专项：Provider fixture 37/37；100 个 slide-level 样本首轮 90/100、一次 repair 后 100/100；P2 Provider 集成 3/3；完整 backend integration 32 pass/1 外部 Edge skip。真实上游 smoke 5 家默认跳过，尚无真实供应商证据。
-- P3 结论为 `PASS_WITH_EVIDENCE_GAPS`：不得把五家标记为正式支持，直到每家 opt-in real smoke 在目标环境完成；当前仍可继续后续本地阶段，但外部状态保持 `EXTERNAL_VALIDATION_PENDING`。
+- P4 本地专项：Contract 44/44；前端 unit 11/11、component 17/17；P4 音频审核门禁包含稳定错误码和批准后解锁；完整 backend integration 33 pass/1 外部 Edge skip；阶段 T-G e2e 4/4。
+- P4 结论为 `PASS_WITH_EVIDENCE_GAPS`：显式批准仍是唯一人工确认动作，低置信度/公式/高风险页面在批准前不能创建视频任务；真实 Edge、Provider、clean VM、离线 staging、正式 migration runtime、硬崩溃回收和升级回滚仍待外部验证。
 - P2 的安全门是本地数据库/API/日志扫描无完整测试 Key，版本冲突、principal 隔离、strict unknown fields、非法 URL、默认 Profile 删除保护和密钥轮换测试通过；若 safeStorage/密钥 IPC 写入失败，设置请求必须失败且数据库不能留下已配置的半成品。
 - P1 的 clean VM、完整离线 staging、正式 migration runtime、宿主硬崩溃回收和升级回滚证据仍是后续缺口；不得因为 P2 本机测试通过而宣称可安装发布。
 
-## 下一阶段：P4 讲稿审核与真实设置收敛
+## 下一阶段：P5 Edge TTS 真实链路与媒体质量证据
 
-- P4 只处理计划中规定的审核硬门、displayText/spokenText 最小闭环和真实设置收敛；不要把设置 UI、安装器或发布证据提前混入本阶段。
+- P5 只处理计划中规定的真实 Edge TTS、媒体质量和可追溯快照证据；不要把安装器或发布证据提前混入本阶段。
 - P3 STOP 仍有效：任一 Provider 不能稳定通过共享 Contract，错误分类造成认证无限重试，或原始响应/明文 Key 进入 UI、日志、数据库、浏览器响应和诊断包，立即停止。
 
 ## 2026-08-17 Windows 桌面 P1 本机运行时纵切

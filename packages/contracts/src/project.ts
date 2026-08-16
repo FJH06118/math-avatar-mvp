@@ -170,9 +170,29 @@ export const TeachingSettingsResponseSchema = createApiSuccessSchema(
 
 export const UpdateSlideScriptInputSchema = z
   .object({
-    teachingScript: z.string().min(1).max(20_000),
+    teachingScript: z.string().min(1).max(20_000).optional(),
+    displayText: z.string().min(1).max(20_000).optional(),
+    spokenText: z.string().min(1).max(20_000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    const displayText = input.displayText ?? input.teachingScript;
+    const spokenText = input.spokenText ?? input.teachingScript;
+    if (!displayText) {
+      context.addIssue({
+        code: "custom",
+        path: ["displayText"],
+        message: "请填写字幕显示文本",
+      });
+    }
+    if (!spokenText) {
+      context.addIssue({
+        code: "custom",
+        path: ["spokenText"],
+        message: "请填写朗读文本",
+      });
+    }
+  });
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
 export type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;

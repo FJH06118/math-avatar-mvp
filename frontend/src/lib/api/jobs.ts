@@ -17,6 +17,12 @@ import {
 import { requireRecord, simulateRequest } from "./shared";
 import { getEnabledTracerApiAdapter } from "./tracer-adapter";
 import { getRealProject, RealApiError } from "./real-tracer";
+import {
+  edgePitchFor,
+  edgeRateFor,
+  edgeVoiceFor,
+  normalizeSupportedTeachingSettings,
+} from "./teaching-settings";
 
 export function realTaskToJob(task: Task): Job {
   const status = {
@@ -119,13 +125,13 @@ export async function createRenderJob(
       JSON.stringify(project.settings),
       retryToken ?? "initial",
     ]);
-    const settings = project.settings;
+    const settings = normalizeSupportedTeachingSettings(project.settings);
     const task = await realAdapter.createAudioTask(projectId, {
       presentationId: firstSlide.parsed.presentationId,
       idempotencyKey: key,
-      voice: edgeVoice(settings.voiceId),
-      rate: edgeRate(settings.speechRate),
-      pitch: edgePitch(settings.voiceId),
+      voice: edgeVoiceFor(settings.voiceId),
+      rate: edgeRateFor(settings.speechRate),
+      pitch: edgePitchFor(settings.voiceId),
     }, options.signal);
     return realTaskToJob(task);
   }
@@ -240,18 +246,6 @@ function workflowKey(prefix: string, projectId: string, parts: string[]): string
     hash = Math.imul(hash, 16777619);
   }
   return `${prefix}_${projectId}_${(hash >>> 0).toString(36)}`.slice(0, 128);
-}
-
-function edgeVoice(voiceId: string): string {
-  return { "voice-qinghe": "zh-CN-XiaoxiaoNeural", "voice-zhiyuan": "zh-CN-YunyangNeural", "voice-mingxi": "zh-CN-XiaoyiNeural" }[voiceId] ?? "zh-CN-XiaoxiaoNeural";
-}
-function edgePitch(voiceId: string): string {
-  return { "voice-qinghe": "+0Hz", "voice-zhiyuan": "-2Hz", "voice-mingxi": "+2Hz" }[voiceId] ?? "+0Hz";
-}
-
-function edgeRate(speechRate: number): string {
-  const percentage = Math.round((speechRate - 1) * 100);
-  return `${percentage >= 0 ? "+" : ""}${percentage}%`;
 }
 
 const NON_RETRYABLE_CODES = new Set([

@@ -1,5 +1,13 @@
 # 项目状态
 
+## 2026-08-17 P4 讲稿审核、双文本编辑与真实设置收敛
+
+- 已将解析置信度、解析警告、公式状态和 L2/L3 推导风险投影为共享 `reviewFlags`。未批准且存在标记的页面在 AUDIO、PAGE_RENDER、COMPOSITE 三个服务端入口统一返回 `HUMAN_REVIEW_REQUIRED`；无标记的未批准页面继续返回 `LESSON_PLAN_NOT_APPROVED`。生成流程不自动批准，显式批准后才记录人工确认。
+- 工作台把字幕 `displayText` 与 Edge TTS `spokenText` 分成两个可编辑字段；讲稿修订、AUDIO outbox、字幕时间轴和试听/最终任务均保留对应字段。公式检查页指向朗读文本修正入口。
+- 设置服务端和前端均做实际渲染能力收敛：只保留周老师、三种 Edge 音色、0.75×～1.50× 语速和逐页隐藏站位；caption/background/左右全局站位等未接入渲染器的选项统一规范化，不再从 UI 暗示可用。
+- P4 证据：Contract 44/44，前端 unit 11/11、component 17/17，阶段 T-D 6 pass/1 外部 Edge skip，完整 backend integration 33 pass/1 外部 Edge skip，阶段 T-G e2e 4/4；typecheck、0-warning lint、Python backend:test 和 Next build 待本轮最终串行门禁复跑。
+- 当前结论：`PASS_WITH_EVIDENCE_GAPS`。真实 Edge TTS/五家 Provider smoke、Windows clean VM、离线 staging、正式 migration runtime、宿主硬崩溃回收与升级回滚仍未完成。
+
 ## 2026-08-17 Windows 桌面 P3 Provider Gateway 本地收口
 
 - P3 已实现统一 Gateway 和五家协议适配器：OpenAI、DeepSeek、GLM、Kimi 使用 OpenAI Chat Completions 形态，Anthropic 使用 Messages 形态；外部 JSON 先作为 `unknown` 检查，错误映射为稳定 Worker 错误，不携带原始响应。

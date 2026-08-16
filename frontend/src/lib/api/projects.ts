@@ -29,6 +29,7 @@ import {
   listRealProjects,
   updateRealTeachingSettings,
 } from "./real-tracer";
+import { normalizeSupportedTeachingSettings } from "./teaching-settings";
 
 function realProjectsEnabled(): boolean {
   return process.env.NEXT_PUBLIC_PPT_DH_API_MODE === "stage-t";
@@ -125,7 +126,7 @@ export async function updateTeachingSettings(
   await simulateRequest(options, 420);
   const id = ProjectIdSchema.parse(projectId);
   const project = requireRecord(mockDb.projects.get(id), "项目");
-  project.settings = parseTeachingSettings(settings);
+  project.settings = parseTeachingSettings(normalizeSupportedTeachingSettings(settings));
   project.version += 1;
   project.updatedAt = new Date().toISOString();
   return parseTeachingSettings(structuredClone(project.settings));

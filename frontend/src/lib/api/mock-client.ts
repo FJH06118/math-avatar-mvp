@@ -21,7 +21,7 @@ import {
 } from "./contracts";
 
 const DEFAULT_SETTINGS: TeachingSettings = {
-  avatarId: "avatar-lin",
+  avatarId: "avatar-zhou",
   voiceId: "voice-qinghe",
   speechRate: 1,
   captionsEnabled: true,
@@ -66,7 +66,7 @@ const seedProjects: Project[] = [
     updatedAt: minutesAgo(280),
     uploadedFileId: "file-derivative",
     renderJobId: "seed-render-derivative",
-    settings: { ...DEFAULT_SETTINGS, avatarPosition: "left" },
+    settings: { ...DEFAULT_SETTINGS },
     version: 1,
   },
 ];
@@ -115,6 +115,7 @@ const seedSlides: ParsedSlide[] = [
     safeRegions: [],
     parseConfidence: 0.98,
     parseWarnings: [],
+    reviewFlags: [],
     isSkipped: false,
     revision: 1,
     derivationSteps: [],
@@ -148,6 +149,7 @@ const seedSlides: ParsedSlide[] = [
     safeRegions: [],
     parseConfidence: 0.94,
     parseWarnings: [],
+    reviewFlags: ["FORMULA_REVIEW"],
     isSkipped: false,
     revision: 1,
     derivationSteps: [],
@@ -180,6 +182,7 @@ const seedSlides: ParsedSlide[] = [
     safeRegions: [],
     parseConfidence: 0.96,
     parseWarnings: [],
+    reviewFlags: [],
     isSkipped: false,
     revision: 1,
     derivationSteps: [],
@@ -208,6 +211,7 @@ function createExtraSlide(slideNumber: number): ParsedSlide {
     safeRegions: [],
     parseConfidence: 0.9,
     parseWarnings: [],
+    reviewFlags: [],
     isSkipped: false,
     revision: 1,
     derivationSteps: [],

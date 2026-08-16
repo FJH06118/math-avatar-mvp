@@ -3,6 +3,7 @@ import { z } from "zod";
 import { FinalMediaSchema, MediaValidationReportSchema, type CompositeTaskCreateRequest } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
+import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface CompositeRequestedPayload {
@@ -18,8 +19,21 @@ export class MediaRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async createTask(principal: string, projectId: string, input: CompositeTaskCreateRequest) {
-    const presentation = await this.prisma.presentation.findFirst({ where: { id: input.presentationId, projectId, project: { principal } } });
+    const presentation = await this.prisma.presentation.findFirst({
+      where: { id: input.presentationId, projectId, project: { principal } },
+      include: {
+        slides: {
+          orderBy: { slideNumber: "asc" },
+          include: {
+            lessonPlan: { include: { revisions: { orderBy: { revision: "desc" }, take: 1 } } },
+          },
+        },
+      },
+    });
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
+    for (const slide of presentation.slides) {
+      assertCurrentApprovedRevision(slide);
+    }
     const renderTask = await this.prisma.generationTask.findFirst({
       where: { id: input.renderTaskId, principal, projectId, presentationId: presentation.id, kind: "GENERATE", stage: "PAGE_RENDER", status: "SUCCEEDED" },
       include: { renderedPages: { orderBy: { pageOrder: "asc" } }, outbox: { where: { eventType: "RENDER_REQUESTED" }, take: 1 } },

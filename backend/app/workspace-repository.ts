@@ -7,6 +7,7 @@ import {
 import type { PrismaClient } from "../generated/prisma/client.ts";
 
 import { AppHttpError } from "./errors.ts";
+import { reviewFlagsForSlide } from "./lesson-plan-review.ts";
 
 export class WorkspaceRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -41,8 +42,21 @@ export class WorkspaceRepository {
       throw new AppHttpError(409, "ORIGINAL_PAGE_NOT_FOUND", "工作台缺少原页资产。", false);
     }
     return WorkspaceSnapshotSchema.parse({
-      slides: slides.map((slide) => ({
-        parsed: {
+      slides: slides.map((slide) => {
+        const formulas = Array.isArray(slide.formulaJson)
+          ? slide.formulaJson.flatMap((value) => {
+              const parsed = FormulaSchema.safeParse(value);
+              return parsed.success ? [parsed.data] : [];
+            })
+          : [];
+        const parseWarnings = Array.isArray(slide.parseWarnings)
+          ? slide.parseWarnings.filter((value): value is string => typeof value === "string")
+          : [];
+        const currentRevision = slide.lessonPlan?.revisions[0]
+          ? LessonPlanRevisionSchema.parse(slide.lessonPlan.revisions[0].payload)
+          : undefined;
+        return {
+          parsed: {
           id: slide.id,
           projectId: slide.projectId,
           presentationId: slide.presentationId,
@@ -51,26 +65,19 @@ export class WorkspaceRepository {
           slideType: slide.slideType,
           extractedText: slide.extractedText,
           formulaCount: Array.isArray(slide.formulaJson) ? slide.formulaJson.length : 0,
-          formulas: Array.isArray(slide.formulaJson)
-            ? slide.formulaJson.flatMap((value) => {
-                const parsed = FormulaSchema.safeParse(value);
-                return parsed.success ? [parsed.data] : [];
-              })
-            : [],
+          formulas,
           parseConfidence: slide.parseConfidence,
-          parseWarnings: Array.isArray(slide.parseWarnings)
-            ? slide.parseWarnings.filter((value): value is string => typeof value === "string")
-            : [],
+          parseWarnings,
+          reviewFlags: reviewFlagsForSlide(slide, currentRevision),
           originalPage: {
             assetId: slide.renderAssetId!,
             url: `/api/t/assets/${slide.renderAssetId}/preview`,
           },
-        },
-        currentRevision: slide.lessonPlan?.revisions[0]
-          ? LessonPlanRevisionSchema.parse(slide.lessonPlan.revisions[0].payload)
-          : undefined,
-        isLocked: slide.lessonPlan?.isLocked ?? false,
-      })),
+          },
+          currentRevision,
+          isLocked: slide.lessonPlan?.isLocked ?? false,
+        };
+      }),
     });
   }
 

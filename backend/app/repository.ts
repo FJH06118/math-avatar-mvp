@@ -3,6 +3,7 @@ import type { GenerationTask, Prisma, PrismaClient } from "../generated/prisma/c
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import type { StoredCandidate } from "./storage.ts";
 import type { TeachingSettings } from "@ppt-digital-human/contracts";
+import { normalizeSupportedTeachingSettings } from "./teaching-settings.ts";
 
 const aggregateInclude = {
   project: true,
@@ -81,9 +82,10 @@ export class ProductRepository {
     expectedVersion: number,
     settings: TeachingSettings,
   ): Promise<ProjectRecord> {
+    const normalizedSettings = normalizeSupportedTeachingSettings(settings);
     const updated = await this.prisma.project.updateMany({
       where: { id: projectId, principal, version: expectedVersion },
-      data: { settings, version: { increment: 1 } },
+      data: { settings: normalizedSettings, version: { increment: 1 } },
     });
     if (updated.count !== 1) {
       const exists = await this.prisma.project.count({ where: { id: projectId, principal } });

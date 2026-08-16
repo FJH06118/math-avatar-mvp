@@ -1,13 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  LessonPlanRevisionSchema,
   RenderedPageListResponseSchema,
   TeachingSettingsSchema,
   type RenderTaskCreateRequest,
 } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
+import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
+import { normalizeSupportedTeachingSettings } from "./teaching-settings.ts";
 
 export interface RenderRequestedPayload {
   fps: 25 | 30;
@@ -45,7 +46,9 @@ export class RenderRepository {
     });
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
     const parsedSettings = TeachingSettingsSchema.safeParse(presentation.project.settings);
-    const slideOverrides = parsedSettings.success ? parsedSettings.data.slideOverrides : undefined;
+    const slideOverrides = parsedSettings.success
+      ? normalizeSupportedTeachingSettings(parsedSettings.data).slideOverrides
+      : undefined;
     const audioTask = await this.prisma.generationTask.findFirst({
       where: { id: input.audioTaskId, principal, projectId, presentationId: presentation.id, kind: "AUDIO", status: "SUCCEEDED" },
       include: { audioSegments: { orderBy: [{ slideOrder: "asc" }, { segmentOrder: "asc" }] }, audioTimeline: true },
@@ -55,11 +58,7 @@ export class RenderRepository {
       throw new AppHttpError(409, "PARSE_OUTPUT_INCOMPLETE", "原页面资产不完整。", false);
     }
     const pages: RenderRequestedPayload["pages"] = presentation.slides.map((slide) => {
-      const revisionRecord = slide.lessonPlan?.revisions[0];
-      if (!revisionRecord || revisionRecord.approvalStatus !== "approved" || slide.lessonPlan?.currentRevision !== revisionRecord.revision) {
-        throw new AppHttpError(409, "LESSON_PLAN_NOT_APPROVED", "所有当前讲稿修订必须先批准。", false);
-      }
-      const revision = LessonPlanRevisionSchema.parse(revisionRecord.payload as unknown);
+      const revision = assertCurrentApprovedRevision(slide).revision;
       const audio = audioTask.audioSegments.filter((segment) => segment.slideId === slide.id && segment.revisionId === revision.id);
       if (audio.length !== revision.narration.length) {
         throw new AppHttpError(409, "AUDIO_SNAPSHOT_MISMATCH", "音频任务与当前已批准讲稿不一致。", false);

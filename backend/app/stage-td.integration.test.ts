@@ -127,6 +127,69 @@ test("AUDIO refuses an unapproved current revision and cancellation prevents cla
   assert.equal(await claimNextProductStep(pool, "td-cancel-worker", 8_000, 3, "AUDIO"), null);
 });
 
+test("AUDIO applies a stable human-review gate for low confidence, formulas, and risky derivations", async () => {
+  const seeded = await seedApprovedPresentation();
+  await prisma.slide.update({
+    where: { id: "slide_td_1" },
+    data: {
+      parseConfidence: 0.62,
+      parseWarnings: ["公式候选需要教师确认"],
+      formulaJson: [{ id: "formula_td_review", latex: "f'(x)", spokenText: "f x 的导数", status: "warning" }],
+    },
+  });
+  const revision = await prisma.lessonPlanRevision.findUniqueOrThrow({ where: { id: seeded.revisionIds[0] } });
+  const payload = LessonPlanRevisionSchema.parse({
+    ...(revision.payload as object),
+    derivation: [{
+      id: "derivation_td_risky",
+      input: "f(x)",
+      output: "f'(x)",
+      transformation: "取极限",
+      explanation: "请教师确认该推导的适用条件。",
+      risk: "L2",
+    }],
+  });
+  await prisma.lessonPlanRevision.update({
+    where: { id: revision.id },
+    data: { payload: payload as unknown as Prisma.InputJsonValue, approvalStatus: "pending" },
+  });
+  const app = createApplication({ prisma, assetRoot, internalToken });
+  const response = await request(app, `/v1/projects/${seeded.projectId}/audio`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      presentationId: seeded.presentationId,
+      idempotencyKey: "stage-td-human-review-gate",
+      voice: "zh-CN-YunxiNeural",
+      rate: "+0%",
+      pitch: "+0Hz",
+    }),
+  });
+  assert.equal(response.status, 409);
+  const body = await response.json() as { error?: { code?: string; details?: { reviewFlags?: string[] } } };
+  assert.equal(body.error?.code, "HUMAN_REVIEW_REQUIRED");
+  assert.deepEqual(body.error?.details?.reviewFlags, [
+    "LOW_CONFIDENCE",
+    "PARSE_WARNING",
+    "FORMULA_REVIEW",
+    "HIGH_RISK_DERIVATION",
+  ]);
+  assert.equal(await prisma.generationTask.count({ where: { projectId: seeded.projectId, kind: "AUDIO" } }), 0);
+  await prisma.lessonPlanRevision.update({ where: { id: revision.id }, data: { approvalStatus: "approved" } });
+  const approvedResponse = await request(app, `/v1/projects/${seeded.projectId}/audio`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      presentationId: seeded.presentationId,
+      idempotencyKey: "stage-td-human-review-approved",
+      voice: "zh-CN-YunxiNeural",
+      rate: "+0%",
+      pitch: "+0Hz",
+    }),
+  });
+  assert.equal(approvedResponse.status, 201);
+});
+
 test("Stage 7 persists settings and serves an authorized generated voice preview", async () => {
   const seeded = await seedApprovedPresentation();
   await prisma.lessonPlanRevision.update({ where: { id: seeded.revisionIds[0] }, data: { approvalStatus: "pending" } });
@@ -141,7 +204,11 @@ test("Stage 7 persists settings and serves an authorized generated voice preview
     method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: 1, settings }),
   });
   assert.equal(settingsResponse.status, 200);
-  assert.deepEqual(TeachingSettingsResponseSchema.parse(await settingsResponse.json()).data.slideOverrides, settings.slideOverrides);
+  const persistedSettings = TeachingSettingsResponseSchema.parse(await settingsResponse.json()).data;
+  assert.equal(persistedSettings.avatarId, "avatar-zhou");
+  assert.equal(persistedSettings.avatarPosition, "right");
+  assert.equal(persistedSettings.captionStyle, "clear");
+  assert.deepEqual(persistedSettings.slideOverrides, settings.slideOverrides);
   assert.equal((await request(app, `/v1/projects/${seeded.projectId}/settings`, {
     method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: 1, settings }),
   })).status, 409);

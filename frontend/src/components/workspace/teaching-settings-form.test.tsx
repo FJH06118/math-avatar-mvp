@@ -24,10 +24,10 @@ describe("stage 7 teaching settings", () => {
             projectId="project_stage7"
             presentationId="presentation_stage7"
             settings={{
-              avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1.25,
+              avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1.25,
               captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
             }}
-            avatars={[{ id: "avatar-teacher-lin", name: "林老师", description: "教师", genderPresentation: "female" }]}
+            avatars={[{ id: "avatar-zhou", name: "周老师", description: "教师", genderPresentation: "male" }]}
             voices={[{ id: "voice-qinghe", name: "清和", description: "清晰自然", locale: "zh-CN", genderPresentation: "female" }]}
             onSaveStateChange={vi.fn()}
             onValidityChange={vi.fn()}
@@ -48,7 +48,7 @@ describe("stage 7 teaching settings", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByLabelText("预览教师").textContent).toBe("avatar-teacher-lin"),
+      expect(screen.getByLabelText("预览教师").textContent).toBe("avatar-zhou"),
     );
   });
 
@@ -60,10 +60,10 @@ describe("stage 7 teaching settings", () => {
           projectId="project_stage7"
           presentationId="presentation_stage7"
           settings={{
-            avatarId: "avatar-teacher-lin", voiceId: "voice-qinghe", speechRate: 1.25,
+            avatarId: "avatar-zhou", voiceId: "voice-qinghe", speechRate: 1.25,
             captionsEnabled: true, captionStyle: "clear", avatarPosition: "right", background: "light",
           }}
-          avatars={[{ id: "avatar-teacher-lin", name: "林老师", description: "教师", genderPresentation: "female" }]}
+          avatars={[{ id: "avatar-zhou", name: "周老师", description: "教师", genderPresentation: "male" }]}
           voices={[{ id: "voice-qinghe", name: "清和", description: "清晰自然", locale: "zh-CN", genderPresentation: "female" }]}
           onSaveStateChange={vi.fn()}
           onValidityChange={vi.fn()}

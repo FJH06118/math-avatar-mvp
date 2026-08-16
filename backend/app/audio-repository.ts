@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   AudioTimelineSchema,
-  LessonPlanRevisionSchema,
   type AudioTaskCreateRequest,
   type AudioTimeline,
 } from "@ppt-digital-human/contracts";
 import type { Prisma } from "../generated/prisma/client.ts";
 import type { PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
+import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface AudioRequestedPayload {
@@ -136,13 +136,10 @@ export class AudioRepository {
     if (presentation.parseStatus !== "COMPLETED" || presentation.slides.length === 0) {
       throw new AppHttpError(409, "PRESENTATION_NOT_PARSED", "演示文稿尚未完成解析。", false);
     }
-    const revisions = presentation.slides.map((slide) => {
-      const record = slide.lessonPlan?.revisions[0];
-      if (!record || slide.lessonPlan?.currentRevision !== record.revision || record.approvalStatus !== "approved") {
-        throw new AppHttpError(409, "LESSON_PLAN_NOT_APPROVED", "所有当前讲稿修订必须先批准。", false);
-      }
-      return { slide, revision: LessonPlanRevisionSchema.parse(record.payload as unknown) };
-    });
+    const revisions = presentation.slides.map((slide) => ({
+      slide,
+      revision: assertCurrentApprovedRevision(slide).revision,
+    }));
     const segments: AudioRequestedPayload["segments"] = revisions.flatMap(({ slide, revision }) =>
       revision.narration.map((segment, segmentOrder) => ({
         revisionId: revision.id,

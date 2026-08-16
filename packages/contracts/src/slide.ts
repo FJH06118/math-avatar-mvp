@@ -9,6 +9,7 @@ import {
   StableIdSchema,
 } from "./primitives";
 import { PreservationModeSchema } from "./scene";
+import { ReviewFlagSchema } from "./review";
 
 export const FormulaStatusSchema = z.enum(["valid", "warning", "error"]);
 export type FormulaStatus = z.infer<typeof FormulaStatusSchema>;
@@ -41,6 +42,8 @@ export const SlideSchema = z
     summary: z.string().min(1).max(5_000),
     extractedText: z.string().max(50_000),
     teachingScript: z.string().min(1).max(20_000),
+    displayText: z.string().min(1).max(20_000).optional(),
+    spokenText: z.string().min(1).max(20_000).optional(),
     thumbnailUrl: z.string().min(1).optional(),
     originalPageUrl: z.string().regex(/^\/api\/t\/assets\/[A-Za-z0-9_-]+\/preview$/).optional(),
     sourceAssetId: StableIdSchema,
@@ -50,6 +53,7 @@ export const SlideSchema = z
     safeRegions: z.array(SlideRegionSchema).max(100),
     parseConfidence: z.number().min(0).max(1),
     parseWarnings: z.array(z.string().max(500)).max(100),
+    reviewFlags: z.array(ReviewFlagSchema).max(10).default([]),
     isSkipped: z.boolean(),
     skipReason: z.string().max(1_000).optional(),
     revision: z.number().int().min(1),
