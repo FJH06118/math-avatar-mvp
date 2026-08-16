@@ -2,7 +2,7 @@
 
 ## 2026-08-17 Windows 桌面 P2 设置、Provider Profile 与安全密钥（已完成）
 
-- P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `4e14972`、桌面 `bd63d5c` 完成，阶段 tag 待本轮状态文档提交后写入。
+- P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `4e14972`、桌面 `bd63d5c` 完成，`desktop-p2-complete` 与 `web-p2-complete` 已本地写入。
 - 本轮已实现 P2：共享 Provider/Application Settings strict Contract、非秘密 ProviderProfile 数据模型、Hono 设置 API、桌面 safeStorage/DPAPI 密钥代理和 Next 同源 BFF；不实现五家 Provider Gateway、真实上游调用、设置 UI 或安装包。
 - API Key 只能作为受控输入短暂经过 BrowserWindow→Next BFF→Hono→Electron 主进程 IPC；持久化仅保留加密密文、credentialRef、版本和末四位。公开 schema、错误、日志和诊断均不得包含完整 Key。
 - P2 验证：Contract 42/42、Provider 集成 3/3、完整 backend integration 31 pass/1 外部 Edge skip、网页 typecheck/lint/build/routes 通过；桌面 typecheck/lint/test 19 pass/2 P1 环境 skip，密文落盘和 IPC 响应脱敏通过。
