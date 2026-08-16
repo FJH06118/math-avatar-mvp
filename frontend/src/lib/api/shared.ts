@@ -1,4 +1,5 @@
 import type { MockRequestOptions } from "@/types";
+import { RealApiError } from "./real-tracer";
 
 export class MockApiError extends Error {
   constructor(
@@ -14,7 +15,9 @@ export function getUserFacingErrorMessage(
   error: unknown,
   fallback: string,
 ): string {
-  return error instanceof MockApiError ? error.message : fallback;
+  return error instanceof MockApiError || error instanceof RealApiError
+    ? error.message
+    : fallback;
 }
 
 export function delay(ms: number, signal?: AbortSignal): Promise<void> {

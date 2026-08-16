@@ -1,6 +1,8 @@
 import type { UploadedFile, UploadPresentationInput } from "@/types";
+import { FileNameSchema } from "@ppt-digital-human/contracts";
 
 import { mockDb } from "./mock-client";
+import { parseUploadedFile } from "./contracts";
 import { MockApiError, delay } from "./shared";
 
 const ALLOWED_EXTENSIONS = [".ppt", ".pptx"] as const;
@@ -18,6 +20,9 @@ export function getPresentationExtension(
 }
 
 export function validatePresentationFile(file: File): string | null {
+  if (!FileNameSchema.safeParse(file.name).success) {
+    return "文件名不合法。";
+  }
   if (!getPresentationExtension(file.name)) {
     return "仅支持 .ppt 和 .pptx 文件。";
   }
@@ -43,7 +48,7 @@ export async function uploadPresentation({
     throw new MockApiError("文件格式不受支持。", "INVALID_FILE");
   }
 
-  const upload: UploadedFile = {
+  const upload: UploadedFile = parseUploadedFile({
     id: crypto.randomUUID(),
     name: file.name,
     size: file.size,
@@ -51,7 +56,7 @@ export async function uploadPresentation({
     mimeType: file.type || "application/vnd.ms-powerpoint",
     status: "uploading",
     progress: 0,
-  };
+  });
   mockDb.uploads.set(upload.id, upload);
 
   try {
@@ -73,5 +78,5 @@ export async function uploadPresentation({
 
   upload.status = "completed";
   upload.uploadedAt = new Date().toISOString();
-  return structuredClone(upload);
+  return parseUploadedFile(structuredClone(upload));
 }

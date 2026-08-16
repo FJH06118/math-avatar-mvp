@@ -2,7 +2,7 @@
 
 > 状态：Active  
 > 首次记录：2026-07-30  
-> 最近复核：2026-07-30  
+> 最近复核：2026-08-02
 > 产品依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`  
 > 实施依据：`docs/IMPLEMENTATION_PLAN.md`
 
@@ -21,13 +21,13 @@
 
 ## 2. 当前事实基线
 
-截至 2026-07-30：
+截至 2026-08-02：
 
 - `frontend/` 是 Next.js 交互原型，业务数据来自浏览器内存 Mock。
 - `backend/` 是本地 CLI 技术验证，可完成基础 PPTX 解析、人工批准、Edge TTS、静态画面、MP4 合成和媒体校验。
-- 两端没有真实 HTTP 业务闭环、PostgreSQL、Redis/Valkey、BullMQ 或 OSS。
-- 当前目录重组仍是大规模未提交工作；建立基线前禁止重置、清理或进入跨目录重构。
-- 当前实现仍有已知硬缺口：多页场景只渲染第一来源页、批准后沿用可能陈旧的覆盖元数据、没有完整页面覆盖硬门、Agent 输出不是共享 Zod、数字人没有遮挡验证、结果 JSON 含内部路径、视频仍为 12 FPS、非 H.264/AAC 当前只记 warning。
+- T-A/T-B/T-C 已建立真实 Next BFF/Hono 上传与任务边界、产品 PostgreSQL/Prisma 事务、outbox、PARSE/PLAN lease Worker、不可变修订和显式批准；音频、媒体、下载与完整浏览器业务闭环仍未接通。当前没有 Redis/Valkey、BullMQ 或 OSS。
+- 目录重组、前后端原型和上下文文档已经分组提交并推送；后续以该 Git 历史为迁移基线。
+- 当前实现仍有已知硬缺口：多页场景只渲染第一来源页、批准后沿用可能陈旧的覆盖元数据、没有完整页面覆盖硬门、Python/Node Agent JSON 尚未迁移到共享 TypeScript Contract、数字人没有遮挡验证、结果 JSON 含内部路径、视频仍为 12 FPS、非 H.264/AAC 当前只记 warning。
 
 以上是迁移起点，不代表目标架构。
 
@@ -61,7 +61,7 @@
 ## ADR-002：共享 Zod 是跨 TypeScript 边界的唯一业务 Contract
 
 **状态：Accepted**
-**实现：Not implemented**
+**实现：TypeScript/Mock boundary implemented; cross-language migration pending**
 
 ### 决策
 
@@ -222,7 +222,7 @@
 
 ## ADR-008：用 PostgreSQL/Prisma 与 BullMQ/Redis 作为待验证基础设施候选
 
-**状态：Proposed**
+**状态：Superseded by ADR-011**
 **实现：Not implemented**
 
 ### 决策
@@ -247,12 +247,16 @@ HTTP 创建任务
 
 ### 后果
 
-- 阶段 1 建立基线，阶段 2 建立 Contract；该 no-op 链路只证明候选基础设施的连接、租约和恢复机制，不能算作阶段 T 产品 tracer，也不能替代真实流水线验收。
+- 阶段 0 已建立 Git 基线，阶段 1A/1B 建立测试与依赖保护，阶段 2 建立 Contract；该 no-op 链路只证明候选基础设施的连接、租约和恢复机制，不能算作阶段 T 产品 tracer，也不能替代真实流水线验收。
 - 开发测试数据库和队列可丢弃；生产迁移只向前并要求兼容回滚窗口。
 
 ### 重访条件
 
 切片无法满足幂等、恢复或部署约束，或产品部署环境明确禁止这些组件。
+
+### 替代说明
+
+2026-08-02，Docker Desktop 的 WSL2 engine 在当前 Windows 主机上因 `HCS_E_HYPERV_NOT_INSTALLED` 无法创建 `docker-desktop` 发行版。用户明确停止继续修复 Docker，并批准无 Docker 的等价本地方案。为减少本地服务数量和恢复语义的双写风险，ADR-011 以 PostgreSQL lease worker 取代 BullMQ/Redis；本 ADR 保留为历史候选记录。
 
 ## ADR-009：模型与 TTS 都通过服务端 Provider 接入，具体供应商不得渗入 Contract
 
@@ -274,7 +278,7 @@ HTTP 创建任务
 ### 当前证据
 
 - OpenAI Agents SDK 文档说明 `OpenAIProvider` 支持 OpenAI-compatible `baseURL`，且 `useResponses: false` 选择 Chat Completions。
-- DeepSeek 官方文档在 2026-04-24 宣布 `deepseek-chat` 和 `deepseek-reasoner` 于 2026-07-24 停用；当前代码和 `.env.example` 仍使用该旧默认值，真实 LLM 路径在修复前视为阻断。
+- DeepSeek 官方文档在 2026-04-24 宣布 `deepseek-chat` 和 `deepseek-reasoner` 于 2026-07-24 停用。2026-08-03 已改为本机配置的 `deepseek-v4-flash`，并以无课件 JSON 请求通过 Provider 预检；完整 Agent 工具调用兼容性仍在阶段 T 验证。
 
 ### 重访条件
 
@@ -304,6 +308,77 @@ Provider 能力、服务条款、数据驻留、SLA 或离线评测结果变化�
 ### 重访条件
 
 现有适配器无法满足安全、部署、性能或 Contract 边界，并且替代实现已通过等价金样和回滚验证。
+
+## ADR-011：T0 使用 Windows 原生 PostgreSQL、Prisma 与 PostgreSQL lease worker
+
+**状态：Accepted with gate（T0 POC passed）**
+**实现：POC passed; T-A/T-B/T-C product upload, PARSE and PLAN integration implemented**
+
+### 决策
+
+- T0 的等价本地服务环境使用 Windows 原生 PostgreSQL；不要求 Docker Desktop、WSL2、Redis、Valkey 或 BullMQ。
+- Prisma 负责类型化数据访问和向前迁移。Prisma 无法表达的部分唯一索引和必要约束使用受审查的原始 migration SQL，不用应用层检查替代数据库约束。
+- 同一 PostgreSQL 数据库保存领域事务、任务快照、outbox、step attempt、租约、心跳、取消请求和最终状态，避免数据库与独立队列之间的双写。
+- Worker 使用 `FOR UPDATE SKIP LOCKED` 竞争可执行步骤，以稳定 TaskStep ID/去重键、`leaseOwner`、`leaseExpiresAt`、heartbeat、attempt 和取消状态实现并发领取与崩溃接管。
+- 服务只通过配置的数据库 URL 连接，不依赖 PostgreSQL 安装目录的绝对路径；密码、本地数据目录和环境文件不得提交。
+- Redis/BullMQ 不作为并行 fallback。若本方案 POC 失败，先停止并更新本文和路线图，再选择替代方案。
+
+### 验证门
+
+进入阶段 T 前，最小 POC 必须用可重复的自动化测试证明：
+
+1. 任务创建、领域写入和 outbox 写入属于同一事务。
+2. 相同幂等键和相同 payload 返回同一任务；相同键配不同 payload 被拒绝。
+3. dispatcher 重放 outbox 不会创建重复逻辑步骤。
+4. 两个 Worker 并发时同一 attempt 只能被一个 Worker 领取。
+5. heartbeat 能续租；进程退出或 Worker kill 后，租约到期可由其他 Worker 接管。
+6. 取消与完成竞态只产生一个合法终态；失败 attempt 可按上限重试。
+7. 必要唯一约束和向前 migration 在全新测试库及已有前一版 schema 上都能执行。
+
+仅能提供单连接的嵌入式开发数据库可以辅助单元测试，但不能替代上述多连接、并发 lease 和 Worker kill 门禁。
+
+2026-08-02 运行证据：Windows 原生 PostgreSQL 18.4 服务与可丢弃应用/shadow 数据库就绪；`npm.cmd run t0:test` 以 Prisma 7.9.1 通过 7/7。测试覆盖 transactional task/outbox、同键幂等、outbox 重放、`FOR UPDATE SKIP LOCKED` 并发领取、heartbeat、真实子进程 kill 后租约接管、取消/完成竞态、retry 上限，以及 fresh/forward migration 与部分唯一索引。2026-08-03 的 T-A/T-B 在相同方向上完成产品上传事务及 PARSE dispatcher/lease Worker，并用三页真实切片验证 3/3 Slide/Asset、进度、接管、取消和失败隔离；这仍不代表完整阶段 T 闭环。
+
+### 理由
+
+当前 Docker engine 无法启动，而项目路线图允许用户批准等价本地 PostgreSQL/队列方案。把 outbox 和 lease 放在同一数据库内，可以在 T0 用更少的本地服务证明持久任务的核心恢复语义，也避免同时维护 Redis/BullMQ 与 PostgreSQL 两套故障面。
+
+### 后果
+
+- PostgreSQL 18.4 和最小 POC 已安装并通过，但上述方向仍不能写成产品实现；T0 仍处于进行中。
+- 开发和测试需要独立、可清理的数据库。本轮系统 PostgreSQL 安装已获用户授权；后续系统安装仍须单独授权，且不能把本机安装路径写入仓库。
+- T0 只建立证明恢复语义所需的最小表、migration、dispatcher 和 Worker；完整 Repository、业务 API、对象存储和真实产品流水线留给后续明确阶段。
+- 生产部署可以在保持相同任务/租约 Contract 的前提下改用托管 PostgreSQL，但必须重新做容量、备份、故障恢复和连接池验证。
+
+### 重访条件
+
+POC 无法可靠证明并发领取、租约接管、幂等、取消或目标吞吐，或已确认的生产环境不允许所需 PostgreSQL 能力。
+
+## ADR-012：阶段 T application service 使用 Hono
+
+**状态：Accepted（2026-08-03）**
+**实现：T-A/T-B/T-C upload, task, cancel, PARSE/PLAN and approval boundary implemented**
+
+### 决策
+
+- 私有 application service 使用 Hono 4.12.31 和 `@hono/node-server` 2.0.12，运行在独立 Node/TypeScript 进程中。
+- Next Route Handlers 是公开 BFF，负责公共 Zod 校验、固定内部 principal、内部令牌转发和公共响应复核；它不导入 `backend/**`。
+- application service 重新验证内部鉴别、principal/scope、multipart 元数据和 PPTX 文件结构，并拥有 Prisma 事务、幂等、outbox 和本地资产适配器。
+- LibreOffice、Agent Provider、TTS、Sharp、FFmpeg 和媒体验证不在 Hono/Next HTTP 请求中同步执行，只能由持久 Worker 执行。
+
+### 理由
+
+阶段 T0 已选择 Prisma 与 PostgreSQL lease worker，现有确定性媒体编排也以 Node 为主。Hono 可以直接消费 Web Request/Response API，与 Next BFF 的边界一致；精确版本已在现有锁文件中，不需要为框架 POC联网或批量升级。相比手写 Node 路由，它减少 multipart、错误处理和路由样板；相比新增 Python Web 框架，它避免再引入一套服务依赖和业务事务实现。
+
+### 后果
+
+- Hono 和 node server 成为 backend 直接依赖，版本固定；升级必须运行 Contract、HTTP integration、T0 和完整质量门禁。
+- `PPT_DH_INTERNAL_TOKEN` 只存在于 BFF/server 环境，不使用 `NEXT_PUBLIC_`；阶段 T 固定 principal 仍不得用于生产。
+- T-A/T-B/T-C 已证明上传、持久事务、幂等、任务查询/取消、PARSE/PLAN Worker、不可变修订和显式批准；音频、媒体和下载端点仍必须在后续 T 子阶段补齐后才能宣称纵向切片完成。
+
+### 重访条件
+
+实测 multipart/流式上传、长轮询负载或部署环境证明 Hono Node adapter 无法满足阶段 T/生产要求；重访时必须保持相同公共 Contract 和任务恢复语义。
 
 ## 3. 尚未接受的产品假设
 

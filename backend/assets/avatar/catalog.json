@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "avatar-catalog-v1",
+  "avatars": [
+    {
+      "avatarId": "avatar-zhou",
+      "assetVersion": "mouth-v1",
+      "status": "asset-ready",
+      "manifestPath": "avatar-zhou/manifest.json",
+      "bundleFingerprint": "c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8"
+    }
+  ]
+}

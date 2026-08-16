@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "stage-11e-render-benchmark-v1",
+  "ranAt": "2026-08-04",
+  "rendererVersion": "stage-te-sharp-ffmpeg-v1",
+  "pageCount": 3,
+  "durationPerPageMs": 1650,
+  "candidates": [
+    { "fps": 25, "status": "passed", "codec": "h264", "audioCodec": "aac", "pixelFormat": "yuv420p", "width": 1920, "height": 1080 },
+    { "fps": 30, "status": "passed", "codec": "h264", "audioCodec": "aac", "pixelFormat": "yuv420p", "width": 1920, "height": 1080 }
+  ],
+  "selectedDefaultFps": 25,
+  "selectionReason": "两档均通过硬门；25 FPS 在未确认最大时长和容量前以更少帧数作为保守默认，30 FPS 仍保留为显式请求选项。",
+  "declaredScale": "媒体闭环仅验证 3 页；10/50/100 页仅完成阶段 11B 解析覆盖，不外推视频容量。"
+}

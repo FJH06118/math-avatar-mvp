@@ -1,0 +1,2 @@
+ALTER TABLE "LessonPlan"
+ADD COLUMN "isLocked" BOOLEAN NOT NULL DEFAULT false;

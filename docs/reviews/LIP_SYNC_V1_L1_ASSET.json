@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "lip-sync-v1-l1-asset-report-v1",
+  "evaluatedAt": "2026-08-12",
+  "scope": "L1_AVATAR_ASSET_SPEC_AND_AVATAR_ZHOU",
+  "status": "PASS",
+  "cpuOnly": true,
+  "productionIntegrationPerformed": false,
+  "rights": {
+    "status": "confirmed-by-user",
+    "confirmedAt": "2026-08-12",
+    "scope": [
+      "project-use",
+      "derived-mouth-poses"
+    ]
+  },
+  "asset": {
+    "avatarId": "avatar-zhou",
+    "assetVersion": "mouth-v1",
+    "canvas": {
+      "width": 1254,
+      "height": 1254
+    },
+    "anchor": {
+      "x": 627,
+      "y": 1254
+    },
+    "faceSafeBox": {
+      "x": 500,
+      "y": 145,
+      "width": 350,
+      "height": 365
+    },
+    "mouthRoi": {
+      "x": 590,
+      "y": 350,
+      "width": 190,
+      "height": 120
+    },
+    "baseSha256": "c07d7833f81190e656fa738f00af33fa6055700f8bb518eef3d2c0ea5a98a099",
+    "bundleFingerprint": "c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8",
+    "poseSha256": {
+      "CLOSED": "d5eb5423ae12a1aeb186fd192c9c6a8caec0cee077a8c131ea9aa271787ed78d",
+      "SMALL": "09cd1994fdfef132b83c9825b35d6e4be548471b8e3209ea2b052c11d2ce3f13",
+      "MEDIUM": "1ecae3057209b559862e04e9478137ea6d8dba6d64cf6219afd1474ea924ad1b",
+      "LARGE": "8d9f360120141645f0eed6137f2cdb23aa2aed257b3ede43ffd205234af1199c",
+      "ROUND": "4ccb6129d654b02aa825a5da03faa46fe287dfa6bcefa6d7046aa6ab4114282c"
+    }
+  },
+  "provenance": {
+    "baseSource": "backend/assets/avatar/teacher-closed.png",
+    "largeReference": "backend/assets/avatar/teacher-open.png",
+    "roundMode": "OpenAI built-in image generation",
+    "roundSourceSha256": "8535ee5f16a06b5125bce942ed1ae817c004a2b434517bbc749688f5fbdb2794",
+    "roundPromptSummary": "Keep the existing avatar identity, pose, composition and face unchanged; edit only the lips into a natural rounded O speaking shape; no watermark or text.",
+    "deterministicPostProcess": "sharp-base-backed-local-crop-scale-radial-alpha-mask-v2",
+    "rejectedCandidates": [
+      "Generated SMALL and MEDIUM candidates were rejected because teeth and facial geometry drifted.",
+      "The first deterministic patch candidate was rejected because a scaled ROI boundary produced a visible chin seam."
+    ]
+  },
+  "automatedChecks": {
+    "status": "PASS",
+    "strictSchema": true,
+    "safeRelativePaths": true,
+    "pngDecodeDimensionsAlphaAndHash": true,
+    "roiInsideFaceSafeBox": true,
+    "deterministicFingerprint": true,
+    "changedPixelsOutsideRoi": {
+      "CLOSED": 0,
+      "SMALL": 0,
+      "MEDIUM": 0,
+      "LARGE": 0,
+      "ROUND": 0
+    },
+    "changedPixelsInsideRoi": {
+      "CLOSED": 0,
+      "SMALL": 3538,
+      "MEDIUM": 4739,
+      "LARGE": 6050,
+      "ROUND": 5010
+    }
+  },
+  "manualReview": {
+    "status": "PASS",
+    "preview100": "docs/reviews/LIP_SYNC_V1_L1_ASSET_PREVIEW_100.png",
+    "preview400": "docs/reviews/LIP_SYNC_V1_L1_ASSET_PREVIEW_400.png",
+    "seams": "PASS",
+    "skinToneContinuity": "PASS",
+    "teethFlickerRisk": "PASS",
+    "openingProgression": "PASS",
+    "roundShapeDistinct": "PASS",
+    "notes": "The seam-producing scaled block was replaced with a base-backed local mouth crop and a radial feather mask. The final 100% and 400% previews show no hard chin boundary or skin-tone jump."
+  },
+  "dependencies": {
+    "newProductionDependencies": [],
+    "runtimeUsed": [
+      "Node.js",
+      "existing project sharp"
+    ],
+    "gpu": false,
+    "cloudLipSyncService": false
+  },
+  "decision": {
+    "l1Ready": true,
+    "mayEnterL2AfterExplicitConfirmation": true,
+    "nextScope": "L2 minimal internal contracts and forward-only data migration only",
+    "notAuthorized": [
+      "L2 implementation before explicit confirmation",
+      "production lip-sync driver",
+      "frontend UI or public API changes",
+      "avatar-lin or avatar-yan mouth assets",
+      "L5 production tracer bullet"
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 import { UploadCloudIcon } from "lucide-react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface UploadDropzoneProps {
@@ -24,7 +25,7 @@ export function UploadDropzone({
   onFileAccepted,
   onFileRejected,
 }: UploadDropzoneProps) {
-  const { getInputProps, getRootProps, isDragActive } = useDropzone({
+  const { getInputProps, getRootProps, isDragActive, open } = useDropzone({
     accept: {
       "application/vnd.ms-powerpoint": [".ppt"],
       "application/vnd.openxmlformats-officedocument.presentationml.presentation":
@@ -53,6 +54,8 @@ export function UploadDropzone({
           disabled && "cursor-not-allowed opacity-60",
         ),
         "aria-label": "选择或拖拽上传 PPT 文件",
+        role: "presentation",
+        tabIndex: -1,
       })}
     >
       <input {...getInputProps()} />
@@ -69,9 +72,16 @@ export function UploadDropzone({
           支持 .ppt 和 .pptx，单个文件最大 100 MB
         </p>
       </div>
-      <span className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-[0_5px_14px_color-mix(in_oklch,var(--primary)_18%,transparent)]">
+      <Button
+        type="button"
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          open();
+        }}
+      >
         选择文件
-      </span>
+      </Button>
       <p className="text-sm text-muted-foreground">
         文件仅用于当前课程制作
       </p>

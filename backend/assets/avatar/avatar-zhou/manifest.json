@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "avatar-mouth-manifest-v1",
+  "avatarId": "avatar-zhou",
+  "displayName": "周老师",
+  "assetVersion": "mouth-v1",
+  "status": "asset-ready",
+  "rights": {
+    "status": "confirmed-by-user",
+    "confirmedAt": "2026-08-12",
+    "scope": [
+      "project-use",
+      "derived-mouth-poses"
+    ]
+  },
+  "canvas": {
+    "width": 1254,
+    "height": 1254
+  },
+  "anchor": {
+    "x": 627,
+    "y": 1254
+  },
+  "faceSafeBox": {
+    "x": 500,
+    "y": 145,
+    "width": 350,
+    "height": 365
+  },
+  "mouthRoi": {
+    "x": 590,
+    "y": 350,
+    "width": 190,
+    "height": 120
+  },
+  "base": {
+    "path": "base.png",
+    "sha256": "c07d7833f81190e656fa738f00af33fa6055700f8bb518eef3d2c0ea5a98a099",
+    "width": 1254,
+    "height": 1254,
+    "channels": 4,
+    "hasAlpha": true
+  },
+  "poses": {
+    "CLOSED": {
+      "path": "mouth/closed.png",
+      "sha256": "d5eb5423ae12a1aeb186fd192c9c6a8caec0cee077a8c131ea9aa271787ed78d",
+      "width": 190,
+      "height": 120,
+      "channels": 4,
+      "hasAlpha": true,
+      "openingLevel": 0,
+      "derivation": "transparent-no-op-over-closed-base"
+    },
+    "SMALL": {
+      "path": "mouth/small.png",
+      "sha256": "09cd1994fdfef132b83c9825b35d6e4be548471b8e3209ea2b052c11d2ce3f13",
+      "width": 190,
+      "height": 120,
+      "channels": 4,
+      "hasAlpha": true,
+      "openingLevel": 0.33,
+      "derivation": "seam-safe-local-vertical-scale-0.58-from-large-reference"
+    },
+    "MEDIUM": {
+      "path": "mouth/medium.png",
+      "sha256": "1ecae3057209b559862e04e9478137ea6d8dba6d64cf6219afd1474ea924ad1b",
+      "width": 190,
+      "height": 120,
+      "channels": 4,
+      "hasAlpha": true,
+      "openingLevel": 0.66,
+      "derivation": "seam-safe-local-vertical-scale-0.78-from-large-reference"
+    },
+    "LARGE": {
+      "path": "mouth/large.png",
+      "sha256": "8d9f360120141645f0eed6137f2cdb23aa2aed257b3ede43ffd205234af1199c",
+      "width": 190,
+      "height": 120,
+      "channels": 4,
+      "hasAlpha": true,
+      "openingLevel": 1,
+      "derivation": "seam-safe-local-existing-open-reference"
+    },
+    "ROUND": {
+      "path": "mouth/round.png",
+      "sha256": "4ccb6129d654b02aa825a5da03faa46fe287dfa6bcefa6d7046aa6ab4114282c",
+      "width": 190,
+      "height": 120,
+      "channels": 4,
+      "hasAlpha": true,
+      "openingLevel": 0.84,
+      "derivation": "seam-safe-local-imagegen-round-candidate"
+    }
+  },
+  "provenance": {
+    "baseSourcePath": "../teacher-closed.png",
+    "baseSourceSha256": "c07d7833f81190e656fa738f00af33fa6055700f8bb518eef3d2c0ea5a98a099",
+    "largeReferencePath": "../teacher-open.png",
+    "largeReferenceSha256": "0f21f4dd4c810c7e5c2385a77e1a024db469f0711d2af43413deafdadef2d987",
+    "roundGenerator": "OpenAI built-in image generation",
+    "roundSourceSha256": "8535ee5f16a06b5125bce942ed1ae817c004a2b434517bbc749688f5fbdb2794",
+    "deterministicTransforms": "sharp-base-backed-local-crop-scale-radial-alpha-mask-v2"
+  },
+  "bundleFingerprint": "c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8"
+}

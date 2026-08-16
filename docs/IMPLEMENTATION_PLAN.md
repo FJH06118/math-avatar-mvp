@@ -1,11 +1,11 @@
 # PPT 数字人授课视频生成系统实施计划
 
-> 状态：规划复核完成；阶段 1 仅等待目录重组基线授权  
+> 状态：Active；阶段 0/1A/1B/2/T0 与阶段 T 的 T-A～T-G 已完成；等待阶段 3 授权
 > 制定日期：2026-07-30  
-> 最近复核：2026-07-30  
+> 最近复核：2026-08-02
 > 需求依据：`docs/product/PPT-Digital-Human-Video-PRD-v1.0.md`（已完整阅读 1705 行）  
 > 架构依据：`docs/ARCHITECTURE_DECISIONS.md`  
-> 当前轮次范围：项目分析、架构与实施计划；不实现业务功能
+> 当前执行入口：`docs/planning/DEVELOPMENT_ROADMAP.md`
 
 ## 1. 结论与执行建议
 
@@ -13,9 +13,9 @@
 
 - `frontend/` 已经形成阶段 3～9 的较完整交互 Mock 原型，正常路由、主要页面和大部分 UI 状态都存在。
 - `backend/` 已经形成可本地运行的 V0.1 命令行技术验证，能够完成 PPTX 基础解析、讲稿审核、Edge TTS、静态数字人合成和 ffprobe 验证。
-- 两端尚未通过共享 Contract、HTTP API、数据库、队列和对象存储连成产品闭环。
+- 共享 Zod Contract 已建立；T-A/T-B/T-C 已接通真实 HTTP、产品 PostgreSQL、PARSE/PLAN Worker、严格单 Agent 与显式批准，但音频、媒体、下载和对象存储尚未组成完整产品闭环。
 
-因此不应重新生成整套页面，也不应马上横向铺开 PostgreSQL、Redis、OSS 和全部 Worker。推荐先完成“阶段 1 的收口与基线稳定”，再只建立纵向切片实际消费的最小 Zod Contract。第一个真实产品里程碑采用一条 tracer bullet：
+因此不应重新生成整套页面，也不应马上横向铺开数据库、对象存储和全部 Worker。阶段 1/2 已完成；阶段 T0 已通过 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 的最小恢复 POC。第一个真实产品里程碑仍采用一条 tracer bullet：
 
 ```text
 一份 3 页固定 PPTX（普通文本、OMML 公式、拥挤图文各一页）
@@ -39,16 +39,18 @@
 章节编号用于保存 PRD 对应关系，实际执行顺序必须是：
 
 ```text
-规划收尾
-→ 阶段 1：安全基线与测试保护
-→ 阶段 2：纵向切片实际需要的最小 Contract
+阶段 0：仓库与文档基线（已完成）
+→ 阶段 1A：可复现环境与测试保护（已完成）
+→ 阶段 1B：直接依赖安全收口（已完成）
+→ 阶段 2：纵向切片实际需要的最小 Contract（已完成）
+→ 阶段 T0：真实切片进入条件与基础设施 POC（已完成）
 → 阶段 T：3 页真实产品 tracer bullet
 → 阶段 3～10：只补现有产品与真实切片暴露的差距
 → 阶段 11A～11F：恢复、覆盖面、规模和质量硬化
 → 阶段 12：经确认的生产化
 ```
 
-阶段 3～10 不得重做已经存在的 Mock 页面；它们是差距增量。阶段 T 可以先用 no-op Worker 做候选基础设施连通性预检，但同一阶段必须换成真实产品 Worker 并跑完整闭环后才算通过。每个字母子阶段仍按“单阶段、串行门禁、结束即停”的规则执行。
+阶段 3～10 不得重做已经存在的 Mock 页面；它们是差距增量。阶段 T0 可以用最小测试 Worker 证明基础设施恢复语义，但它不能冒充阶段 T 的真实产品 Worker。每个字母子阶段仍按“单阶段、串行门禁、结束即停”的规则执行。
 
 在真实切片通过前，不建设多 Agent、自由时间线、图片公式 OCR、写实数字人、高并发 GPU 集群或完整云基础设施。图片公式 OCR 是否从 Web MVP 延期仍需产品明确批准；阶段 T 不覆盖它不等于从 PRD 删除它。
 
@@ -56,11 +58,12 @@
 
 ### 2.1 仓库与目录
 
-当前分支为 `main`，最近提交为：
+当前分支为 `main`。2026-08-01 复核时最近提交为：
 
 ```text
-f4f0dfb Redesign course creation experience
-5571a2f Initial project backup
+6480ea0 docs: finalize current task handoff
+65b2a62 docs: record repository reorganization status
+a14ca50 build(backend): add pipeline runtime packaging and usage docs
 ```
 
 当前目录：
@@ -69,6 +72,7 @@ f4f0dfb Redesign course creation experience
 /
 ├── frontend/                 Next.js 前端与 Mock API
 ├── backend/                  Python PPT 解析和 Node 音视频流水线
+├── packages/contracts/       阶段 T 最小共享 Zod Contract
 ├── docs/                     产品、计划、状态和交接文档
 ├── package.json              npm workspaces 与全仓命令
 ├── package-lock.json
@@ -76,22 +80,13 @@ f4f0dfb Redesign course creation experience
 └── README.md
 ```
 
-文件规模（排除生成物）：
+### 2.2 Git 基线
 
-- 前端约 97 个文件。
-- 后端约 19 个文件。
-- 本计划创建前共有 5 个文档文件。
+目录重组、依赖、前后端原型和上下文文档已按功能拆分提交，并已推送到
+`origin/main`。T-01 的基线授权条件已经满足。
 
-### 2.2 未提交改动
-
-当前存在大规模未提交目录重组：
-
-- 原根目录 `src/`、`public/` 和前端配置在 Git 中显示为删除。
-- 对应内容在 `frontend/` 中显示为未跟踪。
-- 整个 `backend/` 当前显示为未跟踪。
-- `docs/` 的新分类、根 `package.json`、锁文件、README、AGENTS 和 `.gitignore` 均有未提交改动。
-
-这些改动是当前有效工作，后续实现不得覆盖、重置或误删。进入阶段 1 前应先人工确认重组结果，然后建立一个可回退的 Git 基线。禁止用 `git reset --hard` 处理当前状态。
+后续每个窗口仍必须先运行 `git status --short --untracked-files=all`，保留任何已有
+修改。禁止使用 `git reset --hard`、`git clean` 或批量恢复处理来源不明的工作树。
 
 ### 2.3 当前依赖
 
@@ -108,18 +103,18 @@ f4f0dfb Redesign course creation experience
 
 后端当前主要依赖：
 
-- Python：`python-pptx`、OpenAI Python SDK、Windows 下可选 `pywin32`
+- Python：`python-pptx`、OpenAI Python SDK、`pypdfium2`、Windows 下可选 `pywin32`
 - Node：Sharp、`node-edge-tts`、FFmpeg/ffprobe 静态包
-- Docker 镜像：LibreOffice、Poppler、FFmpeg、Noto CJK 字体
+- 可选 Docker 镜像：LibreOffice、Poppler、FFmpeg、Noto CJK 字体；当前 engine 不可用，T0 不依赖该镜像
 
-尚未安装：
+T0 POC 已安装（仅限可丢弃本机环境，尚未接入产品）：
 
-- Prisma、PostgreSQL 驱动
-- BullMQ、Redis/Valkey 客户端
+- Prisma 7.9.1、`@prisma/adapter-pg`、`pg` 和仅用于 POC 的 `tsx`
+- PostgreSQL lease worker 的最小 POC 实现；Redis/BullMQ 不属于已批准的 T0 方案，产品 Worker 尚未实现
 - OpenAI Agents SDK JavaScript 版
 - JSZip、fast-xml-parser
 - Remotion、KaTeX
-- 前端单元/组件测试框架
+- 真实产品流 E2E 测试框架
 - 生产对象存储与正式 TTS Provider（具体供应商均待确认）
 
 2026-07-30 重新执行 `npm audit --registry=https://registry.npmjs.org --json`，结果仍为 23 条依赖告警（3 条 moderate、20 条 high），直接依赖涉及 Next.js、ESLint、eslint-config-next 和 shadcn。阶段 1 需要先建立测试保护，再逐个直接依赖评估兼容升级；不能直接运行破坏性的自动修复，也不能在同一修改中批量升级多个无关依赖。
@@ -127,16 +122,15 @@ f4f0dfb Redesign course creation experience
 外部服务时效检查：
 
 - OpenAI Agents SDK 官方文档确认 `OpenAIProvider` 支持 OpenAI-compatible `baseURL`，并可用 `useResponses: false` 选择 Chat Completions；这只证明接口方向可行，不证明 DeepSeek 的结构化输出、工具流、超时和重试完全兼容。
-- DeepSeek 官方更新日志说明 `deepseek-chat` 与 `deepseek-reasoner` 已于 2026-07-24 停用。当前 `backend/prepare.py`、`backend/.env.example` 和 `backend/README.md` 仍使用 `deepseek-chat`，因此真实 LLM 路径当前是阻断状态。阶段 T 的 Provider 预检必须先删除代码默认值、改为必填环境配置，并用当前受支持模型做真实集成测试。
+- DeepSeek 官方更新日志说明 `deepseek-chat` 与 `deepseek-reasoner` 已于 2026-07-24 停用。2026-08-03 已删除代码/示例中的旧模型默认值，改为被 Git 忽略的本机配置或显式进程环境；`deepseek-v4-flash` 已通过不含课件的 JSON 结构化 Provider 预检。阶段 T 采用已通过严格 Contract 的最小 Provider 路径，完整 Agent 工具调用兼容性留到阶段 11C，不能倒推成阶段 T 已验证能力。
 
 ### 2.4 当前质量基线
 
-2026-07-30 接管轮次已串行执行：
+2026-08-01 阶段 1A 最近一轮已串行执行：
 
 ```powershell
 npm.cmd run typecheck
 npm.cmd run lint
-npm.cmd run backend:test
 npm.cmd run build
 ```
 
@@ -145,17 +139,17 @@ npm.cmd run build
 - Next.js 生产构建通过。
 - TypeScript 检查通过。
 - ESLint 以零警告门槛通过。
-- 后端 4 个 Python 单元测试通过。
-- 本地生产服务下 `/`、`/upload`、工作台、解析、生成和结果页 6 条实际路由均返回 HTTP 200；探针服务已回收。
-- 当前没有 `routes:check` 脚本，本轮使用手工生产服务探针；阶段 1 才把它固化为仓库命令。
+- 后端同一组 4 个 Python 单元测试通过；普通开发终端已可通过标准 `python` 命令复现，项目代码不依赖 Codex bundled Python 绝对路径。
+- 根 `npm.cmd run test` 已编排后端 4/4、unit 1/1 和 component 3/3 测试。
+- `routes:check` 已验证 `/`、`/upload`、工作台、解析、生成和结果页 6 条实际路由均返回 HTTP 200，探针服务已回收。
 
 注意：`next build` 与 `tsc` 不能在同一个 `.next` 目录并行执行。本次并行检查曾导致 `.next/types` 被构建过程替换而出现假失败；质量门禁应串行。
 
 当前缺口：
 
-- 没有前端 `test` 脚本、组件测试和 E2E 测试。
+- 已有前端 Vitest、React Testing Library、unit/component 测试；尚未建立真实产品流 E2E 测试。
 - 没有 CI。
-- 当前机器没有 Docker，尚未验证重组后的 Docker 镜像构建。
+- Docker Desktop 4.84.0 已安装，但 WSL2 engine 因 `HCS_E_HYPERV_NOT_INSTALLED` 不可用；用户已批准 T0 使用无 Docker 等价本地方案，Docker 镜像构建仍未验证。
 
 ## 3. 需求摘要
 
@@ -245,14 +239,14 @@ MVP 不承诺：
 - Web/API：Next.js App Router、TypeScript
 - UI：Tailwind CSS、shadcn/ui、TanStack Query
 - Contract：Zod
-- 数据候选：PostgreSQL、Prisma；阶段 T 验证事务、迁移和真实查询
-- 异步任务候选：BullMQ、Redis 或 Valkey；先证明幂等、lease、恢复和 outbox
+- 数据方向：Windows 原生 PostgreSQL + Prisma（ADR-011，带 POC 门）；阶段 T0 验证事务、迁移和真实查询
+- 异步任务方向：PostgreSQL outbox + lease worker；阶段 T0 证明幂等、`FOR UPDATE SKIP LOCKED`、heartbeat、取消、接管和 Worker kill
 - PPT：优先复用现有 Python 解析与 LibreOffice；只有明确缺口才引入 JSZip/fast-xml-parser，避免两套主解析器
 - Agent：Provider 接口；OpenAI Agents SDK + DeepSeek OpenAI-compatible 必须先通过兼容性 spike
 - 渲染：阶段 T 优先复用 Sharp + FFmpeg；Remotion/KaTeX 在基准与许可通过后引入；“React SVG”指 React 原生 SVG 组件，不是独立依赖
 - TTS：开发 Edge TTS；生产使用通过区域、条款、配额、SLA 和质量 POC 的主/备 Provider，CosyVoice 仅为候选
 - 资产：阶段 T 使用本地 HTTP 适配器；阿里云 OSS 取决于部署确认
-- 部署候选：Docker；本地可用单机 Compose，但必须先验证当前环境与最终区域，生产部署再决定 Worker 拆分
+- 本地 T0：Windows 原生 PostgreSQL，不依赖 Docker；生产部署形式仍待区域、容量和恢复验证后决定
 
 ### 3.6 Agent 架构
 
@@ -368,10 +362,9 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
 
 ### 4.3 尚未开始
 
-- 持久化与迁移候选（首测 PostgreSQL/Prisma）。
-- 队列/lease 候选（首测 BullMQ + Redis/Valkey）。
-- Next.js HTTP API 与统一错误响应。
-- 共享 `packages/contracts`。
+- T-A/T-B 已接入产品 PostgreSQL/Prisma、task/outbox、PARSE dispatcher/lease Worker、attempt、Slide 和原页 Asset。
+- Next.js/Hono 已有上传、任务查询/取消、规划、修订、批准与统一错误响应；音频、媒体和下载 API 尚未开始。
+- 共享 `packages/contracts` 已完成；Python/Node CLI 跨语言边界迁移尚未开始。
 - 生产对象存储资产和签名下载。
 - OpenAI Agents SDK 的模块化单 Agent。
 - 经门禁确认的渲染系统、React 原生 SVG 组件和 KaTeX。
@@ -407,7 +400,7 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
    当前视频固定 12 FPS，而 PRD 要求 25 或 30 FPS；尚无受控增强层、遮挡避让和目标规格硬门禁。
 
 9. **模型配置冲突**  
-   `backend/prepare.py` 仍含 `deepseek-chat` 默认字符串。模型名必须由环境配置或 Mock Provider 提供，业务代码不得内置生产模型名。
+   已移除 `backend/prepare.py` 的 `deepseek-chat` 默认字符串。模型名由本机/进程环境配置，且配置密钥时必须提供 `LLM_MODEL`；业务代码不得内置生产模型名。
 
 10. **回退字段错误**  
     PPT 解析写 `slide.index`/`textBlocks`，渲染回退读取 `slide.number`/`texts`；原图缺失时回退内容不完整。
@@ -447,9 +440,9 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
 │   │   │   ├── renderer/                Sharp/FFmpeg 起步；其他实现通过门禁后替换
 │   │   │   ├── overlays/
 │   │   │   └── validation/
-│   │   ├── queue/                       通过阶段 T POC 的队列/lease Worker、状态机
+│   │   ├── queue/                       通过阶段 T0 POC 的 PostgreSQL lease Worker、状态机
 │   │   ├── storage/                     本地测试/对象存储 Provider
-│   │   └── db/                          通过阶段 T POC 的 client 与 repository
+│   │   └── db/                          通过阶段 T0 POC 的 Prisma client 与 repository
 │   ├── prisma/schema.prisma
 │   ├── python/                          暂留 python-pptx/COM 适配器
 │   ├── legacy/                          经金样保护的现有 CLI，迁移后删除
@@ -464,9 +457,6 @@ PPT 解析、TTS、通过门禁的渲染器、Sharp、FFmpeg 和 ffprobe 都是�
 │   ├── fixtures/ppt/
 │   ├── golden/
 │   └── e2e/
-├── infra/
-│   ├── docker/
-│   └── compose/
 ├── docs/
 │   ├── product/
 │   ├── IMPLEMENTATION_PLAN.md
@@ -494,7 +484,7 @@ Browser
       → backend application HTTP service
           → persistence candidate / repository
           → storage adapter signed upload/download
-          → queue candidate / workers
+          → PostgreSQL outbox / lease workers
           ├── PPT Parse Worker
           ├── Single-Agent Worker
           ├── Audio Worker
@@ -541,7 +531,7 @@ Agent 不得输出并直接执行：
 
 - 阶段 1：保持现有 Mock，只建立安全基线和测试。
 - 阶段 2：建立阶段 T 实际消费的最小 Contract，避免提前定义无人使用的全量 Schema。
-- 阶段 T：本地真实纵向闭环；使用最小 PostgreSQL/队列候选和本地 HTTP 资产适配器，浏览器不接触磁盘路径。当前机器没有 Docker，因此正式进入门包含 Docker/Compose 可用性或经批准的等价本地服务方案。
+- 阶段 T：本地真实纵向闭环；使用阶段 T0 POC 通过的原生 PostgreSQL/Prisma/lease worker 和本地 HTTP 资产适配器，浏览器不接触磁盘路径。Docker 不再是进入条件。
 - 阶段 3～10：Mock adapter 继续用于确定性组件测试，但真实 adapter 和阶段 T 不能被删除；只补差距，不重建同一流程。
 - 阶段 11：在真实切片上增加恢复、覆盖面、性能和质量，不第一次创建产品闭环。
 - 阶段 12：根据产品确认选择生产区域、对象存储、正式 TTS、数据库/队列托管、分离 Worker 和监控；不得预先把阿里云当作已确认事实。
@@ -550,15 +540,15 @@ Agent 不得输出并直接执行：
 
 | 当前需求 | 先复用 | 新候选 | 为什么现有能力不够 | 进入门与最小 POC | 失败时 |
 |---|---|---|---|---|---|
-| 共享边界 Contract | 前端已安装 Zod | `packages/contracts` workspace | 当前只有前端设置 Schema，Python/Node/API 结构会漂移 | 阶段 2 只实现阶段 T 消费的 Slide/Scene/Task/Asset 子集；Contract tests 拒绝未知字段、漏页和未授权重构 | 不换库；缩小 Schema 范围 |
-| 持久事务和迁移 | 无数据库 | PostgreSQL + Prisma | 任务幂等、修订、唯一约束和恢复不能由浏览器 Map/JSON 文件承担 | 阶段 T 用真实事务验证同 key 同 payload、同 key 异 payload、部分唯一索引和 forward-only migration | Prisma 不能表达的索引用审查过的 migration SQL；若核心查询不可行再比较最小 `pg` 层 |
-| 可恢复异步任务 | 当前只有串行 CLI | BullMQ + Redis/Valkey | 需要并发上限、稳定 jobId、延迟重试和 Worker 恢复 | 阶段 T 验证 outbox、重复投递、lease、取消、Worker kill；记录进程/内存开销 | 若 POC 不能满足语义，先比较 PostgreSQL lease worker，不同时维护两套队列 |
+| 共享边界 Contract | `packages/contracts` 已接入前端 Mock | 继续扩展现有 workspace | Python/Node/API 边界仍可能漂移 | 阶段 2 已用 Contract tests 锁住最小 Slide/Scene/Task/Asset 子集；后续只随真实消费者扩展 | 不换库；缩小新增 Schema 范围 |
+| 持久事务和迁移 | 产品无数据库 | Windows 原生 PostgreSQL + Prisma | 任务幂等、修订、唯一约束和恢复不能由浏览器 Map/JSON 文件承担 | T0 POC 已用真实事务验证同 key 同 payload、同 key 异 payload、部分唯一索引、outbox 和 forward-only migration | Prisma 不能表达的索引用审查过的 migration SQL；若后续核心查询不可行，停止并更新 ADR |
+| 可恢复异步任务 | 产品只有串行 CLI | PostgreSQL outbox + lease worker | 需要并发上限、稳定 TaskStep 去重键、延迟重试和 Worker 恢复 | T0 POC 已验证 outbox 重放、重复投递、`FOR UPDATE SKIP LOCKED`、heartbeat、取消、租约接管和 Worker kill | 若后续 POC 不能满足语义，先停止并更新 ADR；不同时维护 Redis/BullMQ 第二套队列 |
 | 模块化 Agent | Python OpenAI SDK + 单次 Prompt | OpenAI Agents SDK JS | 只有在模块编排、可测试 Runner 和追踪收益超过双运行时成本时才值得增加 | 阶段 T 前用 DeepSeek 真实请求验证 Chat Completions、结构化输出、工具调用、超时、重试；官方能力参考 <https://openai.github.io/openai-agents-js/guides/models/> 与 <https://api-docs.deepseek.com/zh-cn/> | 保留相同 Zod 模块 Contract，使用最小 OpenAI SDK Provider；不并行建设两套编排 |
 | PPT 结构解析 | `python-pptx`、OOXML 候选、LibreOffice | JSZip + fast-xml-parser | 仅在 Python 适配器无法提供所需关系/z-index/主题信息时需要 | 用 1/10/50/100 页和 14 页导数金样逐字段比较，再决定具体缺口 | 继续把 Python 作为受控适配器；禁止整套重复解析 |
 | 分页动画渲染 | Sharp + FFmpeg 已可生成静态视频 | Remotion + KaTeX + React 原生 SVG | 需要可组合时间轴、公式和白名单动画，但性能与许可尚未证明 | 先由阶段 T 用现有栈完成一个 Overlay；阶段 11E 再基准中文字体、25/30 FPS、缓存、许可和资源占用 | 保留相同 Scene/Overlay Contract，用 Sharp/FFmpeg 组件逐步扩展 |
 | 资产交付 | 本地磁盘 | 本地 HTTP adapter；生产对象存储待定 | 浏览器不能收到磁盘路径，云端还需生命周期和签名 | 阶段 T 验证 HTTP 下载、范围检查、哈希和链接过期；部署确认后再做云 POC | 保持本地 HTTP，不提前绑定 OSS |
 | 中文 TTS | Edge TTS 已可用 | 正式 TTS/备用 Provider 待产品部署确认 | Edge TTS 没有产品所需正式 SLA | 阶段 12 前验证区域、条款、配额、音频质量和故障切换 | 供应商不可用时阻断生产发布，不把开发 Provider 冒充 SLA |
-| 前端测试 | 当前无框架 | 阶段 1 选择与 Next 16 官方指南兼容的单元/组件工具；E2E 延后 | 目录重组和 Contract 迁移缺少回归保护 | 先用 2～3 个现有组件和一个 API adapter 测试证明配置；一次只引入一组测试依赖 | 配置不兼容则撤回该依赖选择，保留已写行为用例 |
+| 前端测试 | Vitest + React Testing Library 已覆盖最小 unit/component 行为 | 真实产品流阶段再引入 E2E | 当前测试不能证明真实上传、HTTP、任务恢复和下载闭环 | 保留现有测试；阶段 T 为三页真实路径增加最小 E2E | E2E 配置不兼容时先保留可重复的 HTTP/组件专项测试并更新计划，不删除现有保护 |
 
 每个候选在引入前记录固定版本、官方能力、许可/服务条款、POC 命令和结果。许可检查必须发生在对应依赖进入阶段之前，不能统一拖到阶段 12。
 
@@ -644,7 +634,7 @@ Agent 不得输出并直接执行：
 - `errorCode`、`errorMessage`。
 - `startedAt`、`completedAt`。
 
-若阶段 T 接受 PostgreSQL，逻辑步骤唯一性不能只依赖 `(taskId, stage, slideId)`，因为 PostgreSQL 允许多条 `slideId = NULL`。该候选迁移需要两个部分唯一索引（Prisma 无法表达时使用受审查的 migration SQL）：
+已批准的 PostgreSQL POC 中，逻辑步骤唯一性不能只依赖 `(taskId, stage, slideId)`，因为 PostgreSQL 允许多条 `slideId = NULL`。该迁移需要两个部分唯一索引（Prisma 无法表达时使用受审查的 migration SQL）：
 
 ```text
 UNIQUE (taskId, stage) WHERE slideId IS NULL
@@ -753,7 +743,7 @@ taskProgress  = 各阶段权重 × stageProgress
 
 - 创建耗时任务的 POST 必须接受 `Idempotency-Key`。
 - 相同项目、任务类型、幂等键、输入哈希和配置哈希返回既有任务；同一幂等键配不同请求体返回 409 `IDEMPOTENCY_KEY_REUSED`。
-- 若 BullMQ 通过 POC，`jobId` 使用稳定的 TaskStep ID；其他队列/lease 实现必须提供等价稳定去重键。
+- PostgreSQL lease worker 使用稳定的 TaskStep ID 作为逻辑去重键；重放 outbox 不得创建重复逻辑步骤或 attempt。
 - 资产用内容哈希去重；数据库唯一约束防止重复记录。
 - 页面锁定或修订变化后，按 `parse → plan → audio → page-render → composite → validate` 失效 DAG 只使受影响页面及下游产物失效；测试必须证明未受影响页面资产哈希不变。
 - Worker 写资产采用临时对象 → 校验 → 原子记录的顺序。
@@ -999,10 +989,13 @@ npm.cmd run routes:check
 
 ### 阶段 1：项目初始化与基础设计系统收口
 
+目录重组和 Git 基线子步骤已经完成；阶段 1A（环境/测试）也已完成。当前按
+`docs/planning/DEVELOPMENT_ROADMAP.md` 执行阶段 1B（依赖安全）风险收口。
+
 目标：
 
 - 保留现有设计和页面，不重新搭建前端。
-- 确认并建立目录重组 Git 基线。
+- 保持已经确认并推送的目录重组 Git 基线。
 - 补齐测试框架、基础组件测试和路由检查脚本。
 - 处理直接依赖安全告警中的可兼容升级。
 
@@ -1016,9 +1009,9 @@ npm.cmd run routes:check
 
 内部顺序：
 
-1. 用户确认目录重组后建立可回退 Git 基线。
-2. 先建立并跑通 unit/component/route 测试保护。
-3. 直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
+1. 先让标准开发环境可复现运行 Python 后端测试。
+2. 建立并跑通 unit/component/route 测试保护。
+3. 阶段 1A 测试保护已通过；阶段 1B 中直接依赖一次只升级一个，每次单独审查 lockfile diff 并跑完整阶段门；不运行 `npm audit fix --force`。
 
 不处理：
 
@@ -1034,6 +1027,8 @@ npm.cmd run routes:check
 - 当前目录重组已被用户确认并建立安全基线。
 
 ### 阶段 2：数据类型、Zod Schema 和 Mock API
+
+状态：已完成（2026-08-01）；`test:contracts` 已通过，完整阶段门禁在本轮结束前串行复跑。
 
 目标：
 
@@ -1065,6 +1060,8 @@ npm.cmd run routes:check
 
 ### 阶段 T：3 页真实产品 tracer bullet
 
+状态：进行中。2026-08-03 完成 T-A 上传边界与 T-B 产品 PARSE Worker；2026-08-04 完成 T-C 产品 PLAN Worker、严格单 Agent、3/3 LessonPlanRevision/PlannedScene、用户修订和显式批准。私有 14 页课件的前三页 Git 忽略副本已由真实 Python/LibreOffice 与获授权的 DeepSeek V4 Flash 严格链路验证。音频、媒体和下载仍未实现。
+
 目标：
 
 - 用最薄的一条真实路径证明浏览器、HTTP、持久任务、现有媒体流水线和下载边界可以组成产品。
@@ -1074,9 +1071,9 @@ npm.cmd run routes:check
 
 - 阶段 1、2 的全部门禁通过，目录重组基线已由用户确认。
 - P-01 与 P-02 已分别记录产品决定；阶段 T 的评测范围和 identity/scope 边界与决定一致。
-- `docker compose version` 可用，或用户批准了等价、可复现的本地 PostgreSQL/队列方案；当前机器没有 Docker，不能假定此条件已满足。
-- 使用当前支持的 DeepSeek 模型完成 Provider 兼容预检；代码和示例中不存在 `deepseek-chat` 生产默认值。
-- 固定 3 页 fixture 包含普通文本、OMML 公式、拥挤图文，且有人工确认的原页 PNG 和期望覆盖区域。
+- 用户已批准 Windows 原生 PostgreSQL + Prisma + PostgreSQL lease worker 等价本地方案；真实多连接数据库 POC 已于 2026-08-02 通过。P-01/P-02、DeepSeek V4 Flash Provider 预检已关闭；用户指定的私有 14 页课件已完成离线解析与手工原页 PNG 导出，并确认右下角默认数字人位置。自动原页 PNG 导出仍是进入阶段 T 的独立门禁；实质遮挡警告在阶段 T 验证。
+- DeepSeek V4 Flash 已于 2026-08-03 完成 JSON 结构化 Provider 预检；代码和示例中不存在 `deepseek-chat` 生产默认值。完整 Agent 工具调用兼容性仍须在阶段 T 验证。
+- 阶段 T 的私有业务验证课件已确认来源、页数、原页 PNG 和右下角默认数字人区域；实质遮挡标题、公式、图表、关键文本或字幕安全区时必须先显示警告。既有 3 页合成 fixture 仅作为回归测试样本。
 
 最小路径：
 
@@ -1085,8 +1082,8 @@ P-02 决定对应的测试 principal/identity
 → HTTP 上传 3 页 PPTX 到 Next BFF
 → 私有 HTTP 调用 backend application service
 → 服务端 MIME/大小/哈希/PPTX 结构校验
-→ 通过 POC 的持久化候选保存任务快照 + outbox（首测 PostgreSQL/Prisma）
-→ 通过 POC 的队列/lease 候选 + Worker（首测 BullMQ/Redis）
+→ 通过 POC 的 PostgreSQL/Prisma 保存任务快照 + outbox
+→ 通过 POC 的 PostgreSQL lease worker 领取、续租、取消和接管步骤
 → 现有 Python/LibreOffice 适配器生成原页
 → 一个真实 Agent 模块调用 + 最小 Zod Scene
 → 用户批准
@@ -1099,7 +1096,7 @@ P-02 决定对应的测试 principal/identity
 
 计划修改：
 
-- 阶段 T 需要的最小 Next Route Handler/BFF client、独立 backend application HTTP service、已接受候选的迁移、outbox、Worker 和本地 HTTP asset adapter；候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
+- T-A/T-B/T-C 已采用 Hono 4.12.31 + `@hono/node-server` 2.0.12 实现 Next BFF、独立 application service、产品 migration、outbox、PARSE/PLAN lease Worker、本地资产适配器、严格 Agent 和批准边界；后续继续补音频、媒体与受控下载，候选 POC 失败时先更新 ADR 与本计划，不静默换栈。
 - 现有 Python/Node CLI 外围适配器；CLI 原入口保留用于金样对照。
 - 只增加阶段 T 消费的 Contract、fixture、集成与 E2E 测试。
 - 前端增加一个受内部 feature flag 控制的真实 adapter；Mock adapter 继续用于独立 UI 测试。
@@ -1424,7 +1421,7 @@ P-02 决定对应的测试 principal/identity
 
 | 风险 | 等级 | 影响 | 缓解 |
 |---|---|---|---|
-| 整个前后端目录尚未被 Git 跟踪 | P0 | 后续修改难以区分移动、删除和覆盖 | 阶段 1 前确认并建立基线 |
+| 标准 Python 命令缺失 | P1 | 后端测试无法由普通开发终端和根 npm 脚本复现 | 阶段 1A 明确 Python 3.10+ 安装与调用方式 |
 | 原页覆盖规则当前会漏掉合并场景的后续页 | P0 | 违反核心产品原则 | Contract、渲染和验证三层硬门 |
 | Agent 输出不是共享 Zod | P0 | 不可控字段和 Schema 漂移 | 阶段 2 先建唯一 Contract |
 | 输出 JSON 含绝对路径 | P0 | 未来 API 泄漏内部结构 | 内部 Asset ID + 签名 URL |
@@ -1447,8 +1444,8 @@ P-02 决定对应的测试 principal/identity
 
 | ID | 决策 | 状态 | 当前证据 | Owner | 最晚截止 | 失效信号与 fallback |
 |---|---|---|---|---|---|---|
-| P-01 | 首发评测是否高等数学优先，而不承诺全部学科同等效果 | UNVERIFIED | 当前 PRD 场景与已有金样偏数学，但目标用户包含普通理论课程 | 产品 | 阶段 T 前 | 若要求全学科同效，停止并重做数据集、Prompt、指标和范围；推荐数学优先、Contract 保持通用 |
-| P-02 | 首发用户是内部单用户、个人教师还是机构团队 | UNVERIFIED | 当前没有账号、权限或数据库 | 产品 | 阶段 T 前 | 内部单用户可用测试 principal；个人账号需最小真实 identity；机构多租户必须先修订阶段 T 范围并补 tenantId、租户隔离和越权测试，不能沿用内部 principal 非目标 |
+| P-01 | 首发评测是否高等数学优先，而不承诺全部学科同等效果 | VERIFIED（2026-08-02） | 用户确认高等数学优先，Contract 保持通用 | 产品 | 已在 T0 关闭 | 若未来要求全学科同效，停止并重做数据集、Prompt、指标和范围 |
+| P-02 | 首发用户是内部单用户、个人教师还是机构团队 | VERIFIED（2026-08-02） | 用户确认内部单用户，仅本机/测试环境固定 principal | 产品 | 已在 T0 关闭 | 固定 principal 不得进入生产；若改为个人/机构用户，先修订阶段 T 范围并加入最小 identity/tenant 隔离与越权测试 |
 | P-03 | 单视频最大时长 | UNVERIFIED | 60 分钟只是计划假设，没有容量基准 | 产品 | 阶段 11 性能基准前 | 未确认时只承诺 3/10 页测试范围，不发布长视频上限；确认后设 Worker timeout、磁盘和成本预算 |
 | P-04 | 是否支持自定义数字人上传 | UNVERIFIED | PRD 待确认；当前只有内置 PNG | 产品 | 阶段 7/8 差距实施前 | 未确认时保留内置授权素材，不建设上传、裁切和素材审核 |
 | P-05 | 是否支持 9:16 和 1:1 | UNVERIFIED | PRD 已明确首版 16:9，但额外比例待确认 | 产品 | 阶段 7/11E 前 | 未确认时只实现已明确的 16:9；Contract 不为未来比例创建无人使用的布局分支 |
@@ -1459,27 +1456,27 @@ P-02 决定对应的测试 principal/identity
 | P-10 | 是否需要用量计费和团队权限 | UNVERIFIED | PRD 待确认，当前无账号 | 产品 | 阶段 12 前 | 未确认时不建设；若提前要求，停止并重做身份、审计、配额和账单范围 |
 | P-11 | 是否批准把图片公式 OCR 从 Web MVP 延期 | UNVERIFIED | PRD 的公式链包含数学 OCR；阶段 T 只是不覆盖，并不构成范围删除授权 | 产品/教学审核 | 阶段 11B 前 | 未批准延期时，阶段 11B 必须实现并通过版本化图片公式金样；批准延期时保留原图与人工确认，但明确不宣称图片公式可编辑 |
 
-P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变更请求。各项必须分别确认，不能把“部署地区、16:9、时长”或“用户画像、账号架构”捆成一个不可拆决定。
+P-01/P-02 已在 T0 分别确认；P-03～P-10 仍是 PRD 待确认项，P-11 是本计划提出的额外范围变更请求。各项必须分别确认，不能把“部署地区、16:9、时长”或“用户画像、账号架构”捆成一个不可拆决定。
 
 ### 13.2 技术假设账本
 
 | ID | 假设 | 状态 | 证据 | 截止阶段 | 失效动作 |
 |---|---|---|---|---|---|
-| T-01 | 当前 `frontend/` 97 文件、`backend/` 19 文件和大规模目录重组是用户认可的有效基线 | UNVERIFIED | 2026-07-30 `git status` 和文件计数只证明物理现状，不能证明用户授权 | 阶段 1 | 禁止重置、暂存或提交；由用户确认意图和授权后建立基线 |
+| T-01 | `frontend/`、`backend/` 和目录重组是用户认可的有效基线 | VERIFIED | 用户授权拆分提交；相关提交已于 2026-08-01 推送到 `origin/main` | 已关闭 | 后续以 Git 历史为基线，来源不明的工作树改动仍触发 STOP |
 | T-02 | 当前依赖审计为 3 moderate、20 high | VERIFIED | 2026-07-30 官方 npm registry audit | 阶段 1 | 先测试保护，再一次一个直接依赖升级；不运行 force fix |
 | T-03 | Agents SDK 可连接 OpenAI-compatible Chat Completions | VERIFIED | 官方 SDK 支持 `baseURL` 与 `useResponses: false` | 阶段 T | 只说明传输能力；DeepSeek 端到端仍需 T-04 |
-| T-04 | DeepSeek 与选定编排层完整兼容 | UNVERIFIED | 官方 DeepSeek 支持 OpenAI Chat Completions，但当前代码默认模型已停用 | 阶段 T | 真实测试结构化输出、工具、超时和重试；失败则用最小 OpenAI SDK Provider |
-| T-05 | PostgreSQL/Prisma + BullMQ/Redis 满足任务恢复语义 | UNVERIFIED | 目标方案尚未安装或运行 | 阶段 T | 用 outbox/lease/kill 测试证明；失败则比较 PostgreSQL lease worker |
+| T-04 | DeepSeek 与选定编排层完整兼容 | DEFERRED | DeepSeek V4 Flash 已通过直接 OpenAI Chat Completions 的 JSON 结构化预检和重试分类；阶段 T 已采用最小 Provider fallback，完整 Agent 工具调用尚未验证 | 阶段 11C | 真实测试工具调用、任务级超时和重试；失败则继续使用最小 OpenAI-compatible Provider |
+| T-05 | Windows 原生 PostgreSQL/Prisma + PostgreSQL lease worker 满足任务恢复语义 | VERIFIED（T0 POC） | PostgreSQL 18.4 + Prisma 7.9.1，`npm.cmd run t0:test` 7/7 通过 | 已在 T0 关闭 | 仅证明可丢弃本机 POC；阶段 T 继续使用同一语义并追加真实产品 Worker/资产测试 |
 | T-06 | Remotion 比现有 Sharp/FFmpeg 更适合目标动画 | UNVERIFIED | 尚未安装、未做性能或许可验证 | 阶段 11E | 先用现有栈完成 T；失败时保留 Scene Contract，比较最小替代 |
-| T-07 | 当前机器可运行 Docker Compose | REJECTED | 2026-07-30 `Get-Command docker` 返回 missing | 阶段 T | 阶段 1/2 可继续；进入 T 前必须提供 Docker 或经批准的等价可复现环境 |
+| T-07 | 当前机器可运行 Docker Compose | REJECTED / NO LONGER REQUIRED FOR T0 | Docker Desktop 4.84.0 已安装，但 WSL2 engine 返回 `HCS_E_HYPERV_NOT_INSTALLED`；用户于 2026-08-02 批准 ADR-011 等价本地方案 | 已由 ADR-011 替代 | 不再修复 Docker；阶段 T 由 T-05 的原生 PostgreSQL POC 作为环境门 |
 | T-08 | 30 FPS 是首版最终选择 | UNVERIFIED | PRD 允许 25 或 30，当前没有足够基准偏向任一值 | 阶段 11E | 以资源/播放兼容基准选择；选择前 Contract 使用受限枚举而非单值 |
 
 ### 13.3 STOP 条件
 
-- 目录重组未获用户确认或工作区出现来源不明的重叠改动：不得进入阶段 1 或建立 Git 基线。
+- 工作区出现来源不明或与当前阶段重叠的改动：停止并报告，不得覆盖、重置或清理。
 - P-01 或 P-02 尚未确认：不阻断可逆的阶段 1/2，但不得进入阶段 T。
 - P-08 尚未确认：不阻断供应商中性的阶段 1～11；不得执行阶段 12 的供应商绑定或生产发布。
-- T-07 未解决：不得进入阶段 T，但不阻止纯文档、阶段 1 或阶段 2。
+- T-05 的原生 PostgreSQL/Prisma/lease worker POC 未通过：不得进入阶段 T；Docker 本身不再是 T0 STOP 条件。
 - 同一阶段任一 typecheck、lint、测试、build、route、golden、media 或 E2E 门失败：不得进入下一阶段。
 - PRD 原页优先原则、首版用户范围或部署约束被改变：先更新 ADR、数据/权限/容量计划，再继续。
 - 没有合法可用的模型、TTS、字体、数字人素材、视频库或存储服务条款：不得发布依赖该能力的生产版本。
@@ -1509,17 +1506,19 @@ P-01～P-10 是 PRD 十项待确认；P-11 是本计划提出的额外范围变�
 
 ## 15. 建议优先开始的阶段
 
-等待目录重组意图与安全 Git 基线授权确认后，优先执行**阶段 1：项目初始化与基础设计系统收口**。P-01、P-02 在阶段 T 前确认，P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1。
+目录重组与安全 Git 基线、阶段 1A、阶段 1B、阶段 2 和 T0 已完成；Next 内嵌依赖 3 项 high 已由用户明确风险接受。用户已确认进入阶段 T，T-A 已实现真实上传/HTTP/产品持久化边界，T-B 已实现产品 PARSE Worker；后续只在该真实路径上增量完成 Agent、审核、媒体和下载。
+P-01、P-02 已于 T0 确认；P-08 在阶段 12 供应商 POC 前确认，不阻断阶段 1A/1B。
 
 原因：
 
 - 当前页面已经很多，重新搭建会覆盖有效工作。
-- 整个 `frontend/`、`backend/` 和文档重组尚未建立 Git 基线。
-- 前端没有自动化测试，无法安全进入 Contract 迁移。
+- Git 基线已经稳定，可安全添加测试保护而不混入目录移动。
+- 阶段 1A 已补齐最小前端自动化测试和可复现后端测试入口。
 - 当前依赖有安全告警。
+- 2026-08-01 官方 audit 从 6 项降至 3 项 high；剩余风险来自稳定 `next@16.2.11` 内嵌 `postcss@8.4.31` 和 `sharp@0.34.5`，不能用 canary 或 `npm audit fix --force` 解决，已由用户明确接受。
 - 阶段 1 完成后，阶段 2 才能用测试保护最小共享 Zod Schema；随后必须先完成阶段 T 的真实纵向切片，再按证据补阶段 3～10 的差距。
 
-本计划获确认前，不自动开始阶段 1。
+阶段 T 的 T-A～T-G 已完成实现与三页 HTTP 上传到下载纵切验收。停止等待用户确认提交拆分与是否进入阶段 3；不得自动推进。
 
 ## 16. 失败恢复、清理与回滚契约
 
@@ -1677,14 +1676,14 @@ P0 残余风险没有表中指定接受人签字时不得发布。阶段 T 只�
 
 ### 20.2 实施前必须解决
 
-- 当前目录重组是否允许建立安全 Git 基线。
+- 阶段 1A 开始前确认标准 Python 3.10+ 的安装或团队认可的可复现调用方式；不得把 Codex bundled Python 绝对路径写入项目。
 
 ### 20.3 到对应阶段前解决
 
-- P-01/P-02 在阶段 T 前确认；P-03～P-10 按账本截止阶段逐项确认；P-11 在阶段 11B 前确认。
+- P-01/P-02 已在 T0 确认；P-03～P-10 按账本截止阶段逐项确认；P-11 在阶段 11B 前确认。
 - P-08 在阶段 12 供应商 POC 前确认。
-- T-04 Provider 兼容、T-05 持久化/队列和 T-06 渲染器均必须用 POC 证据关闭。
-- T-07 Docker 当前为 `REJECTED`；只阻断阶段 T，不阻断阶段 1/2。
+- T-04 的完整 Agent 工具调用兼容和 T-06 渲染器仍必须用阶段 T POC 证据关闭；T0 的直接 DeepSeek V4 Flash Provider 预检与 T-05 持久化/队列已由本机 POC 关闭。
+- T-07 Docker 仍为 `REJECTED`，但已由 ADR-011 等价环境替代；T0 自动原页 PNG 门禁已关闭。阶段 T 已开始，完整 Agent 工具调用兼容、实质遮挡警告和媒体硬门仍未关闭。
 
 ### 20.4 最终一致性检查
 

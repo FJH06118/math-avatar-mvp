@@ -3,10 +3,39 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "db:generate": "prisma generate --config prisma.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "start:app": "tsx app/server.ts",
+    "start:worker": "tsx app/worker.ts",
+    "typecheck": "tsc --noEmit",
+    "test:t0": "tsx --test t0/*.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 app/*.integration.test.ts",
+    "test:stage-11a": "tsx --test --test-concurrency=1 app/stage-11a-recovery.integration.test.ts app/stage-tb.integration.test.ts",
+    "test:stage-11b": "tsx --test --test-concurrency=1 app/stage-11b-ppt-coverage.test.ts",
+    "eval:agent": "tsx --test app/agent-evaluator.test.ts",
+    "test:lip-sync": "tsx --test --test-concurrency=1 app/lip-sync.test.ts app/avatar-assets.test.ts app/binary-mouth.test.ts",
+    "test:stage-11d": "tsx --test --test-concurrency=1 app/audio-quality.test.ts app/stage-td.integration.test.ts",
+    "test:stage-11e": "tsx --test --test-concurrency=1 app/render-benchmark.test.ts app/stage-te.integration.test.ts",
+    "test:stage-11f": "tsx --test --test-concurrency=1 app/stage-tf.integration.test.ts app/stage-tg.e2e.integration.test.ts"
+  },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@hono/node-server": "2.0.12",
+    "@ppt-digital-human/contracts": "0.1.0",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
+    "dotenv": "17.4.2",
     "ffprobe-static": "3.1.0",
+    "hono": "4.12.31",
     "node-edge-tts": "1.2.10",
+    "pg": "8.22.0",
+    "pinyin-pro": "3.28.2",
     "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "prisma": "7.9.1",
+    "tsx": "4.23.2",
+    "typescript": "5.9.3"
   }
 }

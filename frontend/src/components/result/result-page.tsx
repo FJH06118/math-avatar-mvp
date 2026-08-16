@@ -38,9 +38,10 @@ import { ResultSkeleton } from "./result-skeleton";
 
 interface ResultPageProps {
   projectId: string;
+  taskId?: string;
 }
 
-type DownloadAsset = "mp4" | "srt";
+type DownloadAsset = "mp4" | "srt" | "metadata";
 type VideoStatus = "loading" | "ready" | "error";
 
 const integerFormatter = new Intl.NumberFormat("zh-CN");
@@ -61,26 +62,30 @@ function formatFileSize(bytes: number): string {
   return `${decimalFormatter.format(bytes / 1_000_000)} MB`;
 }
 
-export function ResultPage({ projectId }: ResultPageProps) {
+export function ResultPage({ projectId, taskId }: ResultPageProps) {
   const router = useRouter();
   const [videoStatus, setVideoStatus] = useState<VideoStatus>("loading");
   const [videoKey, setVideoKey] = useState(0);
 
   const resultQuery = useQuery({
-    queryKey: ["render-results", projectId],
-    queryFn: () => getRenderResult(projectId),
+    queryKey: ["render-results", projectId, taskId],
+    queryFn: () => getRenderResult(projectId, {}, taskId),
   });
 
   const downloadMutation = useMutation({
     mutationFn: async (asset: DownloadAsset) => ({
       asset,
-      url: await prepareRenderDownload(projectId, asset),
+      url: await prepareRenderDownload(projectId, asset, {}, taskId),
     }),
     onSuccess: ({ asset, url }) => {
       const link = document.createElement("a");
       link.href = url;
       link.download =
-        asset === "mp4" ? "数字人授课视频.mp4" : "数字人授课字幕.srt";
+        asset === "mp4"
+          ? "数字人授课视频.mp4"
+          : asset === "srt"
+            ? "数字人授课字幕.srt"
+            : "数字人授课项目元数据.json";
       link.rel = "noopener";
       document.body.appendChild(link);
       link.click();
@@ -91,7 +96,7 @@ export function ResultPage({ projectId }: ResultPageProps) {
   const regenerateMutation = useMutation({
     mutationFn: () => createRenderJob(projectId),
     onSuccess: (job) =>
-      router.push(`/projects/${projectId}/generating?jobId=${job.id}`),
+      router.push(`/projects/${projectId}/generating?jobId=${job.id}&audioTaskId=${job.id}`),
   });
 
   if (resultQuery.isPending) {
@@ -344,6 +349,21 @@ export function ResultPage({ projectId }: ResultPageProps) {
                 ? "正在准备字幕…"
                 : "下载 SRT 字幕"}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={downloadUnavailable || downloadMutation.isPending || !taskId}
+              onClick={() => downloadMutation.mutate("metadata")}
+            >
+              {downloadMutation.isPending && downloadMutation.variables === "metadata" ? (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              ) : (
+                <DownloadIcon data-icon="inline-start" aria-hidden="true" />
+              )}
+              {downloadMutation.isPending && downloadMutation.variables === "metadata"
+                ? "正在准备元数据…"
+                : "下载项目元数据"}
+            </Button>
           </div>
 
           {downloadUnavailable ? (
@@ -353,6 +373,28 @@ export function ResultPage({ projectId }: ResultPageProps) {
           ) : null}
         </aside>
       </div>
+
+      {result.validation ? (
+        <section className="rounded-lg border border-foreground/18 bg-card p-5" aria-labelledby="validation-title">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="validation-title" className="font-semibold">媒体硬门验证</h2>
+              <p className="mt-1 text-sm text-muted-foreground">最终资产只有通过以下服务端检查后才可交付。</p>
+            </div>
+            <Badge variant="secondary">全部通过</Badge>
+          </div>
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <ValidationItem label="编码" value={`${result.validation.videoCodec.toUpperCase()} / ${result.validation.audioCodec.toUpperCase()}`} />
+            <ValidationItem label="完整解码" value={result.validation.fullDecode ? "通过" : "失败"} />
+            <ValidationItem label="Fast Start" value={result.validation.fastStart ? "通过" : "失败"} />
+            <ValidationItem label="非静音" value={result.validation.nonSilent ? "通过" : "失败"} />
+            <ValidationItem label="页面覆盖" value={`${result.validation.pageCoverage.length}/${result.validation.pageCount}`} />
+            <ValidationItem label="安全区" value={result.validation.obstructionClear ? "通过" : "失败"} />
+            <ValidationItem label="帧率" value={`${result.validation.fps} FPS`} />
+            <ValidationItem label="黑帧上限" value={`${result.validation.maxBlackDurationMs} ms`} />
+          </dl>
+        </section>
+      ) : null}
 
       {downloadMutation.isError ? (
         <Alert variant="destructive" role="alert">
@@ -368,8 +410,19 @@ export function ResultPage({ projectId }: ResultPageProps) {
       ) : null}
 
       <p className="text-sm text-muted-foreground">
-        当前为本地演示数据，接入真实渲染服务后可播放并下载成片。
+        {result.assetsAvailable
+          ? "播放与下载均通过受控同源地址读取；重新加载清单不会触发重新渲染。"
+          : "当前为本地演示数据，真实交付文件暂不可用。"}
       </p>
     </WorkflowFrame>
+  );
+}
+
+function ValidationItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md bg-secondary/55 px-3 py-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular-nums">{value}</dd>
+    </div>
   );
 }

@@ -8,10 +8,11 @@
 
 1. `docs/CURRENT_TASK.md`：当前任务、测试和续接点。
 2. `docs/STATUS.md`：真实完成度、问题和阻塞项。
-3. `docs/PRD.md`：产品范围与验收标准。
-4. `docs/ARCHITECTURE.md`：当前实际架构和数据流。
-5. `docs/DECISIONS.md`：已确定决策与待确认项。
-6. 与任务相关的 `README.md`、详细计划或历史文档。
+3. `docs/planning/DEVELOPMENT_ROADMAP.md`：当前阶段、完整执行顺序和 STOP 条件。
+4. `docs/PRD.md`：产品范围与验收标准。
+5. `docs/ARCHITECTURE.md`：当前实际架构和数据流。
+6. `docs/DECISIONS.md`：已确定决策与待确认项。
+7. 与任务相关的 `README.md`、详细计划或历史文档。
 
 开始编辑前必须运行 `git status --short --untracked-files=all`。修改前端代码时，还必须先阅读 `node_modules/next/dist/docs/` 中与改动相关的 Next.js 指南。
 
@@ -19,7 +20,7 @@
 
 - `frontend/`：Next.js 应用和所有浏览器代码。
 - `backend/`：PPT 解析、讲稿规划、TTS、渲染、验证和后端测试。
-- `packages/contracts/`：未来共享 Zod 契约的唯一位置；当前尚未创建。
+- `packages/contracts/`：已创建的共享 Zod 契约 workspace，是跨 TypeScript 业务契约的唯一位置。
 - `docs/`：跨前后端的产品、架构、状态、计划与交接资料。
 
 ## 当前技术栈

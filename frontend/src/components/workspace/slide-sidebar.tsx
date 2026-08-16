@@ -60,7 +60,7 @@ export function SlideSidebar({
                 </ItemMedia>
                 <ItemContent className="min-w-0">
                   <p className="text-xs tabular-nums text-sidebar-foreground/55">
-                    第 {slide.index + 1} 页
+                    第 {slide.slideNumber} 页
                   </p>
                   <ItemTitle className="max-w-full">{slide.title}</ItemTitle>
                 </ItemContent>

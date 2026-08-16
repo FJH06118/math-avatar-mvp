@@ -1,0 +1,438 @@
+{
+  "schemaVersion": "lip-sync-v1-zhou-demo-1",
+  "generatedAt": "2026-08-12T18:46:47.189Z",
+  "status": "PASS",
+  "scope": {
+    "level": "L5",
+    "avatarId": "avatar-zhou",
+    "publicSyntheticSlide": true,
+    "productionAudioAndPageRenderCore": true
+  },
+  "input": {
+    "text": "今天我们用导数理解函数的瞬时变化率。先看定义：当增量趋近于零，函数增量与自变量增量的比值若趋于确定极限，这个极限就是导数。请短暂停一下。比如函数 y 等于 x 的平方，它的导数是二 x。最后记住，导数既描述切线斜率，也描述变化快慢。",
+    "textSha256": "a4a583f3099141e2dea20e4c00c263cbecbb9edf37f9a2c89cd2b968f467a83e",
+    "slidePath": "D:\\Workspace\\projects\\web\\数字人前端\\backend\\work\\lip-sync-zhou-demo\\final-v4\\public-calculus-slide.png",
+    "slideSha256": "2d418e4161c5302e4270c926942b20a45d0f42fc3fd0a1a86dc4115739803d20"
+  },
+  "audio": {
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "rate": "-8%",
+    "pitch": "+0Hz",
+    "durationMs": 27864,
+    "sha256": "2ebb45e2681f42420459eefe355ca72fe5d50a45f5358c7997846b72d71aa1ae",
+    "sampleRateHz": 24000,
+    "meanDb": -19.6,
+    "peakDb": -3.2
+  },
+  "timing": {
+    "mode": "BOUNDARY_ENERGY",
+    "degraded": false,
+    "wordBoundaryCount": 62,
+    "wordBoundaryCoverage": 0.7882572494975596,
+    "metadataStatus": "AVAILABLE",
+    "metadata": {
+      "schemaVersion": "word-timing-v1",
+      "captureVersion": "edge-word-boundary-v1",
+      "status": "AVAILABLE",
+      "provider": "edge-tts",
+      "boundaries": [
+        {
+          "text": "今天",
+          "startMs": 104,
+          "endMs": 742
+        },
+        {
+          "text": "我们",
+          "startMs": 851,
+          "endMs": 1055
+        },
+        {
+          "text": "用",
+          "startMs": 1069,
+          "endMs": 1245
+        },
+        {
+          "text": "导",
+          "startMs": 1245,
+          "endMs": 1449
+        },
+        {
+          "text": "数",
+          "startMs": 1449,
+          "endMs": 1707
+        },
+        {
+          "text": "理解",
+          "startMs": 1734,
+          "endMs": 2047
+        },
+        {
+          "text": "函数",
+          "startMs": 2060,
+          "endMs": 2522
+        },
+        {
+          "text": "的",
+          "startMs": 2522,
+          "endMs": 2617
+        },
+        {
+          "text": "瞬时",
+          "startMs": 2645,
+          "endMs": 3079
+        },
+        {
+          "text": "变化率。",
+          "startMs": 3093,
+          "endMs": 3786
+        },
+        {
+          "text": "先",
+          "startMs": 4415,
+          "endMs": 4687
+        },
+        {
+          "text": "看",
+          "startMs": 4687,
+          "endMs": 4904
+        },
+        {
+          "text": "定义：",
+          "startMs": 4918,
+          "endMs": 5393
+        },
+        {
+          "text": "当增",
+          "startMs": 5788,
+          "endMs": 6168
+        },
+        {
+          "text": "量",
+          "startMs": 6168,
+          "endMs": 6399
+        },
+        {
+          "text": "趋",
+          "startMs": 6399,
+          "endMs": 6630
+        },
+        {
+          "text": "近于",
+          "startMs": 6644,
+          "endMs": 6983
+        },
+        {
+          "text": "零，",
+          "startMs": 6983,
+          "endMs": 7323
+        },
+        {
+          "text": "函数",
+          "startMs": 7622,
+          "endMs": 8002
+        },
+        {
+          "text": "增量",
+          "startMs": 8016,
+          "endMs": 8491
+        },
+        {
+          "text": "与",
+          "startMs": 8519,
+          "endMs": 8695
+        },
+        {
+          "text": "自变量",
+          "startMs": 8709,
+          "endMs": 9307
+        },
+        {
+          "text": "增量",
+          "startMs": 9320,
+          "endMs": 9701
+        },
+        {
+          "text": "的",
+          "startMs": 9701,
+          "endMs": 9796
+        },
+        {
+          "text": "比值",
+          "startMs": 9809,
+          "endMs": 10394
+        },
+        {
+          "text": "若",
+          "startMs": 10502,
+          "endMs": 10692
+        },
+        {
+          "text": "趋于",
+          "startMs": 10706,
+          "endMs": 11141
+        },
+        {
+          "text": "确定",
+          "startMs": 11168,
+          "endMs": 11589
+        },
+        {
+          "text": "极限，",
+          "startMs": 11603,
+          "endMs": 12146
+        },
+        {
+          "text": "这个",
+          "startMs": 12404,
+          "endMs": 12730
+        },
+        {
+          "text": "极限",
+          "startMs": 12744,
+          "endMs": 13247
+        },
+        {
+          "text": "就",
+          "startMs": 13274,
+          "endMs": 13396
+        },
+        {
+          "text": "是",
+          "startMs": 13396,
+          "endMs": 13519
+        },
+        {
+          "text": "导数。",
+          "startMs": 13532,
+          "endMs": 14103
+        },
+        {
+          "text": "请",
+          "startMs": 14728,
+          "endMs": 14945
+        },
+        {
+          "text": "短暂",
+          "startMs": 14959,
+          "endMs": 15366
+        },
+        {
+          "text": "停",
+          "startMs": 15380,
+          "endMs": 15597
+        },
+        {
+          "text": "一下。",
+          "startMs": 15597,
+          "endMs": 16032
+        },
+        {
+          "text": "比如",
+          "startMs": 16644,
+          "endMs": 17173
+        },
+        {
+          "text": "函数",
+          "startMs": 17282,
+          "endMs": 17826
+        },
+        {
+          "text": "y",
+          "startMs": 17826,
+          "endMs": 18070
+        },
+        {
+          "text": "等于",
+          "startMs": 18097,
+          "endMs": 18478
+        },
+        {
+          "text": "x",
+          "startMs": 18478,
+          "endMs": 18804
+        },
+        {
+          "text": "的",
+          "startMs": 18804,
+          "endMs": 18899
+        },
+        {
+          "text": "平方，",
+          "startMs": 18913,
+          "endMs": 19483
+        },
+        {
+          "text": "它",
+          "startMs": 19755,
+          "endMs": 19904
+        },
+        {
+          "text": "的",
+          "startMs": 19904,
+          "endMs": 19986
+        },
+        {
+          "text": "导数",
+          "startMs": 20000,
+          "endMs": 20461
+        },
+        {
+          "text": "是",
+          "startMs": 20489,
+          "endMs": 20638
+        },
+        {
+          "text": "二",
+          "startMs": 20652,
+          "endMs": 20910
+        },
+        {
+          "text": "x。",
+          "startMs": 20910,
+          "endMs": 21413
+        },
+        {
+          "text": "最后",
+          "startMs": 22024,
+          "endMs": 22432
+        },
+        {
+          "text": "记住，",
+          "startMs": 22445,
+          "endMs": 22948
+        },
+        {
+          "text": "导数",
+          "startMs": 23274,
+          "endMs": 23804
+        },
+        {
+          "text": "既",
+          "startMs": 23831,
+          "endMs": 23980
+        },
+        {
+          "text": "描述",
+          "startMs": 23994,
+          "endMs": 24456
+        },
+        {
+          "text": "切线",
+          "startMs": 24483,
+          "endMs": 24864
+        },
+        {
+          "text": "斜率，",
+          "startMs": 24877,
+          "endMs": 25407
+        },
+        {
+          "text": "也",
+          "startMs": 25625,
+          "endMs": 25760
+        },
+        {
+          "text": "描述",
+          "startMs": 25774,
+          "endMs": 26277
+        },
+        {
+          "text": "变化",
+          "startMs": 26304,
+          "endMs": 26684
+        },
+        {
+          "text": "快慢。",
+          "startMs": 26698,
+          "endMs": 27228
+        }
+      ]
+    }
+  },
+  "timeline": {
+    "sha256": "00b71b6b61e4c6f598433469a9e4a47474b0634ce9c4479526957d055cbc613f",
+    "inputHash": "8c941ff9a3c228025fb2c778e4f88b52a59655adc89865f162d9c15bb55167bf",
+    "schemaVersion": "lip-sync-timeline-v1",
+    "driverVersion": "lip-sync-driver-v1",
+    "configVersion": "lip-sync-config-v1",
+    "fps": 25,
+    "totalFrames": 697,
+    "runs": 195,
+    "statistics": {
+      "poseFrameCounts": {
+        "CLOSED": 144,
+        "SMALL": 56,
+        "MEDIUM": 80,
+        "LARGE": 163,
+        "ROUND": 254
+      },
+      "boundaryCount": 62,
+      "boundaryCoverage": 0.7882572494975596,
+      "roundCoverage": 0.4593128390596745,
+      "maximumOpeningStep": 1,
+      "longestSilenceCloseResponseMs": 0
+    },
+    "deterministicRepeatHash": "00b71b6b61e4c6f598433469a9e4a47474b0634ce9c4479526957d055cbc613f",
+    "deterministicRepeatEqual": true
+  },
+  "assets": {
+    "avatarAssetVersion": "mouth-v1",
+    "bundleFingerprint": "c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8",
+    "roiOutsideChangedPixels": 0
+  },
+  "video": {
+    "absolutePath": "D:\\Workspace\\projects\\web\\数字人前端\\backend\\work\\lip-sync-zhou-demo\\final-v4\\zhou-lip-sync-demo.mp4",
+    "sha256": "65a799c02c8c1ff8119e6dee5f9fd400db43e68beb6e0a118ac82589f6e80cfe",
+    "bytes": 604076,
+    "codec": "h264",
+    "audioCodec": "aac",
+    "pixelFormat": "yuv420p",
+    "width": 1920,
+    "height": 1080,
+    "fps": "25/1",
+    "formatDurationMs": 27907,
+    "videoDurationMs": 27880,
+    "audioDurationMs": 27864,
+    "avTimelineErrorMs": 16,
+    "fastStart": true,
+    "fullDecode": true,
+    "meanDb": -19.6,
+    "peakDb": -3.3
+  },
+  "gates": {
+    "completeDecode": true,
+    "h264AacYuv420p": true,
+    "fpsMatches": true,
+    "avTimelineWithinOneFrame": true,
+    "smoothOpening": true,
+    "silenceCloseWithinTwoFrames": true,
+    "energyOnlyHasNoRound": true,
+    "roiStable": true,
+    "deterministicTimeline": true,
+    "cacheRetryCancelRegression": true,
+    "placementSafe": true
+  },
+  "manualPreview": {
+    "status": "PASS",
+    "inspected": [
+      "static pose assets at 100% and 400%",
+      "generated video representative frames"
+    ],
+    "notes": [
+      "Fixed base keeps hair, glasses, face, clothing and body stable.",
+      "Avatar stays in the dedicated right panel and does not cover the slide or subtitle-safe area.",
+      "Final playback remains subject to user acceptance."
+    ]
+  },
+  "knownLimitations": [
+    "This is deterministic five-pose lip animation, not phoneme-level forced alignment.",
+    "Edge TTS is the current development adapter, not a production SLA commitment."
+  ],
+  "hashes": {
+    "text": "a4a583f3099141e2dea20e4c00c263cbecbb9edf37f9a2c89cd2b968f467a83e",
+    "audio": "2ebb45e2681f42420459eefe355ca72fe5d50a45f5358c7997846b72d71aa1ae",
+    "timeline": "00b71b6b61e4c6f598433469a9e4a47474b0634ce9c4479526957d055cbc613f",
+    "avatarBundle": "c86ddb2aabb5b8165cd2c0eb1ca3d5adaa15de227baa1fc84450f9eeca78e2a8",
+    "video": "65a799c02c8c1ff8119e6dee5f9fd400db43e68beb6e0a118ac82589f6e80cfe"
+  }
+}

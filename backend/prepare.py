@@ -21,6 +21,10 @@ from backend.contracts import (
     normalize_scene_payload,
     write_json,
 )
+from backend.env import load_local_env
+
+
+load_local_env()
 
 
 MATH_NAMESPACE = "http://schemas.openxmlformats.org/officeDocument/2006/math"
@@ -173,7 +177,8 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
 
     for slide_index, slide in enumerate(presentation.slides, 1):
         blocks: list[dict[str, Any]] = []
-        for shape in iter_shapes(slide.shapes):
+        flattened_shapes = list(iter_shapes(slide.shapes))
+        for shape in flattened_shapes:
             text = shape_text(shape)
             if not text:
                 continue
@@ -229,6 +234,9 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 formula_sources, 1
             )
         ]
+        warnings = []
+        if any(shape.shape_type == MSO_SHAPE_TYPE.PICTURE for shape in flattened_shapes):
+            warnings.append("页面包含图片；图片公式 OCR 已延期，请人工核对图片中是否存在公式。")
         slide_type = classify_slide(
             title, all_text, slide_index, len(presentation.slides)
         )
@@ -241,6 +249,7 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 "extractedText": all_text,
                 "notes": extract_notes(slide),
                 "formulas": formulas,
+                "warnings": warnings,
                 "thumbnail": f"slides/slide-{slide_index:03d}.png",
             }
         )
@@ -307,23 +316,37 @@ def render_with_powerpoint(pptx_path: Path, output_dir: Path) -> str:
 
 
 def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
+    import pypdfium2 as pdfium
+
     soffice = find_program(
-        ["soffice", "libreoffice"],
+        ["soffice.com", "soffice", "libreoffice"],
         [
+            Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
             Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
             Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"),
         ],
     )
-    pdftoppm = find_program(["pdftoppm"])
-    if not soffice or not pdftoppm:
-        raise RuntimeError("LibreOffice and pdftoppm are required")
+    if not soffice:
+        raise RuntimeError("LibreOffice is required")
 
     with tempfile.TemporaryDirectory(prefix="ppt-render-") as temp_value:
         temp_dir = Path(temp_value)
+        profile_dir = temp_dir / "libreoffice-profile"
+        # A headless renderer must not inherit a desktop Office profile: it can be
+        # locked by an interactive instance or block on first-run UI.  Keep the
+        # profile inside this invocation's temporary directory so a retry starts
+        # cleanly and the worker can reclaim all of its state.
+        profile_uri = profile_dir.resolve().as_uri()
         subprocess.run(
             [
                 soffice,
                 "--headless",
+                "--nologo",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--norestore",
+                f"-env:UserInstallation={profile_uri}",
                 "--convert-to",
                 "pdf",
                 "--outdir",
@@ -334,37 +357,90 @@ def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=120,
         )
         pdf_path = temp_dir / f"{pptx_path.stem}.pdf"
         if not pdf_path.exists():
             raise RuntimeError("LibreOffice did not create a PDF")
-        prefix = temp_dir / "slide"
+        document = pdfium.PdfDocument(str(pdf_path))
+        try:
+            if len(document) == 0:
+                raise RuntimeError("LibreOffice produced an empty PDF")
+            for index in range(len(document)):
+                page = document[index]
+                bitmap = None
+                image = None
+                try:
+                    page_width, page_height = page.get_size()
+                    scale = 1920 / max(page_width, page_height)
+                    bitmap = page.render(scale=scale)
+                    image = bitmap.to_pil()
+                    image.save(output_dir / f"slide-{index + 1:03d}.png", "PNG")
+                finally:
+                    if image is not None:
+                        image.close()
+                    if bitmap is not None:
+                        bitmap.close()
+                    page.close()
+        finally:
+            document.close()
+    return "libreoffice"
+
+
+def convert_legacy_ppt(source_path: Path, output_path: Path) -> None:
+    soffice = find_program(
+        ["soffice.com", "soffice", "libreoffice"],
+        [
+            Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
+            Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"),
+        ],
+    )
+    if not soffice:
+        raise RuntimeError("旧版 PPT 转换需要 LibreOffice")
+    with tempfile.TemporaryDirectory(prefix="ppt-convert-") as temp_value:
+        temp_dir = Path(temp_value)
+        profile_uri = (temp_dir / "libreoffice-profile").resolve().as_uri()
         subprocess.run(
-            [pdftoppm, "-png", "-r", "144", str(pdf_path), str(prefix)],
+            [
+                soffice,
+                "--headless",
+                "--nologo",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--norestore",
+                f"-env:UserInstallation={profile_uri}",
+                "--convert-to",
+                "pptx",
+                "--outdir",
+                str(temp_dir),
+                str(source_path.resolve()),
+            ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
         )
-        rendered = sorted(temp_dir.glob("slide-*.png"))
-        if not rendered:
-            raise RuntimeError("pdftoppm did not render any slides")
-        for index, image_path in enumerate(rendered, 1):
-            shutil.copy2(image_path, output_dir / f"slide-{index:03d}.png")
-    return "libreoffice"
+        converted = temp_dir / f"{source_path.stem}.pptx"
+        if not converted.exists() or converted.stat().st_size == 0:
+            raise RuntimeError("LibreOffice 未生成 PPTX 转换结果")
+        shutil.copy2(converted, output_path)
 
 
 def render_slides(pptx_path: Path, output_dir: Path) -> tuple[str, str | None]:
     output_dir.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
+    try:
+        return render_with_libreoffice(pptx_path, output_dir), None
+    except Exception as exc:
+        errors.append(f"LibreOffice: {exc}")
     if sys.platform == "win32":
         try:
             return render_with_powerpoint(pptx_path, output_dir), None
         except Exception as exc:
             errors.append(f"PowerPoint: {exc}")
-    try:
-        return render_with_libreoffice(pptx_path, output_dir), None
-    except Exception as exc:
-        errors.append(f"LibreOffice: {exc}")
     return "unavailable", "; ".join(errors)
 
 
@@ -468,7 +544,9 @@ def plan_with_llm(
     from openai import OpenAI
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
-    model = os.getenv("LLM_MODEL", "deepseek-chat")
+    model = os.getenv("LLM_MODEL")
+    if not model:
+        raise ContractError("LLM_MODEL is required when an LLM API key is configured")
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=120)
     compact_slides = [
         {
@@ -538,11 +616,17 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse a PPTX and generate reviewable teaching scenes."
     )
-    parser.add_argument("--input", required=True, help="input .pptx path")
+    parser.add_argument("--input", required=True, help="input .ppt or .pptx path")
     parser.add_argument("--job-dir", required=True, help="job output directory")
     parser.add_argument("--audience", default="大学一年级学生")
     parser.add_argument("--style", default="详细推导、通俗讲解")
     parser.add_argument("--target-minutes", type=int, default=12)
+    parser.add_argument(
+        "--planner",
+        choices=("auto", "rules"),
+        default="auto",
+        help="use the configured model automatically, or force the deterministic local planner",
+    )
     parser.add_argument(
         "--auto-approve",
         action="store_true",
@@ -562,12 +646,14 @@ def main() -> int:
     job_dir = Path(args.job_dir).expanduser().resolve()
     if not source_path.exists():
         raise FileNotFoundError(source_path)
-    if source_path.suffix.lower() != ".pptx":
-        raise ValueError("当前MVP只直接支持.pptx；旧.ppt请先转换为.pptx")
+    if source_path.suffix.lower() not in {".ppt", ".pptx"}:
+        raise ValueError("当前MVP只支持 .ppt 或 .pptx")
 
     job_dir.mkdir(parents=True, exist_ok=True)
     source_copy = job_dir / "source.pptx"
-    if source_path != source_copy:
+    if source_path.suffix.lower() == ".ppt":
+        convert_legacy_ppt(source_path, source_copy)
+    elif source_path != source_copy:
         shutil.copy2(source_path, source_copy)
 
     deck = extract_deck(source_copy)
@@ -583,30 +669,37 @@ def main() -> int:
 
     planner = "rules"
     planner_error = None
-    try:
-        raw_scenes = plan_with_llm(
-            deck,
-            audience=args.audience,
-            style=args.style,
-            target_minutes=args.target_minutes,
-        )
-        if raw_scenes is None:
-            raw_scenes = fallback_scene_payload(deck)
-        else:
-            planner = "llm"
-        scenes = normalize_scene_payload(
-            raw_scenes,
-            slide_count=deck["slideCount"],
-            default_title=deck["courseTitle"],
-        )
-    except Exception as exc:
-        planner = "rules-fallback"
-        planner_error = str(exc)
+    if args.planner == "rules":
         scenes = normalize_scene_payload(
             fallback_scene_payload(deck),
             slide_count=deck["slideCount"],
             default_title=deck["courseTitle"],
         )
+    else:
+        try:
+            raw_scenes = plan_with_llm(
+                deck,
+                audience=args.audience,
+                style=args.style,
+                target_minutes=args.target_minutes,
+            )
+            if raw_scenes is None:
+                raw_scenes = fallback_scene_payload(deck)
+            else:
+                planner = "llm"
+            scenes = normalize_scene_payload(
+                raw_scenes,
+                slide_count=deck["slideCount"],
+                default_title=deck["courseTitle"],
+            )
+        except Exception as exc:
+            planner = "rules-fallback"
+            planner_error = str(exc)
+            scenes = normalize_scene_payload(
+                fallback_scene_payload(deck),
+                slide_count=deck["slideCount"],
+                default_title=deck["courseTitle"],
+            )
 
     scenes["sourceFile"] = source_copy.name
     scenes["planner"] = planner

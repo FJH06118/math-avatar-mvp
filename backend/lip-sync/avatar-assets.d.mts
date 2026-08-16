@@ -1,0 +1,2 @@
+import type { AvatarCatalog, AvatarMouthManifest } from "@ppt-digital-human/contracts";
+export function loadAvatarBundle(assetRoot: string, requestedAvatarId: string): Promise<{ catalog: AvatarCatalog; manifest: AvatarMouthManifest; base: { path: string; bytes: Uint8Array; metadata: unknown }; poses: Record<"CLOSED" | "SMALL" | "MEDIUM" | "LARGE" | "ROUND", { path: string; bytes: Uint8Array; metadata: unknown }>; root: string; manifestPath: string }>;

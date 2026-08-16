@@ -2,16 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRightIcon,
   CheckCircle2Icon,
   RotateCcwIcon,
   SquareIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
-import { LoadingState } from "@/components/feedback/loading-state";
+import { TaskFlowSkeleton } from "@/components/feedback/task-flow-skeleton";
 import { PageContainer } from "@/components/layout/page-container";
 import { WorkflowFrame } from "@/components/layout/workflow-frame";
 import {
@@ -32,6 +34,7 @@ import {
   createParsingJob,
   getUserFacingErrorMessage,
   getJob,
+  getEnabledTracerApiAdapter,
   retryJob,
 } from "@/lib/api";
 import type { Job } from "@/types";
@@ -50,6 +53,7 @@ export function ParsingFlow({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState(initialJobId);
+  const realAdapter = getEnabledTracerApiAdapter();
 
   const createJobMutation = useMutation({
     mutationFn: () => createParsingJob(projectId),
@@ -76,6 +80,26 @@ export function ParsingFlow({
     },
   });
 
+  const snapshotQuery = useQuery({
+    queryKey: ["parse-snapshot", jobId],
+    queryFn: () => realAdapter!.getParseSnapshot(jobId as string),
+    enabled: Boolean(
+      realAdapter &&
+        jobId &&
+        jobQuery.data?.status !== "failed" &&
+        jobQuery.data?.status !== "cancelled",
+    ),
+    refetchInterval: (query) => {
+      const task = query.state.data?.task;
+      return jobQuery.data?.status === "completed" ||
+        task?.status === "SUCCEEDED" ||
+        task?.status === "FAILED" ||
+        task?.status === "CANCELLED"
+        ? false
+        : 1_000;
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (id: string) => cancelJob(id),
     onSuccess: (job) =>
@@ -83,7 +107,7 @@ export function ParsingFlow({
   });
 
   const retryMutation = useMutation({
-    mutationFn: (id: string) => retryJob(id),
+    mutationFn: (id: string) => retryJob(id, {}, { projectId }),
     onSuccess: (job) =>
       queryClient.setQueryData<Job>(["jobs", job.id], job),
   });
@@ -91,7 +115,7 @@ export function ParsingFlow({
   const job = jobQuery.data;
 
   useEffect(() => {
-    if (job?.status !== "completed") {
+    if (realAdapter || job?.status !== "completed") {
       return;
     }
     const timer = window.setTimeout(
@@ -99,17 +123,10 @@ export function ParsingFlow({
       900,
     );
     return () => window.clearTimeout(timer);
-  }, [job?.status, projectId, router]);
+  }, [job?.status, projectId, realAdapter, router]);
 
   if (createJobMutation.isPending || (!jobId && !createJobMutation.isError)) {
-    return (
-      <PageContainer className="py-10 sm:py-14">
-        <LoadingState
-          title="正在创建解析任务"
-          description="即将开始检查课件内容。"
-        />
-      </PageContainer>
-    );
+    return <TaskFlowSkeleton title="正在创建课件解析任务" />;
   }
 
   if (createJobMutation.isError) {
@@ -129,14 +146,7 @@ export function ParsingFlow({
   }
 
   if (jobQuery.isPending) {
-    return (
-      <PageContainer className="py-10 sm:py-14">
-        <LoadingState
-          title="正在读取解析进度"
-          description="解析任务已经开始，请稍候。"
-        />
-      </PageContainer>
-    );
+    return <TaskFlowSkeleton title="正在读取课件解析进度" />;
   }
 
   if (jobQuery.isError || !job) {
@@ -183,7 +193,7 @@ export function ParsingFlow({
         </Badge>
       }
       actions={
-        job.status === "running" ? (
+        job.status === "running" || job.status === "queued" ? (
           <ConfirmDialog
             title="取消课件解析？"
             description="当前解析进度会停止，你可以稍后从项目列表重新开始。"
@@ -232,7 +242,7 @@ export function ParsingFlow({
           </Alert>
         ) : null}
 
-        {job.status === "failed" ? (
+        {job.status === "failed" && !realAdapter ? (
           <ErrorState
             title="课件解析失败"
             description={job.error ?? "解析过程中发生错误，请重新解析。"}
@@ -242,7 +252,7 @@ export function ParsingFlow({
           />
         ) : null}
 
-        {job.status === "cancelled" ? (
+        {job.status === "cancelled" && !realAdapter ? (
           <Alert>
             <AlertTitle>解析任务已取消</AlertTitle>
             <AlertDescription>
@@ -261,9 +271,85 @@ export function ParsingFlow({
           </Alert>
         ) : null}
 
+        {realAdapter && job.status === "failed" ? (
+          <ErrorState
+            title="课件解析失败"
+            description={job.error ?? "服务端解析失败，请重新上传课件创建新任务。"}
+          />
+        ) : null}
+
+        {realAdapter && job.status === "cancelled" ? (
+          <Alert>
+            <AlertTitle>解析任务已取消</AlertTitle>
+            <AlertDescription>
+              已完成的工作不会被伪装为成功。如需再次解析，请重新上传课件。
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {realAdapter && snapshotQuery.isError ? (
+          <ErrorState
+            title="原页与解析结果加载失败"
+            description={getUserFacingErrorMessage(
+              snapshotQuery.error,
+              "解析任务存在，但原页资产暂时无法读取。为避免展示重建页面，当前流程已阻止继续。",
+            )}
+            onRetry={() => snapshotQuery.refetch()}
+            isRetrying={snapshotQuery.isFetching}
+          />
+        ) : null}
+
+        {realAdapter && snapshotQuery.data?.slides.length ? (
+          <section className="space-y-4" aria-labelledby="parsed-pages-title">
+            <div>
+              <h2 id="parsed-pages-title" className="text-lg font-semibold">
+                原页核对
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                共 {snapshotQuery.data.slides.length} 页。下列内容直接来自服务端持久化原页，不使用文本重建。
+              </p>
+            </div>
+            <ol className="grid gap-4 sm:grid-cols-2">
+              {snapshotQuery.data.slides.map((slide) => (
+                <li
+                  key={slide.id}
+                  className="overflow-hidden rounded-xl border border-foreground/15 bg-background"
+                >
+                  <Image
+                    src={slide.originalPage.url}
+                    alt={`第 ${slide.slideNumber} 页原页：${slide.title}`}
+                    width={640}
+                    height={360}
+                    unoptimized
+                    className="aspect-video w-full border-b border-foreground/10 object-contain"
+                  />
+                  <div className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-medium">
+                        第 {slide.slideNumber} 页 · {slide.title}
+                      </h3>
+                      <Badge variant="outline">{slide.formulaCount} 个公式</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      解析置信度 {Math.round(slide.parseConfidence * 100)}%
+                    </p>
+                    {slide.parseWarnings.length ? (
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700 dark:text-amber-300">
+                        {slide.parseWarnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+
         <JobStageList stages={job.stages} />
 
-        {job.status === "cancelled" ? (
+        {job.status === "cancelled" && !realAdapter ? (
           <Button
             type="button"
             className="self-start"
@@ -276,6 +362,17 @@ export function ParsingFlow({
               <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
             )}
             重新开始解析
+          </Button>
+        ) : null}
+
+        {job.status === "completed" && realAdapter && !snapshotQuery.isError ? (
+          <Button
+            type="button"
+            className="self-start"
+            onClick={() => router.push(`/projects/${projectId}`)}
+          >
+            进入项目工作台
+            <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
           </Button>
         ) : null}
       </section>
