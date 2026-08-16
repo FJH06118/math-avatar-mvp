@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { FirstRunGuard } from "@/components/settings/first-run-guard";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,6 +23,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{children}</TooltipProvider>
+      <FirstRunGuard />
     </QueryClientProvider>
   );
 }

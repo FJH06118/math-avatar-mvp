@@ -16,6 +16,7 @@ export * from "./primitives";
 export * from "./project";
 export * from "./review";
 export * from "./render";
+export * from "./runtime-health";
 export * from "./scene";
 export * from "./slide";
 export * from "./task";

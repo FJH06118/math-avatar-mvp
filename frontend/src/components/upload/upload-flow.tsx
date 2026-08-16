@@ -8,6 +8,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { ErrorState } from "@/components/feedback/error-state";
@@ -34,12 +35,14 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   createParsingJob,
   createProject,
+  assertReadyDefaultProvider,
   getEnabledTracerApiAdapter,
   getUserFacingErrorMessage,
   uploadPresentation,
 } from "@/lib/api";
 
 import { UploadDropzone } from "./upload-dropzone";
+import { RealApiError } from "@/lib/api/real-tracer";
 
 interface UploadMutationInput {
   file: File;
@@ -89,6 +92,7 @@ export function UploadFlow() {
       abortControllerRef.current = controller;
       setUploadPhase("uploading");
       if (realAdapter) {
+        await assertReadyDefaultProvider(controller.signal);
         const receipt = await realAdapter.uploadPresentation({
           title: getProjectTitle(file.name),
           file,
@@ -130,6 +134,7 @@ export function UploadFlow() {
 
   const isUploading = uploadMutation.isPending;
   const isSuccess = uploadMutation.isSuccess;
+  const providerSetupRequired = uploadMutation.error instanceof RealApiError && uploadMutation.error.code === "PROVIDER_NOT_CONFIGURED";
 
   function handleFileAccepted(file: File) {
     setSelectedFile(file);
@@ -302,6 +307,15 @@ export function UploadFlow() {
           onRetry={retryUpload}
           isRetrying={uploadMutation.isPending}
         />
+      ) : null}
+
+      {providerSetupRequired ? (
+        <Alert>
+          <AlertTitle>上传前需要完成 Provider 设置</AlertTitle>
+          <AlertDescription>
+            <Link className="underline underline-offset-4" href="/setup">打开首次启动设置</Link>，保存并测试默认 Provider 后再重试上传。
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {isSuccess ? (

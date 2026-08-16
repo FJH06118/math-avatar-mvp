@@ -39,6 +39,7 @@ import {
   getJob,
   retryJob,
   retryWorkflowJob,
+  publishDesktopWorkflowState,
 } from "@/lib/api";
 import { getEnabledTracerApiAdapter } from "@/lib/api/tracer-adapter";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,22 @@ export function GenerationFlow({
   });
 
   const job = jobQuery.data;
+
+  useEffect(() => {
+    void publishDesktopWorkflowState({
+      status: !job
+        ? "idle"
+        : job.status === "completed"
+          ? "succeeded"
+          : job.status === "failed"
+            ? "failed"
+            : job.status === "cancelled"
+              ? "cancelled"
+              : "running",
+      stage: job?.currentStageId ?? null,
+      progress: job?.progress ?? 0,
+    });
+  }, [job]);
 
   useEffect(() => {
     if (job?.status !== "completed") {

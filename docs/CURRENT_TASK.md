@@ -1,5 +1,17 @@
 # 当前任务
 
+## 2026-08-17 P6 首次启动、设置页和生产模式（本机收口，外部验证待补）
+
+- 已完成首次启动 `/setup`、设置 `/settings`、Provider 创建/编辑/密钥轮换/启用/默认选择/配置级连接测试，以及只返回非秘密字段的真实设置流程；没有 Provider 时真实上传在 BFF/Hono 两侧均被 `PROVIDER_NOT_CONFIGURED` 阻断。
+- 已新增严格 `runtime-health` Contract、Hono 健康/脱敏诊断端点、Next 同源 BFF、健康面板和浏览器诊断 JSON 导出。健康结果包含数据库/API/Provider/Edge TTS、桌面宿主、磁盘和 Workflow 状态，不含路径、端口、密钥或堆栈。
+- 真实生产模式默认使用 real adapter；打包桌面进程启动时拒绝 Mock/stage-t/非法模式。桌面 preload 仅暴露公开运行时快照、一次显式 retry 和脱敏 Workflow 状态；主进程增加托盘、磁盘告警和后台工作流状态展示。
+- P6 本地专项：共享 Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 23 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build 均通过。
+- P6 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、125%/150% 缩放与键盘焦点、真实 Provider/Edge TTS、离线 staging、安装包、硬崩溃恢复和升级回滚仍为 `EXTERNAL_VALIDATION_PENDING`，不得写成已完成。
+
+## 下一阶段：P7 完整离线安装包与升级链路
+
+- 只处理 x64 安装包、捆绑运行时、版本/许可证清单、数据备份、升级回滚和卸载保留数据；不得跳过 clean VM 或把本机开发运行时探针当作发布证据。
+
 ## 2026-08-17 P5 服务端根工作流（本地收口，外部验证待补）
 
 - 已新增共享 `WorkflowRun` strict Contract、PostgreSQL `WorkflowRun` 模型与向前 migration；输入快照冻结已批准 revision、授课设置和 Provider 非秘密选择，公开投影只返回稳定 ID、阶段、进度和脱敏错误。
@@ -7,10 +19,6 @@
 - 生成页真实模式现在只创建/轮询一个 WorkflowRun，浏览器不再创建下一阶段；结果页仍使用最终 `VALIDATE` task 读取交付清单。Mock 链路保持兼容。
 - P5 专项已通过：WorkflowRun PostgreSQL integration 3/3，覆盖同幂等键重放、过期租约恢复、全阶段服务端推进、根取消向子任务传播、重试新子任务和最终验证失败不完成。
 - P5 结论为 `PASS_WITH_EVIDENCE_GAPS`：本机真实数据库与现有 Worker 语义已验证；实际 Windows 宿主重启、外部 TTS/FFmpeg 子进程硬崩溃回收、clean VM、离线 staging、正式 migration runtime 和升级回滚仍属于 `EXTERNAL_VALIDATION_PENDING`。
-
-## 下一阶段：P6 首次启动、设置页和生产模式
-
-- P6 只处理 Windows 首次启动向导、Provider/Edge 设置、健康面板、诊断导出和生产模式禁止 Mock；不得把安装器、签名或 clean VM 验收提前写成完成。
 
 ## 2026-08-17 P4 讲稿审核、双文本编辑与真实设置收敛（本地收口，外部验证待补）
 

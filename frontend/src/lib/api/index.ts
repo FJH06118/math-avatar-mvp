@@ -3,6 +3,7 @@ export * from "./jobs";
 export * from "./projects";
 export * from "./provider-client";
 export * from "./real-tracer";
+export * from "./runtime-client";
 export * from "./tracer-adapter";
 export * from "./renders";
 export { getUserFacingErrorMessage } from "./shared";

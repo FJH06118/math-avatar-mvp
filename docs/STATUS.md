@@ -1,5 +1,13 @@
 # 项目状态
 
+## 2026-08-17 P6 首次启动、设置页和生产模式
+
+- 已接入首次启动 `/setup`、设置 `/settings`、Provider profile 的创建/编辑/密钥轮换/启用/默认选择/配置级连接测试；完整 Key 仍只经既有桌面主进程安全存储边界流转，浏览器只接收非秘密状态。真实生产上传在服务端再次检查默认 Provider，未配置时返回 `PROVIDER_NOT_CONFIGURED`。
+- 已新增 `runtime-health` strict Contract、Hono `/v1/runtime/health` 与 `/v1/runtime/diagnostic`、Next 同源 BFF、健康面板和脱敏诊断 JSON 导出。数据库、API、Provider、Edge TTS、桌面宿主、磁盘和 Workflow 状态均有稳定状态与中文行动提示。
+- 生产模式在网页端默认选择 real adapter；打包 Electron 进程拒绝 `mock`、`stage-t` 和非法模式。桌面 preload 只暴露公开快照、一次显式 retry 和脱敏工作流状态；主进程已接入托盘、磁盘空间分类和后台任务状态展示。
+- 本地证据：Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 23 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build，以及 Python backend:test 13/13 均通过。
+- 结论：`PASS_WITH_EVIDENCE_GAPS`。clean Windows 10/11、真实 Provider/Edge TTS、键盘焦点与 125%/150% 缩放、完整离线 staging、安装包、硬崩溃回收和升级回滚仍为 `EXTERNAL_VALIDATION_PENDING`。
+
 ## 2026-08-17 P5 服务端根工作流
 
 - 已新增 `WorkflowRun` Contract、`WorkflowRun` Prisma 模型和两次向前 migration（根工作流表、重试幂等键）；根输入快照保存批准 revision ID、实际授课设置和 Provider 非秘密快照。

@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-44 P6 打包生产模式与脱敏运行时健康边界
+
+- **决策**：网页真实模式默认使用生产 adapter；打包 Electron 启动时只接受 `production`，Mock/stage-t/非法值直接进入失败快照。首次启动必须先完成 Provider 配置，上传接口在服务端再次阻断未配置默认 Provider。
+- **原因**：不能让发布包静默回退 Mock，也不能让用户在没有可用 Provider 时进入必然失败的长任务；启动和上传两层门禁可分别覆盖配置漂移与绕过前端的请求。
+- **影响**：健康/诊断只返回严格、脱敏的状态、版本、延迟和行动提示；磁盘、桌面宿主和 Workflow 状态通过 preload 公共投影接入，API Key、路径、端口、命令行和堆栈永不进入 renderer 或诊断下载。Edge TTS 在真实试听/外部验证前保持 WARN。安装包、clean VM、硬崩溃恢复和升级回滚仍是 P7/P8 门禁。
+
 ### D-43 P5 使用 WorkflowRun 作为生成链唯一根事实来源
 
 - **决策**：正式生成由一次幂等 `WorkflowRun` 创建开始；服务端 orchestrator 依次创建/等待 AUDIO、PAGE_RENDER、COMPOSITE 和 VALIDATE 子任务。浏览器只轮询根公共投影，不再在阶段成功后创建下一阶段。

@@ -30,9 +30,10 @@ import {
   updateRealTeachingSettings,
 } from "./real-tracer";
 import { normalizeSupportedTeachingSettings } from "./teaching-settings";
+import { isRealTracerApiMode } from "./tracer-adapter";
 
 function realProjectsEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PPT_DH_API_MODE === "stage-t";
+  return isRealTracerApiMode();
 }
 
 export async function listProjects(

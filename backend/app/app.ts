@@ -57,12 +57,14 @@ import { ProviderRepository } from "./provider-repository.ts";
 import { ProviderService } from "./provider-service.ts";
 import { UnavailableSecretClient, type SecretClient } from "./secret-client.ts";
 import { WorkflowRunRepository } from "./workflow-repository.ts";
+import { createRuntimeHealthRoutes } from "./runtime-health-routes.ts";
 
 export interface AppDependencies {
   prisma: PrismaClient;
   assetRoot: string;
   internalToken: string;
   secretClient?: SecretClient;
+  requireProviderForUpload?: boolean;
 }
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -84,6 +86,8 @@ export function createApplication(dependencies: AppDependencies): Hono {
     dependencies.secretClient ?? new UnavailableSecretClient(),
   );
   const workflows = new WorkflowRunRepository(dependencies.prisma);
+  const requireProviderForUpload =
+    dependencies.requireProviderForUpload ?? process.env.PPT_DH_REQUIRE_PROVIDER === "true";
 
   app.get("/health", (context) => context.json({ status: "ok" }));
 
@@ -91,6 +95,20 @@ export function createApplication(dependencies: AppDependencies): Hono {
     "/",
     createProviderRoutes({
       service: providerService,
+      authenticate: (context) =>
+        authenticate(
+          context.req.header("x-internal-token"),
+          context.req.header("x-principal"),
+          dependencies.internalToken,
+        ),
+    }),
+  );
+
+  app.route(
+    "/",
+    createRuntimeHealthRoutes({
+      prisma: dependencies.prisma,
+      providerService,
       authenticate: (context) =>
         authenticate(
           context.req.header("x-internal-token"),
@@ -190,6 +208,21 @@ export function createApplication(dependencies: AppDependencies): Hono {
       context.req.header("x-principal"),
       dependencies.internalToken,
     );
+    if (requireProviderForUpload) {
+      const provider = await dependencies.prisma.providerProfile.findFirst({
+        where: { principal, isDefault: true, enabled: true, keyConfigured: true },
+        select: { id: true },
+      });
+      if (!provider) {
+        throw new AppHttpError(
+          409,
+          "PROVIDER_NOT_CONFIGURED",
+          "请先在设置页配置并测试默认 Provider，再上传课件。",
+          false,
+          { action: "/setup" },
+        );
+      }
+    }
     const declaredLength = Number(context.req.header("content-length") ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES + 1024 * 1024) {
       throw new AppHttpError(413, "FILE_TOO_LARGE", "文件不能超过 100 MB。", false);

@@ -1,5 +1,13 @@
 # 当前真实架构
 
+## 2026-08-17 P6 首次启动、生产设置和运行时健康
+
+- 真实生产流为 `BrowserWindow sandboxed renderer -> Next 同源 BFF -> Hono /v1 -> Prisma/Worker`。`/setup` 负责首次 Provider 配置，`/settings` 复用同一 Provider 面板和运行时健康面板；浏览器不能直接接触数据库、Provider 密钥、文件路径或子进程。
+- Provider 设置使用已有 `BrowserWindow -> Next BFF -> Hono -> Electron main secret IPC -> safeStorage/DPAPI` 密钥边界。Provider 创建、更新、轮换和连接测试只返回 `keyConfigured/keyLast4/keyVersion` 等非秘密字段；真实上传由服务端再次验证默认 Provider。
+- 健康面板从 `/v1/runtime/health` 获取数据库、API、Provider、Edge TTS、桌面宿主、磁盘和 Workflow 的严格公共投影；诊断端点和浏览器下载只产生脱敏 JSON。Edge TTS 尚未进行外部试听时保持 `WARN`，不伪造 READY。
+- Electron 主进程在打包模式默认 `production`，拒绝 Mock/stage-t；preload 仅暴露 `getInfo`、一次显式 `retryRuntime` 和严格的脱敏 Workflow 状态。托盘显示运行时/工作流状态，磁盘空间只返回分类和容量，不返回用户路径。
+- 生成页仍由服务端 `WorkflowRun` 推进阶段，并把状态通过脱敏 IPC 投影到桌面托盘；关闭 renderer 不会获得创建下一阶段或读取内部秘密的能力。
+
 ## 2026-08-17 P5 服务端 WorkflowRun 根编排
 
 - `WorkflowRun` 是生成页唯一的持久根聚合：输入 hash/snapshot、当前阶段、子任务 ID、重试/取消状态、根租约和最终错误均落在 PostgreSQL。输入快照不含 API Key，只含 Provider 的非秘密选择和已批准 revision ID。

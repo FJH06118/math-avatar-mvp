@@ -1,6 +1,6 @@
 "use client";
 
-import { SigmaIcon } from "lucide-react";
+import { SettingsIcon, SigmaIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -86,6 +86,13 @@ export function TopNavigation() {
                 )}
               >
                 新建课程
+              </Link>
+              <Link
+                href="/settings"
+                aria-label="打开系统设置"
+                className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+              >
+                <SettingsIcon aria-hidden="true" />
               </Link>
             </nav>
           ) : null}

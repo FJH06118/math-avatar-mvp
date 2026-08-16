@@ -23,6 +23,8 @@ import {
   ProviderProfileListResponseSchema,
   ProviderProfileResponseSchema,
   ProviderTestResponseSchema,
+  RuntimeDiagnosticResponseSchema,
+  RuntimeHealthResponseSchema,
   StableIdSchema,
 } from "@ppt-digital-human/contracts";
 
@@ -51,7 +53,7 @@ export function getApplicationConfig(): {
 
 export async function parseApplicationResponse(
   response: Response,
-  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "application-settings" | "provider-list" | "provider" | "provider-test" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list" | "workflow",
+  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "application-settings" | "provider-list" | "provider" | "provider-test" | "runtime-health" | "runtime-diagnostic" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list" | "workflow",
 ) {
   const body: unknown = await response.json();
   if (response.ok) {
@@ -65,6 +67,8 @@ export async function parseApplicationResponse(
     if (kind === "provider-list") return ProviderProfileListResponseSchema.parse(body);
     if (kind === "provider") return ProviderProfileResponseSchema.parse(body);
     if (kind === "provider-test") return ProviderTestResponseSchema.parse(body);
+    if (kind === "runtime-health") return RuntimeHealthResponseSchema.parse(body);
+    if (kind === "runtime-diagnostic") return RuntimeDiagnosticResponseSchema.parse(body);
     if (kind === "plan-task") return PlanTaskResponseSchema.parse(body);
     if (kind === "audio-task") return AudioTaskResponseSchema.parse(body);
     if (kind === "audio-timeline") return AudioTimelineResponseSchema.parse(body);

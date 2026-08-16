@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationFlow } from "./generation-flow";
 
 const mocks = vi.hoisted(() => ({
-  replace: vi.fn(), getJob: vi.fn(), getWorkflowJob: vi.fn(), createRenderJob: vi.fn(),
+  replace: vi.fn(), getJob: vi.fn(), getWorkflowJob: vi.fn(), createRenderJob: vi.fn(), publishDesktopWorkflowState: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: mocks.replace }) }));
@@ -14,6 +14,7 @@ vi.mock("@/lib/api", () => ({
   cancelJob: vi.fn(), cancelWorkflowJob: vi.fn(),
   createRenderJob: mocks.createRenderJob, getJob: mocks.getJob,
   getWorkflowJob: mocks.getWorkflowJob, retryJob: vi.fn(), retryWorkflowJob: vi.fn(),
+  publishDesktopWorkflowState: mocks.publishDesktopWorkflowState,
   getUserFacingErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 

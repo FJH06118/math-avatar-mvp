@@ -16,6 +16,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api", () => ({
   createParsingJob: vi.fn(),
   createProject: vi.fn(),
+  assertReadyDefaultProvider: vi.fn().mockResolvedValue({}),
   getEnabledTracerApiAdapter: () => ({
     uploadPresentation: mocks.uploadPresentation,
   }),

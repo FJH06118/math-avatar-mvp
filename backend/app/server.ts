@@ -13,6 +13,7 @@ const app = createApplication({
   assetRoot: config.assetRoot,
   internalToken: config.internalToken,
   secretClient: createIpcSecretClient(),
+  requireProviderForUpload: true,
 });
 
 const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: config.port }, (info) => {
