@@ -8,12 +8,16 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:package": "node scripts/build-package.mjs",
+    "pack:package": "npm run build:package && npm pack .package --pack-destination package-artifacts"
   },
   "dependencies": {
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "esbuild": "0.28.1",
+    "typescript": "5.9.3",
     "vitest": "^4.1.10"
   }
 }

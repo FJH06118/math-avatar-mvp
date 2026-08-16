@@ -8,10 +8,8 @@ import type { Overlay } from "@ppt-digital-human/contracts";
 import { WorkerError } from "./worker-error.ts";
 
 const require = createRequire(import.meta.url);
-const ffmpegValue = require("@ffmpeg-installer/ffmpeg") as string | { path?: string };
-const ffprobeValue = require("ffprobe-static") as string | { path?: string };
-const FFMPEG = typeof ffmpegValue === "string" ? ffmpegValue : ffmpegValue.path;
-const FFPROBE = typeof ffprobeValue === "string" ? ffprobeValue : ffprobeValue.path;
+const FFMPEG = process.env.PPT_DH_FFMPEG_PATH?.trim() || resolvePackageBinary("@ffmpeg-installer/ffmpeg");
+const FFPROBE = process.env.PPT_DH_FFPROBE_PATH?.trim() || resolvePackageBinary("ffprobe-static");
 const AVATAR_CLOSED = fileURLToPath(new URL("../assets/avatar/teacher-closed.png", import.meta.url));
 const AVATAR_OPEN = fileURLToPath(new URL("../assets/avatar/teacher-open.png", import.meta.url));
 const WIDTH = 1920;
@@ -19,6 +17,11 @@ const HEIGHT = 1080;
 const SLIDE = { left: 34, top: 104, width: 1500, height: 844 } as const;
 const CLOSED_MS = 120;
 const OPEN_MS = 100;
+
+function resolvePackageBinary(packageName: string): string | undefined {
+  const value = require(packageName) as string | { path?: string };
+  return typeof value === "string" ? value : value.path;
+}
 
 export interface PageRenderAdapterInput {
   sourcePath: string;

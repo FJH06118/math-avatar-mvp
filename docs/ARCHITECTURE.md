@@ -1,5 +1,13 @@
 # 当前真实架构
 
+## 2026-08-17 P1 桌面运行时适配
+
+- Next production build 使用 `output: "standalone"` 和 monorepo `outputFileTracingRoot`；桌面 staging 必须显式复制 `public` 与 `.next/static`。
+- Hono/Worker 可构建为 production ESM entry。Hono 显式绑定 `127.0.0.1`，两者只接受版本化 strict 父进程 IPC shutdown，并在数据库语义查询成功后发送 ready。
+- Next BFF 仍是 renderer 到 Hono 的唯一业务入口；本地生产 base URL 只能是无用户名、密码、query 或 fragment 的 loopback HTTP 地址。内部 token/principal 只存在于受管子进程环境。
+- 桌面 supervisor 与 safeStorage 位于独立桌面仓库；本仓库不包含 Electron 生命周期代码。P1 没有改变业务 Contract、Prisma schema、outbox/lease 调度或两态数字人生产路径。
+- 本机 probe 已验证 PostgreSQL -> Prisma migrate deploy -> Hono -> Worker -> Next standalone 的顺序与反序停止。正式 migration 制品和完整离线 runtime staging 尚未完成，不能视为发布架构已经闭环。
+
 > 更新于 2026-08-04。本文只描述代码中已经存在的实现；目标架构和候选技术见
 > `docs/DECISIONS.md`、`docs/ARCHITECTURE_DECISIONS.md` 与
 > `docs/IMPLEMENTATION_PLAN.md`。

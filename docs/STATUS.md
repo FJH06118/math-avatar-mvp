@@ -1,9 +1,25 @@
 # 项目状态
 
+## 2026-08-17 Windows 桌面 P1 本机纵切状态
+
+- `frontend/next.config.ts` 现生成 standalone；本机 staged 中文/空格目录已验证 Contract、Sharp、`public`、`.next/static`、首页和真实 BFF 路由。
+- `backend/app/server.ts`/`worker.ts` 只接受主进程 IPC 生命周期控制；Hono 仅绑定 loopback，二者在确认数据库/迁移可用后才报告 ready。`backend/runtime-dist/` 为 Git 忽略的 production ESM 探针制品，不是已发布 runtime。
+- 当前 Windows 普通用户已验证 PostgreSQL 18.4、Prisma 7.9.1 migrations、Hono、Worker 与 Next standalone 联合启动/停止，无测试 cluster、服务或运行目录残留。Electron safeStorage 跨两次启动可解密且明文不落盘。
+- 许可门选定 BtbN LGPL FFmpeg/ffprobe n8.1.2 候选与 Noto Sans CJK SC 2.004/OFL 1.1；发行仍须携带准确 notices、许可证和对应源码/构建信息。现有 libx264 调用与候选不兼容，是后续媒体阶段风险。
+- 准确结论：`PASS_WITH_EVIDENCE_GAPS`，未命中 P1 STOP；Windows 10/11 clean VM、完整离线 staging、正式 migration runtime、硬崩溃回收和升级回滚尚无证据，不能进入安装/发布结论。
+
+## 2026-08-17 P0-1 共享 Contract 跨仓库分发
+
+- 网页仓库新增 `@ppt-digital-human/contracts` 的独立 ESM/声明构建和本地 tarball 打包流程；源码仍只有一份，位于 `packages/contracts/src`。
+- 生成制品记录源仓库、源提交、包版本和 API schema 版本；桌面仓库以唯一文件名和 SHA-256 清单固定制品，安装时不依赖开发者机器上的兄弟仓库路径。
+- 桌面主进程 HTTP 客户端已使用共享公开错误 schema，新增测试验证制品哈希及共享成功/错误 schema 可执行。尚未新增真实项目、任务或媒体请求。
+- 本项不包含 API Key、DPAPI、Provider、运行时监督、安装包或视频生成；生产数字人仍为开口/闭口两态，L6 STOP 不变。
+- 验证结果：Contract 38/38、制品重建、typecheck、0-warning lint、backend:test 13/13 和 Next production build 严格串行通过；当前 P1 复核中桌面端 typecheck、lint、build、17 个测试通过/2 个按环境跳过，PostgreSQL、safeStorage 和全运行时探针均通过，测试进程树已关闭。
+
 ## 2026-08-15 仓库拆分与发布
 
 - 仓库职责已拆分：`math-avatar-mvp` 维护网页与共享服务，`math-avatar-desktop` 维护 Windows 桌面宿主、运行时监督、设置保护和安装升级。
-- 桌面仓库已公开发布为 P0 文档骨架，尚未有可安装程序或桌面运行时代码；它通过版本化 Contract/HTTP 接入当前共享服务，不复制后端业务实现。
+- 桌面仓库已公开发布 P0 文档骨架；当前本地工作树已增加 P0-1 Electron 最小宿主与 P1 本机运行时纵切，但尚未提交或推送，也仍无可安装程序。
 - 网页修复提交 `7fedf68` 已推送到 Draft PR [#1](https://github.com/FJH06118/math-avatar-mvp/pull/1)，PR 说明已更新为当前修复、拆分边界和验证命令。
 - 两个仓库均未提交 API Key、真实课件、媒体产物或本机绝对路径。当前仍需完成 Windows 宿主、Provider 适配、安装包和 GitHub CI/正式审查。
 

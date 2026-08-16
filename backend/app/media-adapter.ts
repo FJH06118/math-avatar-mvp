@@ -8,10 +8,13 @@ import { MediaValidationReportSchema } from "@ppt-digital-human/contracts";
 import { WorkerError } from "./worker-error.ts";
 
 const require = createRequire(import.meta.url);
-const ffmpegValue = require("@ffmpeg-installer/ffmpeg") as string | { path?: string };
-const ffprobeValue = require("ffprobe-static") as string | { path?: string };
-const FFMPEG = typeof ffmpegValue === "string" ? ffmpegValue : ffmpegValue.path;
-const FFPROBE = typeof ffprobeValue === "string" ? ffprobeValue : ffprobeValue.path;
+const FFMPEG = process.env.PPT_DH_FFMPEG_PATH?.trim() || resolvePackageBinary("@ffmpeg-installer/ffmpeg");
+const FFPROBE = process.env.PPT_DH_FFPROBE_PATH?.trim() || resolvePackageBinary("ffprobe-static");
+
+function resolvePackageBinary(packageName: string): string | undefined {
+  const value = require(packageName) as string | { path?: string };
+  return typeof value === "string" ? value : value.path;
+}
 
 export interface CompositeAdapterInput {
   pageVideoPaths: string[];

@@ -15,6 +15,7 @@ import { SharpFfmpegPageRenderAdapter } from "./render-adapter.ts";
 import { runClaimedRenderStep } from "./render-worker.ts";
 import { FfmpegCompositeAdapter, FfmpegMediaValidationAdapter } from "./media-adapter.ts";
 import { runClaimedCompositeStep, runClaimedValidationStep } from "./media-worker.ts";
+import { isRuntimeShutdownMessage, sendRuntimeReady } from "./runtime-control.ts";
 
 const config = loadWorkerConfig();
 const prisma = createProductPrismaClient(config.databaseUrl);
@@ -33,8 +34,13 @@ const validationAdapter = new FfmpegMediaValidationAdapter();
 
 process.once("SIGINT", () => abort.abort());
 process.once("SIGTERM", () => abort.abort());
+process.on("message", (message: unknown) => {
+  if (isRuntimeShutdownMessage(message)) abort.abort();
+});
 
 try {
+  await dispatchPendingOutbox(prisma);
+  sendRuntimeReady("worker");
   while (!abort.signal.aborted) {
     await dispatchPendingOutbox(prisma);
     const claim =

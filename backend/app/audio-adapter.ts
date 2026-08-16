@@ -7,12 +7,15 @@ import { WorkerError } from "./worker-error.ts";
 import { WordTimingCaptureSchema, type WordTimingCapture } from "@ppt-digital-human/contracts";
 
 const require = createRequire(import.meta.url);
-const ffprobeModule = require("ffprobe-static") as string | { path?: string };
-const FFPROBE = typeof ffprobeModule === "string" ? ffprobeModule : ffprobeModule.path;
-const ffmpegModule = require("@ffmpeg-installer/ffmpeg") as string | { path?: string };
-const FFMPEG = typeof ffmpegModule === "string" ? ffmpegModule : ffmpegModule.path;
+const FFPROBE = process.env.PPT_DH_FFPROBE_PATH?.trim() || resolvePackageBinary("ffprobe-static");
+const FFMPEG = process.env.PPT_DH_FFMPEG_PATH?.trim() || resolvePackageBinary("@ffmpeg-installer/ffmpeg");
 const CHILD = fileURLToPath(new URL("./edge-tts-child.mjs", import.meta.url));
 const MAX_OUTPUT = 16 * 1024;
+
+function resolvePackageBinary(packageName: string): string | undefined {
+  const value = require(packageName) as string | { path?: string };
+  return typeof value === "string" ? value : value.path;
+}
 
 export interface AudioAdapterInput {
   text: string;

@@ -398,6 +398,8 @@ STOP：
 
 ### P1：桌面运行时可行性纵切
 
+状态（2026-08-17）：本机实现与专项纵切完成，结论 `PASS_WITH_EVIDENCE_GAPS`。普通用户中文/空格路径下的 PostgreSQL、Prisma migration、Hono、Worker、Next standalone、safeStorage 与无残留停止均通过，未命中本节 STOP。尚缺干净 Windows 10/11 VM、完整离线 runtime staging、正式 migration 制品、Electron 单入口完整 staged 验证、宿主硬崩溃与升级回滚证据；不得据此进入安装或发布结论。
+
 目标：
 
 - 新建最小 desktop workspace。

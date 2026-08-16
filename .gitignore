@@ -5,6 +5,9 @@
 /frontend/node_modules/
 /backend/node_modules/
 /packages/*/node_modules/
+/packages/contracts/.package/
+/packages/contracts/package-artifacts/
+/backend/runtime-dist/
 /.pnp
 .pnp.*
 .yarn/*

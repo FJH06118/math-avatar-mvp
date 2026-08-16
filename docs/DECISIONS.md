@@ -5,6 +5,24 @@
 
 ## 已确定
 
+### D-36 共享 Contract 以可追溯 npm 制品跨仓库分发
+
+- **决策**：`packages/contracts/src` 继续作为唯一源码；从源目录干净的网页仓库构建 ESM npm tarball，桌面仓库通过本地 `file:` 依赖使用，并固定源提交、版本和 SHA-256。
+- **原因**：当前没有受信 registry/release 流水线。版本化本地制品可先满足离线安装、运行时 Zod 校验和跨仓库可追溯性，又不复制业务 schema 或绑定开发者机器的相邻目录。
+- **影响**：Contract 更新必须按“网页源码与测试 → 重新打包 → 桌面清单/依赖更新 → 两仓库回归”顺序执行；制品生成物不在网页仓库提交。该决策只完成 Contract 分发门，不表示桌面业务 API 或运行时已接通。
+
+### D-38 P1 后端制品保持构建输出，不复制业务源码到桌面仓库
+
+- **决策**：网页仓库用 esbuild 生成 Hono/Worker production ESM 探针制品，桌面只通过 runtime manifest/路径监督；业务源码和 Prisma migrations 继续唯一存在于网页仓库。
+- **原因**：复制后端实现会制造第二事实来源；直接用 tsx 源码启动也不能代表可捆绑生产制品。
+- **影响**：本机全纵切使用现有 Prisma CLI 验证迁移顺序，但正式独立 migration 制品、完整依赖 staging 和 clean VM 仍是明确缺口。P1 结论只能为 `PASS_WITH_EVIDENCE_GAPS`。
+
+### D-37 P1 桌面生命周期使用主进程 IPC 与数据库语义就绪
+
+- **决策**：Hono 显式绑定 `127.0.0.1`；Hono/Worker 只接受 strict、版本化父进程 IPC shutdown，并在实际数据库查询成功后发送 ready。Next BFF 上游配置只接受不含凭据的 loopback HTTP URL。
+- **原因**：TCP 开端口或进程存活不等于数据库迁移和业务服务可用；renderer 也不能成为进程控制或内部秘密边界。
+- **影响**：该 IPC 是桌面内部运行时协议，不扩展共享业务 Contract。P1 未改变 lease/outbox/任务调度语义，未新增 Provider 或真实密钥。
+
 ### D-35 网页与 Windows 软件拆为两个 GitHub 仓库
 
 - **决策**：`FJH06118/math-avatar-mvp` 作为网页与共享服务仓库，新增 `FJH06118/math-avatar-desktop` 作为 Windows 桌面软件仓库；桌面端只维护宿主、设置保护、运行时监督和安装升级，不复制后端业务代码。

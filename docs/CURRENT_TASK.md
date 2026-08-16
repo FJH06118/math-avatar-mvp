@@ -1,10 +1,27 @@
 # 当前任务
 
+## 2026-08-17 Windows 桌面 P1 本机运行时纵切
+
+- 用户已确认并仅执行 `WINDOWS_DESKTOP_SOFTWARE_PLAN.md` 的 P1。共享业务 Contract 未修改；没有实现设置、API Key、Provider、真实 LLM/Edge TTS、媒体工作流或安装包。
+- Next 已启用 standalone 与 monorepo tracing root；Hono 显式监听 `127.0.0.1`，Hono/Worker 在数据库语义检查成功后发送 strict IPC ready，并支持父进程正常停止。BFF 上游只接受无凭据 loopback HTTP URL。
+- 后端可生成 production Hono/Worker ESM bundle；FFmpeg/ffprobe 支持由桌面运行时注入绝对路径。现有媒体编码仍硬编码 libx264，尚未迁移到选定 LGPL 候选的 libopenh264，因此不得宣称完整媒体链兼容。
+- 本机普通用户的中文/空格路径全纵切已通过：PostgreSQL 18.4 init、Prisma migrate deploy、真实 Hono/Worker/Next standalone、BFF GET、反序停止与临时目录清理。未调用 Provider、TTS 或媒体任务。
+- P1 结论为 `PASS_WITH_EVIDENCE_GAPS`，未命中 STOP。仍缺干净 Windows 10/11 VM、无全局依赖的完整 runtime staging、正式 Prisma migration 制品、Electron 单入口对完整 staged runtime 的验证、Job Object/宿主硬崩溃与升级回滚证据。不得把开发仓库 Prisma CLI 探针写成发布运行时已完成。
+
+## 2026-08-17 P0-1 共享 Contract 跨仓库分发门
+
+- `packages/contracts` 增加独立 npm 制品构建与打包脚本；构建前要求 Contract 源目录无未提交改动，并输出 ESM、类型声明和源提交元数据。
+- 桌面仓库只携带编译后的版本化 tarball 与 SHA-256 清单，通过 `file:` 依赖使用；Contract 源码仍只在本仓库维护，没有复制后端业务代码或 schema 源。
+- 桌面 API 客户端已改用共享 `ApiErrorSchema`，并增加制品哈希、错误 schema 与成功响应 schema 的运行时测试。真实项目、任务和媒体端点仍未接入。
+- 本轮范围仍属于 P0-1 收口；不实现 API Key、Provider、受管 PostgreSQL、Worker、LibreOffice、FFmpeg、安装包或生成流程。
+
+> 更新时间：2026-08-17。制品来自 Contract 源提交 `e626e5fb94c442216b92ed504ae4aade84c76e15`，桌面清单固定 SHA-256。Contract 38/38、制品重建、typecheck、0-warning lint、backend:test 13/13 和 Next production build 已严格串行通过；当前 P1 复核中桌面端 17 个测试通过、2 个按环境跳过，lint/build 通过，专用 PostgreSQL、safeStorage 和全运行时探针通过。
+
 ## 2026-08-15 仓库拆分与发布
 
 - 当前仓库继续作为网页与共享服务仓库：Next.js 前端、Hono/Worker 后端、共享 Contract、Edge TTS、渲染、验证和产品文档均保留在这里。
-- 已创建并发布独立桌面仓库 [`FJH06118/math-avatar-desktop`](https://github.com/FJH06118/math-avatar-desktop)，当前只包含 Windows 软件 P0 骨架、目录约定和边界说明。
-- 桌面仓库暂未实现 Electron/Tauri 宿主、安装包、API 设置页、安全密钥存储或 Provider 原生适配；下一步仍从 Windows 软件计划 P0-1 开始，不复制后端业务代码。
+- 已创建并发布独立桌面仓库 [`FJH06118/math-avatar-desktop`](https://github.com/FJH06118/math-avatar-desktop)；当前本地工作树已实现 P0-1 与 P1 本机运行时纵切，但变更仍未提交或推送。
+- 桌面仓库仍未实现安装包、API 设置页或 Provider 原生适配；P1 的完整离线 staging、正式 migration 制品、宿主硬崩溃回收和升级回滚仍是证据缺口，不得把它们写成已完成。
 - 网页仓库当前修复提交已推送到 Draft PR [#1](https://github.com/FJH06118/math-avatar-mvp/pull/1)；PR 保持 Draft，等待后续桌面宿主和 Provider 实现后再决定是否转为 Ready。
 
 > 更新时间：2026-08-15。两个仓库均不包含用户 API Key、真实课件或本地媒体。

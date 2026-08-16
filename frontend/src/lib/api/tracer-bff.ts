@@ -33,8 +33,13 @@ export function getApplicationConfig(): {
     throw new Error("Stage T BFF configuration is incomplete.");
   }
   const url = new URL(baseUrl);
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error("PPT_DH_APP_BASE_URL must use HTTP(S).");
+  if (
+    url.protocol !== "http:" ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error("PPT_DH_APP_BASE_URL must be a credential-free loopback HTTP URL.");
   }
   return { baseUrl: url.toString().replace(/\/$/, ""), internalToken, principal };
 }
