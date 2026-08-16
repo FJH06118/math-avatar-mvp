@@ -5,6 +5,7 @@ import {
   type LessonPlanRevision,
   type LessonPlanRevisionEditRequest,
   type PlanTaskCreateRequest,
+  ProviderSelectionSnapshotSchema,
 } from "@ppt-digital-human/contracts";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
@@ -22,6 +23,7 @@ export class LessonPlanRepository {
     if (presentation.parseStatus !== "COMPLETED" || presentation.slides.length === 0) {
       throw new AppHttpError(409, "PRESENTATION_NOT_PARSED", "演示文稿尚未完成解析。", false);
     }
+    const providerSelection = await findDefaultProviderSelection(this.prisma, principal);
     const inputHash = stableHash({
       presentationId: presentation.id,
       revision: presentation.revision,
@@ -29,6 +31,7 @@ export class LessonPlanRepository {
       audience: input.audience,
       style: input.style,
       targetMinutes: input.targetMinutes,
+      providerSelection,
     });
     const existing = await this.prisma.generationTask.findFirst({
       where: { principal, kind: "PLAN", idempotencyKey: input.idempotencyKey },
@@ -71,6 +74,7 @@ export class LessonPlanRepository {
               audience: input.audience,
               style: input.style,
               targetMinutes: input.targetMinutes,
+              ...(providerSelection ? { providerSelection } : {}),
             },
           },
         });
@@ -160,6 +164,23 @@ export class LessonPlanRepository {
       return payload;
     });
   }
+}
+
+async function findDefaultProviderSelection(prisma: PrismaClient, principal: string) {
+  const provider = await prisma.providerProfile.findFirst({
+    where: { principal, isDefault: true },
+  });
+  if (!provider) return undefined;
+  return ProviderSelectionSnapshotSchema.parse({
+    profileId: provider.id,
+    kind: provider.kind,
+    protocol: provider.protocol,
+    baseUrl: provider.baseUrl,
+    model: provider.model,
+    profileVersion: provider.version,
+    keyVersion: provider.keyVersion,
+    promptVersion: "stage-tc-agent-prompt-v1",
+  });
 }
 
 export async function persistRevision(transaction: Prisma.TransactionClient, payload: LessonPlanRevision) {

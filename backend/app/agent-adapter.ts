@@ -1,4 +1,4 @@
-import type { AgentPlanOutput } from "@ppt-digital-human/contracts";
+import type { AgentPlanOutput, ProviderSelectionSnapshot } from "@ppt-digital-human/contracts";
 import { WorkerError } from "./worker-error.ts";
 import { parseAndValidateAgentContent } from "./agent-evaluator.ts";
 
@@ -16,6 +16,7 @@ export interface AgentAdapterInput {
   audience: string;
   style: string;
   targetMinutes: number;
+  providerSelection?: ProviderSelectionSnapshot;
   signal: AbortSignal;
 }
 

@@ -1,3 +1,4 @@
+import { ProviderSelectionSnapshotSchema } from "@ppt-digital-human/contracts";
 import { z } from "zod";
 import type { Pool } from "pg";
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
@@ -12,6 +13,7 @@ const PlanConfigSchema = z
     audience: z.string().min(1).max(200),
     style: z.string().min(1).max(500),
     targetMinutes: z.number().int().min(1).max(180),
+    providerSelection: ProviderSelectionSnapshotSchema.optional(),
   })
   .strict();
 

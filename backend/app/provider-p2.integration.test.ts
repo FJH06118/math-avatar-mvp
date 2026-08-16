@@ -7,10 +7,12 @@ import {
   ApplicationSettingsResponseSchema,
   ProviderProfileListResponseSchema,
   ProviderProfileResponseSchema,
+  ProviderSelectionSnapshotSchema,
   ProviderTestResponseSchema,
 } from "@ppt-digital-human/contracts";
 import { createApplication } from "./app.ts";
 import { clearProductState, createProductPrismaClient } from "./database.ts";
+import { LessonPlanRepository } from "./lesson-plan-repository.ts";
 import { InMemorySecretClient } from "./secret-client.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
@@ -162,3 +164,99 @@ test("P2 enforces strict input, optimistic versions, principal isolation, and de
   assert.equal(settings.status, 200);
   assert.equal(ApplicationSettingsResponseSchema.parse(await settings.json()).data.defaultProviderId, second.id);
 });
+
+test("provider rotation freezes a redacted selection snapshot per new PLAN task", async () => {
+  const created = ProviderProfileResponseSchema.parse(
+    await (
+      await request("/v1/providers", { method: "POST", body: JSON.stringify(createBody()) })
+    ).json(),
+  ).data;
+  const plans = new LessonPlanRepository(prisma);
+  const firstPresentation = await seedPresentation("one");
+  const first = await plans.createPlanTask(principal, firstPresentation.projectId, {
+    presentationId: firstPresentation.id,
+    idempotencyKey: "p2-snapshot-plan-one",
+    audience: "大学一年级",
+    style: "严谨",
+    targetMinutes: 3,
+  });
+
+  const rotated = await request(`/v1/providers/${created.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ expectedVersion: created.version, apiKey: "sk-test-provider-key-v2" }),
+  });
+  assert.equal(rotated.status, 200);
+
+  const secondPresentation = await seedPresentation("two");
+  const second = await plans.createPlanTask(principal, secondPresentation.projectId, {
+    presentationId: secondPresentation.id,
+    idempotencyKey: "p2-snapshot-plan-two",
+    audience: "大学一年级",
+    style: "严谨",
+    targetMinutes: 3,
+  });
+  const outboxes = await prisma.taskOutbox.findMany({
+    where: { taskId: { in: [first.task.id, second.task.id] } },
+  });
+  const snapshot = (taskId: string) => {
+    const payload = outboxes.find((outbox) => outbox.taskId === taskId)?.payload;
+    assert(payload && typeof payload === "object" && !Array.isArray(payload));
+    return ProviderSelectionSnapshotSchema.parse((payload as Record<string, unknown>).providerSelection);
+  };
+  const oldSnapshot = snapshot(first.task.id);
+  const newSnapshot = snapshot(second.task.id);
+  assert.equal(oldSnapshot.keyVersion, 1);
+  assert.equal(newSnapshot.keyVersion, 2);
+  assert.equal(oldSnapshot.profileVersion, 1);
+  assert.equal(newSnapshot.profileVersion, 2);
+  assert(!JSON.stringify(outboxes).includes("sk-test-provider-key"));
+});
+
+async function seedPresentation(suffix: string) {
+  const projectId = `project_p2_snapshot_${suffix}`;
+  const assetId = `asset_p2_snapshot_${suffix}`;
+  const presentationId = `presentation_p2_snapshot_${suffix}`;
+  const slideId = `slide_p2_snapshot_${suffix}`;
+  await prisma.project.create({ data: { id: projectId, principal, title: `P2 快照 ${suffix}`, status: "READY" } });
+  await prisma.asset.create({
+    data: {
+      id: assetId,
+      projectId,
+      kind: "SOURCE_PPT",
+      storageKey: `p2-snapshot-${suffix}.pptx`,
+      sha256: "a".repeat(64),
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      fileSize: 1,
+    },
+  });
+  await prisma.presentation.create({
+    data: {
+      id: presentationId,
+      projectId,
+      sourceAssetId: assetId,
+      originalFileName: `${suffix}.pptx`,
+      sha256: "a".repeat(64),
+      fileSize: 1,
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      slideCount: 1,
+      parseStatus: "COMPLETED",
+      parserVersion: "p2-fixture",
+    },
+  });
+  await prisma.slide.create({
+    data: {
+      id: slideId,
+      projectId,
+      presentationId,
+      slideNumber: 1,
+      title: "导数",
+      slideType: "concept",
+      extractedText: "导数定义",
+      notes: "",
+      formulaJson: [],
+      parseWarnings: [],
+      renderAssetId: null,
+    },
+  });
+  return { projectId, id: presentationId };
+}
