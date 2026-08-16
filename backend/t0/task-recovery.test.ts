@@ -84,6 +84,7 @@ test("migrations apply on a fresh database and the raw partial indexes apply for
     "20260804203000_stage_6_workspace_locks",
     "20260804223000_stage_7_teaching_settings",
     "20260813023000_lip_sync_v1",
+    "20260817100000_provider_profiles",
   ];
   const applied = await pool.query<{ migration_name: string }>(
     'SELECT migration_name FROM "_prisma_migrations" ORDER BY migration_name',

@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test:t0": "tsx --test t0/*.test.ts",
     "test:p1-runtime": "tsx --test app/runtime-control.test.ts",
+    "test:providers": "tsx --test --test-concurrency=1 app/provider-p2.integration.test.ts",
     "test:integration": "tsx --test --test-concurrency=1 app/*.integration.test.ts",
     "test:stage-11a": "tsx --test --test-concurrency=1 app/stage-11a-recovery.integration.test.ts app/stage-tb.integration.test.ts",
     "test:stage-11b": "tsx --test --test-concurrency=1 app/stage-11b-ppt-coverage.test.ts",

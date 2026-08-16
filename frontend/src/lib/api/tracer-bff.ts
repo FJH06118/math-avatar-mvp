@@ -18,6 +18,10 @@ import {
   WorkspaceLockResponseSchema,
   WorkspaceSnapshotResponseSchema,
   TeachingSettingsResponseSchema,
+  ApplicationSettingsResponseSchema,
+  ProviderProfileListResponseSchema,
+  ProviderProfileResponseSchema,
+  ProviderTestResponseSchema,
   StableIdSchema,
 } from "@ppt-digital-human/contracts";
 
@@ -46,7 +50,7 @@ export function getApplicationConfig(): {
 
 export async function parseApplicationResponse(
   response: Response,
-  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list",
+  kind: "upload" | "task" | "parse-snapshot" | "workspace" | "workspace-lock" | "settings" | "application-settings" | "provider-list" | "provider" | "provider-test" | "plan-task" | "revision" | "revision-list" | "audio-task" | "audio-timeline" | "render-task" | "render-pages" | "composite-task" | "final-media" | "delivery" | "project" | "project-list",
 ) {
   const body: unknown = await response.json();
   if (response.ok) {
@@ -56,6 +60,10 @@ export async function parseApplicationResponse(
     if (kind === "workspace") return WorkspaceSnapshotResponseSchema.parse(body);
     if (kind === "workspace-lock") return WorkspaceLockResponseSchema.parse(body);
     if (kind === "settings") return TeachingSettingsResponseSchema.parse(body);
+    if (kind === "application-settings") return ApplicationSettingsResponseSchema.parse(body);
+    if (kind === "provider-list") return ProviderProfileListResponseSchema.parse(body);
+    if (kind === "provider") return ProviderProfileResponseSchema.parse(body);
+    if (kind === "provider-test") return ProviderTestResponseSchema.parse(body);
     if (kind === "plan-task") return PlanTaskResponseSchema.parse(body);
     if (kind === "audio-task") return AudioTaskResponseSchema.parse(body);
     if (kind === "audio-timeline") return AudioTimelineResponseSchema.parse(body);

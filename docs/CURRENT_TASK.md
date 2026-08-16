@@ -1,5 +1,13 @@
 # 当前任务
 
+## 2026-08-17 Windows 桌面 P2 设置、Provider Profile 与安全密钥
+
+- P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页仓库 `448c1db` / `web-p1-complete` 本地收口；两个工作树均已核验干净，未推送。
+- 本轮只实现 P2：共享 Provider/Application Settings strict Contract、非秘密 ProviderProfile 数据模型、Hono 设置 API、桌面 safeStorage/DPAPI 密钥代理和 Next 同源 BFF；不实现五家 Provider Gateway、真实上游调用、设置 UI 或安装包。
+- API Key 只能作为受控输入短暂经过 BrowserWindow→Next BFF→Hono→Electron 主进程 IPC；持久化仅保留加密密文、credentialRef、版本和末四位。公开 schema、错误、日志和诊断均不得包含完整 Key。
+- P2 的成功标准是本地数据库/API/日志扫描无完整测试 Key，版本冲突、principal 隔离、strict unknown fields、非法 URL、默认 Profile 删除保护和密钥轮换测试通过；若 safeStorage/密钥 IPC 写入失败，设置请求必须失败且数据库不能留下已配置的半成品。
+- P1 的 clean VM、完整离线 staging、正式 migration runtime、宿主硬崩溃回收和升级回滚证据仍是后续缺口；不得因为 P2 本机测试通过而宣称可安装发布。
+
 ## 2026-08-17 Windows 桌面 P1 本机运行时纵切
 
 - 用户已确认并仅执行 `WINDOWS_DESKTOP_SOFTWARE_PLAN.md` 的 P1。共享业务 Contract 未修改；没有实现设置、API Key、Provider、真实 LLM/Edge TTS、媒体工作流或安装包。

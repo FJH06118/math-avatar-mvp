@@ -3,6 +3,7 @@ import { createApplication } from "./app.ts";
 import { loadAppConfig } from "./config.ts";
 import { createProductPrismaClient } from "./database.ts";
 import { isRuntimeShutdownMessage, sendRuntimeReady } from "./runtime-control.ts";
+import { createIpcSecretClient } from "./secret-client.ts";
 
 const config = loadAppConfig();
 const prisma = createProductPrismaClient(config.databaseUrl);
@@ -11,6 +12,7 @@ const app = createApplication({
   prisma,
   assetRoot: config.assetRoot,
   internalToken: config.internalToken,
+  secretClient: createIpcSecretClient(),
 });
 
 const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: config.port }, (info) => {

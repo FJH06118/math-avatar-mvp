@@ -1,6 +1,7 @@
 export * from "./avatars";
 export * from "./jobs";
 export * from "./projects";
+export * from "./provider-client";
 export * from "./real-tracer";
 export * from "./tracer-adapter";
 export * from "./renders";

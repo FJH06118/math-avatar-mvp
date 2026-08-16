@@ -147,6 +147,30 @@ model Project {
   @@index([principal, updatedAt])
 }
 
+model ProviderProfile {
+  id            String   @id
+  principal     String
+  displayName   String
+  kind          String
+  protocol      String
+  baseUrl       String
+  model         String
+  enabled       Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  capabilities  Json     @default("[]")
+  version       Int      @default(1)
+  credentialRef String   @unique
+  keyConfigured Boolean  @default(false)
+  keyLast4      String?
+  keyVersion    Int      @default(0)
+  lastTestAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([principal, updatedAt])
+  @@index([principal, isDefault])
+}
+
 model Asset {
   id          String         @id
   projectId   String

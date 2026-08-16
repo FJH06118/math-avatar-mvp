@@ -49,11 +49,16 @@ import { MediaRepository } from "./media-repository.ts";
 import { DeliveryRepository } from "./delivery-repository.ts";
 import { ParseRepository } from "./parse-repository.ts";
 import { WorkspaceRepository } from "./workspace-repository.ts";
+import { createProviderRoutes } from "./provider-routes.ts";
+import { ProviderRepository } from "./provider-repository.ts";
+import { ProviderService } from "./provider-service.ts";
+import { UnavailableSecretClient, type SecretClient } from "./secret-client.ts";
 
 export interface AppDependencies {
   prisma: PrismaClient;
   assetRoot: string;
   internalToken: string;
+  secretClient?: SecretClient;
 }
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -70,8 +75,25 @@ export function createApplication(dependencies: AppDependencies): Hono {
   const parses = new ParseRepository(dependencies.prisma);
   const workspaces = new WorkspaceRepository(dependencies.prisma);
   const assetStore = new LocalAssetStore(dependencies.assetRoot);
+  const providerService = new ProviderService(
+    new ProviderRepository(dependencies.prisma),
+    dependencies.secretClient ?? new UnavailableSecretClient(),
+  );
 
   app.get("/health", (context) => context.json({ status: "ok" }));
+
+  app.route(
+    "/",
+    createProviderRoutes({
+      service: providerService,
+      authenticate: (context) =>
+        authenticate(
+          context.req.header("x-internal-token"),
+          context.req.header("x-principal"),
+          dependencies.internalToken,
+        ),
+    }),
+  );
 
   app.get("/v1/projects", async (context) => {
     const requestId = `request_${randomUUID()}`;

@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-39 P2 Provider 密钥由桌面主进程版本化代理
+
+- **决策**：Provider profile 的数据库记录只保存 `credentialRef`、`keyConfigured`、`keyLast4` 和 `keyVersion`；完整 API Key 通过 Hono/Worker 到 Electron 主进程的受控 IPC 写入 safeStorage/Windows DPAPI 加密文件，按 credentialRef 保留版本。BrowserWindow 没有读取完整 Key 的接口。
+- **原因**：P2 需要支持密钥轮换、旧任务版本审计和保存失败回滚，同时不能把明文密钥放入 Prisma、Next 环境变量、浏览器响应、日志或诊断包。
+- **影响**：P2 只实现配置保存、删除、默认选择和配置级测试；真正的五家 Provider HTTP adapter 及任务冻结/调用进入 P3。若 safeStorage 或密钥 IPC 不可用，保存必须失败，不能降级到明文或环境变量。
+
 ### D-36 共享 Contract 以可追溯 npm 制品跨仓库分发
 
 - **决策**：`packages/contracts/src` 继续作为唯一源码；从源目录干净的网页仓库构建 ESM npm tarball，桌面仓库通过本地 `file:` 依赖使用，并固定源提交、版本和 SHA-256。

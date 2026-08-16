@@ -13,6 +13,7 @@ export function createProductPool(databaseUrl: string): Pool {
 }
 
 export async function clearProductState(prisma: PrismaClient): Promise<void> {
+  await prisma.providerProfile.deleteMany();
   await prisma.generationTaskStep.deleteMany();
   await prisma.taskOutbox.deleteMany();
   await prisma.generationTask.deleteMany();
