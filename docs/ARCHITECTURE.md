@@ -1,5 +1,12 @@
 # 当前真实架构
 
+## 2026-08-17 P3 Provider Gateway
+
+- `backend/app/providers/` 现在按协议拆分 OpenAI Chat Completions 与 Anthropic Messages；OpenAI、DeepSeek、GLM、Kimi 共享请求形态但保留独立 adapter，模型 ID 继续来自配置/profile，不在代码中写入“最新模型”。
+- `backend/app/agent-adapter.ts` 的兼容入口和实际 Worker 都经过同一 Gateway：外部响应保持 `unknown`，状态码/超时/连接/响应结构/Contract 输出映射为稳定错误；Agent JSON 只允许一次包装修复，不能补业务字段。
+- 任务创建时 `LessonPlanRepository` 把非秘密 `ProviderSelectionSnapshot` 写入 input hash 和 PLAN outbox；Worker 按 principal 和版本复核，再通过桌面 secret IPC 获取指定 keyVersion。完整 Key 不进入 snapshot、数据库、日志或浏览器响应。
+- 本地 fixture 覆盖五家适配器和错误/修复路径，离线评测目录含 100 个 slide-level 样本；五家真实 smoke 保持显式 opt-in，未通过前不把任一家写成正式支持。
+
 ## 2026-08-17 P1 桌面运行时适配
 
 - Next production build 使用 `output: "standalone"` 和 monorepo `outputFileTracingRoot`；桌面 staging 必须显式复制 `public` 与 `.next/static`。

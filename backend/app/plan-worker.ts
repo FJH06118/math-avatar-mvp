@@ -71,6 +71,7 @@ export async function runClaimedPlanStep(
         notes: slide.notes,
         formulas: slide.formulaJson,
       })),
+      principal: task.principal,
       ...configResult.data,
       signal: controller.signal,
     });

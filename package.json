@@ -17,6 +17,8 @@
     "test:components": "npm run test:components --workspace @ppt-digital-human/frontend",
     "test:contracts": "npm run test --workspace @ppt-digital-human/contracts",
     "test:providers": "npm run t0:generate && npm run t0:migrate && npm run test:providers --workspace @ppt-digital-human/backend",
+    "test:provider-gateway": "npm run test:provider-gateway --workspace @ppt-digital-human/backend",
+    "test:provider-smoke": "npm run test:provider-smoke --workspace @ppt-digital-human/backend",
     "backend:prepare": "python -m backend.prepare",
     "backend:approve": "python -m backend.approve",
     "backend:render": "node backend/run.mjs render",

@@ -1,6 +1,7 @@
 import { config as loadDotenv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { ProviderKindSchema } from "@ppt-digital-human/contracts";
 import type { AgentProviderConfig } from "./agent-adapter.ts";
 
 loadDotenv({ path: fileURLToPath(new URL("../.env", import.meta.url)), quiet: true });
@@ -53,8 +54,35 @@ export function loadWorkerConfig(): WorkerConfig {
 }
 
 export function loadAgentProviderConfig(): AgentProviderConfig | null {
-  const apiKey = (process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY)?.trim();
+  const apiKey = (process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? process.env.ANTHROPIC_API_KEY)?.trim();
   const baseUrl = process.env.LLM_BASE_URL?.trim();
   const model = process.env.LLM_MODEL?.trim();
-  return apiKey && baseUrl && model ? { apiKey, baseUrl, model } : null;
+  if (!apiKey || !baseUrl || !model) return null;
+  const parsedKind = ProviderKindSchema.safeParse((process.env.LLM_PROVIDER_KIND?.trim() || "DEEPSEEK").toUpperCase());
+  if (!parsedKind.success) {
+    throw new Error("LLM_PROVIDER_KIND must be one of OPENAI, DEEPSEEK, GLM, KIMI, or ANTHROPIC.");
+  }
+  const kind = parsedKind.data;
+  const timeoutMs = process.env.LLM_TIMEOUT_MS?.trim();
+  if (timeoutMs !== undefined && timeoutMs !== "") {
+    const parsedTimeout = Number(timeoutMs);
+    if (!Number.isInteger(parsedTimeout) || parsedTimeout < 1_000 || parsedTimeout > 120_000) {
+      throw new Error("LLM_TIMEOUT_MS must be an integer between 1000 and 120000.");
+    }
+    return {
+      apiKey,
+      baseUrl,
+      model,
+      kind,
+      protocol: kind === "ANTHROPIC" ? "ANTHROPIC_MESSAGES" : "OPENAI_CHAT",
+      timeoutMs: parsedTimeout,
+    };
+  }
+  return {
+    apiKey,
+    baseUrl,
+    model,
+    kind,
+    protocol: kind === "ANTHROPIC" ? "ANTHROPIC_MESSAGES" : "OPENAI_CHAT",
+  };
 }

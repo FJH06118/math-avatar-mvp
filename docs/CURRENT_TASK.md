@@ -1,18 +1,20 @@
 # 当前任务
 
-## 2026-08-17 Windows 桌面 P2 设置、Provider Profile 与安全密钥（已完成）
+## 2026-08-17 Windows 桌面 P3 五家 LLM Provider Gateway（本地收口，外部验证待补）
 
-- P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `4e14972`、桌面 `bd63d5c` 完成，`desktop-p2-complete` 与 `web-p2-complete` 已本地写入。
-- 本轮已实现 P2：共享 Provider/Application Settings strict Contract、非秘密 ProviderProfile 数据模型、Hono 设置 API、桌面 safeStorage/DPAPI 密钥代理和 Next 同源 BFF；不实现五家 Provider Gateway、真实上游调用、设置 UI 或安装包。
+- P1 已在桌面仓库 `e19ef99` / `desktop-p1-complete` 和网页 `448c1db` / `web-p1-complete` 本地收口；P2 代码已在网页 `339a46a` / `web-p2-complete`、桌面 `bd63d5c` / `desktop-p2-complete` 完成，均未推送。
+- 本轮已实现 P3：统一 Provider Gateway、OpenAI/DeepSeek/GLM/Kimi/Anthropic adapter、P2 快照与密钥版本解析、稳定错误分类、严格输出校验和一次 JSON 包装修复；没有实现设置 UI、安装包或发布渠道。
+- P2 的共享 Provider/Application Settings strict Contract、非秘密 ProviderProfile 数据模型、Hono 设置 API、桌面 safeStorage/DPAPI 密钥代理和 Next 同源 BFF 继续作为 P3 的密钥边界；P3 不把完整 API Key 放入任务快照、日志、数据库或浏览器响应。
 - API Key 只能作为受控输入短暂经过 BrowserWindow→Next BFF→Hono→Electron 主进程 IPC；持久化仅保留加密密文、credentialRef、版本和末四位。公开 schema、错误、日志和诊断均不得包含完整 Key。
-- P2 验证：Contract 42/42、Provider 集成 3/3、完整 backend integration 31 pass/1 外部 Edge skip、网页 typecheck/lint/build/routes 通过；桌面 typecheck/lint/test 19 pass/2 P1 环境 skip，密文落盘和 IPC 响应脱敏通过。
+- P3 本地专项：Provider fixture 37/37；100 个 slide-level 样本首轮 90/100、一次 repair 后 100/100；P2 Provider 集成 3/3；完整 backend integration 32 pass/1 外部 Edge skip。真实上游 smoke 5 家默认跳过，尚无真实供应商证据。
+- P3 结论为 `PASS_WITH_EVIDENCE_GAPS`：不得把五家标记为正式支持，直到每家 opt-in real smoke 在目标环境完成；当前仍可继续后续本地阶段，但外部状态保持 `EXTERNAL_VALIDATION_PENDING`。
 - P2 的安全门是本地数据库/API/日志扫描无完整测试 Key，版本冲突、principal 隔离、strict unknown fields、非法 URL、默认 Profile 删除保护和密钥轮换测试通过；若 safeStorage/密钥 IPC 写入失败，设置请求必须失败且数据库不能留下已配置的半成品。
 - P1 的 clean VM、完整离线 staging、正式 migration runtime、宿主硬崩溃回收和升级回滚证据仍是后续缺口；不得因为 P2 本机测试通过而宣称可安装发布。
 
-## 下一阶段：P3 五家 LLM Provider Gateway
+## 下一阶段：P4 讲稿审核与真实设置收敛
 
-- 进入 P3 前只读取计划并建立实施边界；P3 负责 OpenAI、DeepSeek、GLM、Kimi、Anthropic 的统一 adapter、strict unknown payload、受限 JSON repair 和 provider fixture/eval，不回退修改 P2 密钥边界。
-- P3 STOP 仍有效：任一 Provider 不能稳定通过共享 Contract，或明文 Key 进入 payload、日志、数据库、浏览器响应和诊断包，立即停止，不进入设置 UI 或安装阶段。
+- P4 只处理计划中规定的审核硬门、displayText/spokenText 最小闭环和真实设置收敛；不要把设置 UI、安装器或发布证据提前混入本阶段。
+- P3 STOP 仍有效：任一 Provider 不能稳定通过共享 Contract，错误分类造成认证无限重试，或原始响应/明文 Key 进入 UI、日志、数据库、浏览器响应和诊断包，立即停止。
 
 ## 2026-08-17 Windows 桌面 P1 本机运行时纵切
 

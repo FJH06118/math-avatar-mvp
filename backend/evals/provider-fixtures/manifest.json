@@ -1,0 +1,954 @@
+{
+  "schemaVersion": "stage-p3-provider-eval-v1",
+  "description": "Offline slide-level inventory for the five-provider gateway and strict Contract evaluator.",
+  "sampleCount": 100,
+  "categoryCounts": {
+    "high-math-formula": 20,
+    "chinese-long-text": 20,
+    "image-page": 20,
+    "chart-page": 20,
+    "low-confidence": 20
+  },
+  "samples": [
+    {
+      "id": "p3_001",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 01",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 1。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_002",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 02",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 2。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_003",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 03",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 3。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_004",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 04",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 4。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_005",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 05",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 5。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_006",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 06",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 6。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_007",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 07",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 7。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_008",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 08",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 8。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_009",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 09",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 9。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_010",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 10",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 10。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_011",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 11",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 11。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_012",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 12",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 12。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_013",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 13",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 13。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_014",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 14",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 14。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_015",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 15",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 15。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_016",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 16",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 16。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_017",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 17",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 17。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_018",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 18",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 18。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_019",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 19",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 19。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_020",
+      "category": "high-math-formula",
+      "title": "高等数学公式样本 20",
+      "extractedText": "函数极限、导数与积分的形式化推导；样本编号 20。",
+      "notes": "公式、定义域、边界条件和推导步骤",
+      "formulas": [
+        "f'(x)=lim(h→0)[f(x+h)-f(x)]/h"
+      ],
+      "format": "json"
+    },
+    {
+      "id": "p3_021",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 01",
+      "extractedText": "中文段落中的概念主线；样本编号 21。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_022",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 02",
+      "extractedText": "中文段落中的概念主线；样本编号 22。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_023",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 03",
+      "extractedText": "中文段落中的概念主线；样本编号 23。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_024",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 04",
+      "extractedText": "中文段落中的概念主线；样本编号 24。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_025",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 05",
+      "extractedText": "中文段落中的概念主线；样本编号 25。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_026",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 06",
+      "extractedText": "中文段落中的概念主线；样本编号 26。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_027",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 07",
+      "extractedText": "中文段落中的概念主线；样本编号 27。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_028",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 08",
+      "extractedText": "中文段落中的概念主线；样本编号 28。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_029",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 09",
+      "extractedText": "中文段落中的概念主线；样本编号 29。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_030",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 10",
+      "extractedText": "中文段落中的概念主线；样本编号 30。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_031",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 11",
+      "extractedText": "中文段落中的概念主线；样本编号 31。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_032",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 12",
+      "extractedText": "中文段落中的概念主线；样本编号 32。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_033",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 13",
+      "extractedText": "中文段落中的概念主线；样本编号 33。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_034",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 14",
+      "extractedText": "中文段落中的概念主线；样本编号 34。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_035",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 15",
+      "extractedText": "中文段落中的概念主线；样本编号 35。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_036",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 16",
+      "extractedText": "中文段落中的概念主线；样本编号 36。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_037",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 17",
+      "extractedText": "中文段落中的概念主线；样本编号 37。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_038",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 18",
+      "extractedText": "中文段落中的概念主线；样本编号 38。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_039",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 19",
+      "extractedText": "中文段落中的概念主线；样本编号 39。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_040",
+      "category": "chinese-long-text",
+      "title": "中文长文本样本 20",
+      "extractedText": "中文段落中的概念主线；样本编号 40。",
+      "notes": "长段落、术语密集、需要压缩讲解",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_041",
+      "category": "image-page",
+      "title": "图像页面样本 01",
+      "extractedText": "图像与公式之间的对应关系；样本编号 41。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_042",
+      "category": "image-page",
+      "title": "图像页面样本 02",
+      "extractedText": "图像与公式之间的对应关系；样本编号 42。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_043",
+      "category": "image-page",
+      "title": "图像页面样本 03",
+      "extractedText": "图像与公式之间的对应关系；样本编号 43。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_044",
+      "category": "image-page",
+      "title": "图像页面样本 04",
+      "extractedText": "图像与公式之间的对应关系；样本编号 44。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_045",
+      "category": "image-page",
+      "title": "图像页面样本 05",
+      "extractedText": "图像与公式之间的对应关系；样本编号 45。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_046",
+      "category": "image-page",
+      "title": "图像页面样本 06",
+      "extractedText": "图像与公式之间的对应关系；样本编号 46。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_047",
+      "category": "image-page",
+      "title": "图像页面样本 07",
+      "extractedText": "图像与公式之间的对应关系；样本编号 47。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_048",
+      "category": "image-page",
+      "title": "图像页面样本 08",
+      "extractedText": "图像与公式之间的对应关系；样本编号 48。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_049",
+      "category": "image-page",
+      "title": "图像页面样本 09",
+      "extractedText": "图像与公式之间的对应关系；样本编号 49。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_050",
+      "category": "image-page",
+      "title": "图像页面样本 10",
+      "extractedText": "图像与公式之间的对应关系；样本编号 50。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_051",
+      "category": "image-page",
+      "title": "图像页面样本 11",
+      "extractedText": "图像与公式之间的对应关系；样本编号 51。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_052",
+      "category": "image-page",
+      "title": "图像页面样本 12",
+      "extractedText": "图像与公式之间的对应关系；样本编号 52。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_053",
+      "category": "image-page",
+      "title": "图像页面样本 13",
+      "extractedText": "图像与公式之间的对应关系；样本编号 53。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_054",
+      "category": "image-page",
+      "title": "图像页面样本 14",
+      "extractedText": "图像与公式之间的对应关系；样本编号 54。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_055",
+      "category": "image-page",
+      "title": "图像页面样本 15",
+      "extractedText": "图像与公式之间的对应关系；样本编号 55。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_056",
+      "category": "image-page",
+      "title": "图像页面样本 16",
+      "extractedText": "图像与公式之间的对应关系；样本编号 56。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_057",
+      "category": "image-page",
+      "title": "图像页面样本 17",
+      "extractedText": "图像与公式之间的对应关系；样本编号 57。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_058",
+      "category": "image-page",
+      "title": "图像页面样本 18",
+      "extractedText": "图像与公式之间的对应关系；样本编号 58。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_059",
+      "category": "image-page",
+      "title": "图像页面样本 19",
+      "extractedText": "图像与公式之间的对应关系；样本编号 59。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_060",
+      "category": "image-page",
+      "title": "图像页面样本 20",
+      "extractedText": "图像与公式之间的对应关系；样本编号 60。",
+      "notes": "图像、坐标轴、标注和图例",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_061",
+      "category": "chart-page",
+      "title": "图表页面样本 01",
+      "extractedText": "图表趋势与数据结论；样本编号 61。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_062",
+      "category": "chart-page",
+      "title": "图表页面样本 02",
+      "extractedText": "图表趋势与数据结论；样本编号 62。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_063",
+      "category": "chart-page",
+      "title": "图表页面样本 03",
+      "extractedText": "图表趋势与数据结论；样本编号 63。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_064",
+      "category": "chart-page",
+      "title": "图表页面样本 04",
+      "extractedText": "图表趋势与数据结论；样本编号 64。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_065",
+      "category": "chart-page",
+      "title": "图表页面样本 05",
+      "extractedText": "图表趋势与数据结论；样本编号 65。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_066",
+      "category": "chart-page",
+      "title": "图表页面样本 06",
+      "extractedText": "图表趋势与数据结论；样本编号 66。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_067",
+      "category": "chart-page",
+      "title": "图表页面样本 07",
+      "extractedText": "图表趋势与数据结论；样本编号 67。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_068",
+      "category": "chart-page",
+      "title": "图表页面样本 08",
+      "extractedText": "图表趋势与数据结论；样本编号 68。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_069",
+      "category": "chart-page",
+      "title": "图表页面样本 09",
+      "extractedText": "图表趋势与数据结论；样本编号 69。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_070",
+      "category": "chart-page",
+      "title": "图表页面样本 10",
+      "extractedText": "图表趋势与数据结论；样本编号 70。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_071",
+      "category": "chart-page",
+      "title": "图表页面样本 11",
+      "extractedText": "图表趋势与数据结论；样本编号 71。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_072",
+      "category": "chart-page",
+      "title": "图表页面样本 12",
+      "extractedText": "图表趋势与数据结论；样本编号 72。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_073",
+      "category": "chart-page",
+      "title": "图表页面样本 13",
+      "extractedText": "图表趋势与数据结论；样本编号 73。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_074",
+      "category": "chart-page",
+      "title": "图表页面样本 14",
+      "extractedText": "图表趋势与数据结论；样本编号 74。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_075",
+      "category": "chart-page",
+      "title": "图表页面样本 15",
+      "extractedText": "图表趋势与数据结论；样本编号 75。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_076",
+      "category": "chart-page",
+      "title": "图表页面样本 16",
+      "extractedText": "图表趋势与数据结论；样本编号 76。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_077",
+      "category": "chart-page",
+      "title": "图表页面样本 17",
+      "extractedText": "图表趋势与数据结论；样本编号 77。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_078",
+      "category": "chart-page",
+      "title": "图表页面样本 18",
+      "extractedText": "图表趋势与数据结论；样本编号 78。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_079",
+      "category": "chart-page",
+      "title": "图表页面样本 19",
+      "extractedText": "图表趋势与数据结论；样本编号 79。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_080",
+      "category": "chart-page",
+      "title": "图表页面样本 20",
+      "extractedText": "图表趋势与数据结论；样本编号 80。",
+      "notes": "柱线图、单位、图例和异常点",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_081",
+      "category": "low-confidence",
+      "title": "低置信页面样本 01",
+      "extractedText": "识别不确定内容并保守表达；样本编号 81。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_082",
+      "category": "low-confidence",
+      "title": "低置信页面样本 02",
+      "extractedText": "识别不确定内容并保守表达；样本编号 82。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_083",
+      "category": "low-confidence",
+      "title": "低置信页面样本 03",
+      "extractedText": "识别不确定内容并保守表达；样本编号 83。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_084",
+      "category": "low-confidence",
+      "title": "低置信页面样本 04",
+      "extractedText": "识别不确定内容并保守表达；样本编号 84。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_085",
+      "category": "low-confidence",
+      "title": "低置信页面样本 05",
+      "extractedText": "识别不确定内容并保守表达；样本编号 85。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_086",
+      "category": "low-confidence",
+      "title": "低置信页面样本 06",
+      "extractedText": "识别不确定内容并保守表达；样本编号 86。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_087",
+      "category": "low-confidence",
+      "title": "低置信页面样本 07",
+      "extractedText": "识别不确定内容并保守表达；样本编号 87。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_088",
+      "category": "low-confidence",
+      "title": "低置信页面样本 08",
+      "extractedText": "识别不确定内容并保守表达；样本编号 88。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_089",
+      "category": "low-confidence",
+      "title": "低置信页面样本 09",
+      "extractedText": "识别不确定内容并保守表达；样本编号 89。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_090",
+      "category": "low-confidence",
+      "title": "低置信页面样本 10",
+      "extractedText": "识别不确定内容并保守表达；样本编号 90。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_091",
+      "category": "low-confidence",
+      "title": "低置信页面样本 11",
+      "extractedText": "识别不确定内容并保守表达；样本编号 91。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "fenced"
+    },
+    {
+      "id": "p3_092",
+      "category": "low-confidence",
+      "title": "低置信页面样本 12",
+      "extractedText": "识别不确定内容并保守表达；样本编号 92。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_093",
+      "category": "low-confidence",
+      "title": "低置信页面样本 13",
+      "extractedText": "识别不确定内容并保守表达；样本编号 93。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_094",
+      "category": "low-confidence",
+      "title": "低置信页面样本 14",
+      "extractedText": "识别不确定内容并保守表达；样本编号 94。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_095",
+      "category": "low-confidence",
+      "title": "低置信页面样本 15",
+      "extractedText": "识别不确定内容并保守表达；样本编号 95。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_096",
+      "category": "low-confidence",
+      "title": "低置信页面样本 16",
+      "extractedText": "识别不确定内容并保守表达；样本编号 96。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_097",
+      "category": "low-confidence",
+      "title": "低置信页面样本 17",
+      "extractedText": "识别不确定内容并保守表达；样本编号 97。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_098",
+      "category": "low-confidence",
+      "title": "低置信页面样本 18",
+      "extractedText": "识别不确定内容并保守表达；样本编号 98。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_099",
+      "category": "low-confidence",
+      "title": "低置信页面样本 19",
+      "extractedText": "识别不确定内容并保守表达；样本编号 99。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    },
+    {
+      "id": "p3_100",
+      "category": "low-confidence",
+      "title": "低置信页面样本 20",
+      "extractedText": "识别不确定内容并保守表达；样本编号 100。",
+      "notes": "解析警告、缺失文本、需要人工确认",
+      "formulas": [],
+      "format": "json"
+    }
+  ]
+}

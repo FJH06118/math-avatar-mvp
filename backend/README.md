@@ -132,11 +132,13 @@ transactional outbox 创建稳定步骤，使用 `FOR UPDATE SKIP LOCKED`、hear
 租约过期接管和不可变 attempt 调用现有 Python/LibreOffice 适配器：
 
 阶段 T-C 在相同 dispatcher/lease 语义上增加 PLAN Worker。它从已持久化 Slide 构造
-最小不可信输入，调用服务端 OpenAI-compatible Provider，把响应先按 `unknown` 通过
-`stage-tc-agent-v1` strict Contract，再在单一事务内写入 LessonPlanRevision、
-PlannedScene 和任务终态。用户编辑创建新 revision，显式批准只作用于 current revision；
-Provider、Prompt、模型、Schema 与哈希均保留审计。Worker 从 `backend/.env` 或显式进程
-环境读取 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`，公共响应不返回凭据或课件正文。
+最小不可信输入，调用统一 Provider Gateway（OpenAI、DeepSeek、GLM、Kimi 或 Anthropic），
+把响应先按 `unknown` 通过 `stage-tc-agent-v1` strict Contract，再在单一事务内写入
+LessonPlanRevision、PlannedScene 和任务终态。用户编辑创建新 revision，显式批准只作用于
+current revision；Provider、Prompt、模型、Schema 与哈希均保留审计。P2 Provider Profile
+在任务创建时冻结非秘密选择快照，PLAN Worker 按 principal/版本校验后从桌面密钥代理取回
+对应 key 版本。没有快照时才允许旧 CLI 的 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`
+回退配置；公共响应不返回凭据或课件正文。
 
 阶段 T-D 增加 AUDIO Worker。创建任务时必须让每页 current LessonPlanRevision 均已显式
 批准；服务把 revision、narration、`spokenText`、voice/rate/pitch 和输入哈希冻结进 outbox。
@@ -171,7 +173,9 @@ Worker attempt 默认隔离在 `backend/work/t-attempts`，源资产和登记后
 ```powershell
 $env:LLM_API_KEY = "你新创建的密钥"
 $env:LLM_BASE_URL = "https://api.deepseek.com"
-$env:LLM_MODEL = "deepseek-v4-flash"
+$env:LLM_MODEL = "由 Provider/账号实际支持的模型 ID"
+$env:LLM_PROVIDER_KIND = "DEEPSEEK"
+$env:LLM_TIMEOUT_MS = "30000"
 ```
 
 可在不发送课件内容的前提下执行 Provider 预检：
@@ -181,6 +185,19 @@ npm.cmd run backend:provider:preflight
 ```
 
 该命令验证密钥、模型、JSON 结构化输出、超时/限流/服务端错误的重试分类；它不会输出密钥。
+
+Provider Gateway 的离线 fixture 和严格评测命令为：
+
+```powershell
+npm.cmd run test:provider-gateway
+npx.cmd tsx --test --test-concurrency=1 backend/evals/provider-fixtures.test.ts
+```
+
+上述测试覆盖五种适配器、401/403/429/5xx、超时、截断 JSON、严格 Contract、单次 JSON
+包装修复和 100 个按类别划分的 slide-level 样本。真实上游 smoke 默认跳过；只有明确设置
+`PPT_DH_PROVIDER_SMOKE=1`，并为每家提供 `PPT_DH_SMOKE_<KIND>_API_KEY`、`_BASE_URL`
+和 `_MODEL` 后才会运行 `npm.cmd run test:provider-smoke`。fixture 通过不等于真实供应商
+正式支持，未完成对应 opt-in smoke 前不得作此声明。
 
 存在密钥时，解析器会把整套课件的结构化文本一次性提交给模型，让模型从
 全局规划场景，并允许拆页或合并相邻页。模型返回内容仍会经过页码、场景、

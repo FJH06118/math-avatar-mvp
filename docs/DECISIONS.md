@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-40 P3 使用统一 Provider Gateway，任务优先使用冻结快照
+
+- **决策**：PLAN Worker 统一通过 Gateway 调用 OpenAI、DeepSeek、GLM、Kimi 和 Anthropic；协议适配器只负责请求/响应形态，输出一律经过 `unknown` 边界、`stage-tc-agent-v1` strict Contract 和最多一次 JSON 包装修复。Provider Profile 快照优先于环境回退，按 principal、profileVersion、keyVersion 和完整非秘密配置校验后从桌面密钥代理读取对应 key 版本。
+- **原因**：旧的单一 OpenAI-compatible 直连无法覆盖 Anthropic Messages，也无法保证任务重试继续使用创建时的 Provider 版本；统一错误分类可以避免鉴权失败无限重试，并阻止上游原始文本进入公共错误。
+- **影响**：`AGENT_AUTH_FAILED`、`AGENT_RATE_LIMITED`、`AGENT_TIMEOUT`、`AGENT_PROVIDER_FAILED`、`AGENT_OUTPUT_INVALID` 和 `AGENT_CONFIG_MISSING` 成为 Worker 层稳定边界。fixture 和离线评测通过不等价于供应商正式支持，正式声明还需要每家 opt-in real smoke。
+
 ### D-39 P2 Provider 密钥由桌面主进程版本化代理
 
 - **决策**：Provider profile 的数据库记录只保存 `credentialRef`、`keyConfigured`、`keyLast4` 和 `keyVersion`；完整 API Key 通过 Hono/Worker 到 Electron 主进程的受控 IPC 写入 safeStorage/Windows DPAPI 加密文件，按 credentialRef 保留版本。BrowserWindow 没有读取完整 Key 的接口。

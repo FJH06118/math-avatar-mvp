@@ -7,7 +7,8 @@ import { PythonParseAdapter } from "./parse-adapter.ts";
 import { runClaimedParseStep } from "./parse-worker.ts";
 import { claimNextProductStep } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
-import { MissingAgentAdapter, OpenAiCompatibleAgentAdapter } from "./agent-adapter.ts";
+import { DatabaseProviderResolver, ProviderGatewayAgentAdapter } from "./agent-adapter.ts";
+import { createIpcSecretClient } from "./secret-client.ts";
 import { runClaimedPlanStep } from "./plan-worker.ts";
 import { EdgeTtsAudioAdapter } from "./audio-adapter.ts";
 import { runClaimedAudioStep } from "./audio-worker.ts";
@@ -23,9 +24,9 @@ const pool = createProductPool(config.databaseUrl);
 const workerId = `worker_${randomUUID()}`;
 const assets = new LocalAssetStore(config.assetRoot);
 const adapter = new PythonParseAdapter(config.pythonCommand);
-const agentAdapter = config.agentProvider
-  ? new OpenAiCompatibleAgentAdapter(config.agentProvider)
-  : new MissingAgentAdapter();
+const secretClient = createIpcSecretClient();
+const providerResolver = new DatabaseProviderResolver(prisma, secretClient, config.agentProvider);
+const agentAdapter = new ProviderGatewayAgentAdapter(providerResolver);
 const abort = new AbortController();
 const audioAdapter = new EdgeTtsAudioAdapter();
 const renderAdapter = new SharpFfmpegPageRenderAdapter();

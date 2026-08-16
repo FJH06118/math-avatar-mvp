@@ -1,5 +1,12 @@
 # 项目状态
 
+## 2026-08-17 Windows 桌面 P3 Provider Gateway 本地收口
+
+- P3 已实现统一 Gateway 和五家协议适配器：OpenAI、DeepSeek、GLM、Kimi 使用 OpenAI Chat Completions 形态，Anthropic 使用 Messages 形态；外部 JSON 先作为 `unknown` 检查，错误映射为稳定 Worker 错误，不携带原始响应。
+- PLAN Worker 优先解析 P2 冻结的 `ProviderSelectionSnapshot`，按 principal、profileVersion、keyVersion、协议、baseUrl 和 model 校验后通过 secret IPC 取对应版本；没有快照时才使用旧环境回退配置。
+- P3 专项通过：本地 Provider fixture 37/37；100 个 slide-level 样本首轮 90/100、一次 repair 后 100/100；P2 Provider 集成 3/3；完整 backend integration 32 pass/1 外部 Edge skip。`test:provider-smoke` 五家均按默认 opt-in 规则跳过，未伪造真实上游证据。
+- P3 结论：`PASS_WITH_EVIDENCE_GAPS` / `EXTERNAL_VALIDATION_PENDING`。在每家目标环境 opt-in real smoke 通过前，不得写成五家正式支持；P1 clean VM、完整离线 staging、正式 migration runtime、宿主崩溃回收和升级回滚证据同样仍缺。
+
 ## 2026-08-17 Windows 桌面 P2 已完成本机验证
 
 - P1 已完成本地 commit/tag：桌面 `e19ef99` / `desktop-p1-complete`，网页 `448c1db` / `web-p1-complete`；P2 代码分别为桌面 `bd63d5c`、网页 `4e14972`，未推送。

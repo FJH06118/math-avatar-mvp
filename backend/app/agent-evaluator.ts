@@ -92,5 +92,6 @@ function repairCandidates(content: string): string[] {
   const start = withoutFence.indexOf("{");
   const end = withoutFence.lastIndexOf("}");
   const extracted = start >= 0 && end > start ? withoutFence.slice(start, end + 1) : withoutFence;
-  return [...new Set([trimmed, withoutFence, extracted])].slice(0, 3);
+  const repaired = withoutFence !== trimmed ? withoutFence : extracted;
+  return [...new Set([trimmed, repaired])].slice(0, 2);
 }
