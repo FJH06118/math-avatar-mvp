@@ -3,13 +3,14 @@
 ## 2026-08-17 P8 候选发布审计（本机部分）
 
 - 已新增 `scripts/audit-release-artifact.mjs` 和桌面 `desktop:audit` 命令，检查 runtime v2 manifest、文件/许可证数量、bundle metadata/source commit、第三方 notices、安装包存在性/SHA-256，以及 bundle 文本中的第一方密钥模式。
-- 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：`p7-03a6e091e0ef`、31,321 文件、7 条许可证、安装包 SHA-256 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9` 通过；依赖 Pillow 源码的固定测试 canary 单独列出；安装包仍是 `NotSigned`。
+- 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98`、安装包 1,008,956,662 bytes 和 SHA-256 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3` 通过；安装包仍是 `NotSigned`。
+- 最终 `desktop:verify`、migration smoke、完整四服务 smoke、3 轮 `test:desktop:soak`、隔离 unclean recovery 和最终解包 app smoke 均通过；smoke 的 3 个 listener 均为 loopback，强杀后 1 个 fork child 被精确清理，最终 residual process/listener 为 0。硬崩溃/Job Object、clean VM 和真实安装器交互仍未取得证据。
 - P8 外部验收矩阵已写入桌面 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，clean Windows 10/11、另一台电脑、安装升级/卸载、故障注入、真实 Provider/Edge TTS、容量和完整播放仍为 `EXTERNAL_VALIDATION_PENDING`。
 
-## 2026-08-17 P7 完整离线安装包与升级链路
+## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）
 
 - 已新增 x64 NSIS 安装配置、bundle 构建/校验、完整打包运行时 smoke、安装后启动 smoke、迁移前 PostgreSQL 备份、v2 runtime manifest、第三方 notices 和卸载保留/删除数据脚本；运行时通过受限的 bundle-only PATH 解析，不依赖系统预装 Node、Python、PostgreSQL、LibreOffice 或 FFmpeg。
-- 最终本机 bundle 为 `p7-03a6e091e0ef`，15 个组件、31,321 个文件、7 条许可证记录，manifest/hash/size/license 校验通过。NSIS 候选 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe` 的 SHA-256 为 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9`，签名状态为 `NotSigned`，仅供本地验收，不得公开发布。
+- P7 基线 bundle 为 `p7-03a6e091e0ef`，15 个组件、31,321 个文件、7 条许可证记录，manifest/hash/size/license 校验通过；该候选已由上方 P8 runtime/NSIS 候选 supersede。其签名状态为 `NotSigned`，仅供本地验收，不得公开发布。
 - PostgreSQL/Prisma migration smoke 和真实 `RuntimeBootstrap` 完整启动 smoke 均通过：PostgreSQL、Hono、Worker、Next 全部 `READY`，Next HTTP readiness 通过，停止后无本项目残留子进程。最终解包 app smoke 在 20 秒内实际拉起 bundle PostgreSQL/Node 子进程，按精确根 PID 清理后无残留；这仍不等价于 clean VM 安装后 UI/媒体验收。
 - 结论：`PASS_WITH_EVIDENCE_GAPS`。clean Windows 10/11、普通用户安装/升级/回滚/卸载、DPI/焦点、硬崩溃恢复、真实 Provider/Edge TTS、50 页/60 分钟媒体仍为 `EXTERNAL_VALIDATION_PENDING`。
 
@@ -18,7 +19,7 @@
 - 已接入首次启动 `/setup`、设置 `/settings`、Provider profile 的创建/编辑/密钥轮换/启用/默认选择/配置级连接测试；完整 Key 仍只经既有桌面主进程安全存储边界流转，浏览器只接收非秘密状态。真实生产上传在服务端再次检查默认 Provider，未配置时返回 `PROVIDER_NOT_CONFIGURED`。
 - 已新增 `runtime-health` strict Contract、Hono `/v1/runtime/health` 与 `/v1/runtime/diagnostic`、Next 同源 BFF、健康面板和脱敏诊断 JSON 导出。数据库、API、Provider、Edge TTS、桌面宿主、磁盘和 Workflow 状态均有稳定状态与中文行动提示。
 - 生产模式在网页端默认选择 real adapter；打包 Electron 进程拒绝 `mock`、`stage-t` 和非法模式。桌面 preload 只暴露公开快照、一次显式 retry 和脱敏工作流状态；主进程已接入托盘、磁盘空间分类和后台任务状态展示。
-- 本地证据：Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 23 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build，以及 Python backend:test 13/13 均通过。
+- 本地证据：Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 27 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build，以及 Python backend:test 13/13 均通过。
 - 结论：`PASS_WITH_EVIDENCE_GAPS`。clean Windows 10/11、真实 Provider/Edge TTS、键盘焦点与 125%/150% 缩放、完整离线 staging、安装包、硬崩溃回收和升级回滚仍为 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P5 服务端根工作流

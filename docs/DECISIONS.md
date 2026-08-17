@@ -9,7 +9,7 @@
 
 - **决策**：Windows x64 候选以 NSIS per-user 包交付，所有运行时和应用制品放在 `resources/runtime`；启动只接受 strict v2 runtime manifest，并在 bundle-only PATH 下按 `PostgreSQL -> Prisma migrate deploy -> Hono -> Worker -> Next` 顺序运行。每次已有数据库迁移前复制 `postgres-data` 到版本化备份目录，迁移失败阻断启动并保留备份，不执行未经验证的 down migration。
 - **原因**：单机离线软件不能把系统 PATH、开发仓库 Prisma CLI 或全局 Office/FFmpeg 当作隐式依赖；升级失败也不能破坏唯一用户数据库。Manifest 文件级 hash、许可证路径和迁移前备份能把完整性与恢复边界变成可检查的启动门。
-- **影响**：安装包可在无预装 Node/Python/PostgreSQL/LibreOffice/FFmpeg 的目标机上尝试运行；当前候选未签名，只允许本机和受控验证，不得公开发布。clean VM、升级/回滚、卸载和媒体质量仍必须在 P8 外部验收中通过。
+- **影响**：安装包可在无预装 Node/Python/PostgreSQL/LibreOffice/FFmpeg 的目标机上尝试运行；P8 本机候选 runtime 为 `p7-065a181e095d`，安装包 SHA-256 为 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3`，当前未签名，只允许本机和受控验证，不得公开发布。clean VM、升级/回滚、卸载和媒体质量仍必须在 P8 外部验收中通过。
 
 ### D-44 P6 打包生产模式与脱敏运行时健康边界
 
