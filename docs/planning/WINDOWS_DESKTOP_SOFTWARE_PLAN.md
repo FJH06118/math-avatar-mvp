@@ -640,7 +640,7 @@ STOP：
 - Renderer 能直接调用 Node、读取密钥或任意打开本地文件。
 - 页面展示的设置仍与最终媒体不一致。
 
-当前代码收口记录（2026-08-17）：首次启动向导、设置页、Provider 密钥轮换/配置级连接测试、生产上传 Provider 门禁、runtime health/diagnostic strict Contract、健康面板和脱敏 JSON 导出已实现；网页生产 adapter 默认真实模式，打包 Electron 启动拒绝 Mock/stage-t/非法模式。桌面 preload 只暴露公开快照、一次显式 retry 和严格脱敏 Workflow 状态，主进程增加托盘、磁盘告警与后台工作流状态。共享 Contract 48/48、前端 unit 13/13、component 17/17、routes 6/6、完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面 23 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build，以及 Python backend:test 13/13 均通过。clean Windows 10/11、真实 Provider/Edge TTS、125%/150% 缩放和键盘焦点、完整离线 staging、安装包、硬崩溃回收及升级回滚仍未取得证据，因此 P6 结论为 `PASS_WITH_EVIDENCE_GAPS`，状态为 `EXTERNAL_VALIDATION_PENDING`。
+当前代码收口记录（2026-08-17）：首次启动向导、设置页、Provider 密钥轮换/配置级连接测试、生产上传 Provider 门禁、runtime health/diagnostic strict Contract、健康面板和脱敏 JSON 导出已实现；网页生产 adapter 默认真实模式，打包 Electron 启动拒绝 Mock/stage-t/非法模式。桌面 preload 只暴露公开快照、一次显式 retry 和严格脱敏 Workflow 状态，主进程增加托盘、磁盘告警与后台工作流状态。共享 Contract 48/48、前端 unit 13/13、component 17/17、routes 6/6、完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面 27 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build，以及 Python backend:test 13/13 均通过。clean Windows 10/11、真实 Provider/Edge TTS、125%/150% 缩放和键盘焦点、完整离线 staging、安装包、硬崩溃回收及升级回滚仍未取得证据，因此 P6 结论为 `PASS_WITH_EVIDENCE_GAPS`，状态为 `EXTERNAL_VALIDATION_PENDING`。
 
 ### P7：完整离线安装包与升级链路
 
@@ -739,7 +739,7 @@ STOP：
 - npm.cmd run desktop:smoke:installed
 - npm.cmd run test:desktop:soak
 
-`test:desktop:soak` 已创建并在最终候选上通过 3 轮；其余桌面发布命令也已创建并执行相应门禁。`test:workflow` 仍未在根 `package.json` 中实现，必须记录为计划命令缺失/阻塞，不得以现有 Workflow integration 测试替代该命令名；`test:providers` 已存在，但默认真实上游 smoke 仍按 opt-in 规则跳过，不能写成五家正式上游通过。
+`test:desktop:soak` 已创建并在最终候选上通过 3 轮；其余桌面发布命令也已创建并执行相应门禁。`test:workflow` 已在根 `package.json` 和 backend workspace 中固化，并在本机 PostgreSQL 上通过 3/3 workflow integration tests；`test:providers` 已存在，但默认真实上游 smoke 仍按 opt-in 规则跳过，不能写成五家正式上游通过。
 
 ## 12. v1 验收标准
 

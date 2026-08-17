@@ -5,6 +5,7 @@
 - 已新增 `scripts/audit-release-artifact.mjs` 和桌面 `desktop:audit` 命令，检查 runtime v2 manifest、文件/许可证数量、bundle metadata/source commit、第三方 notices、安装包存在性/SHA-256，以及 bundle 文本中的第一方密钥模式。
 - 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98`、安装包 1,008,956,662 bytes 和 SHA-256 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3` 通过；安装包仍是 `NotSigned`。
 - 最终 `desktop:verify`、migration smoke、完整四服务 smoke、3 轮 `test:desktop:soak`、隔离 unclean recovery 和最终解包 app smoke 均通过；smoke 的 3 个 listener 均为 loopback，强杀后 1 个 fork child 被精确清理，最终 residual process/listener 为 0。硬崩溃/Job Object、clean VM 和真实安装器交互仍未取得证据。
+- 根命令 `npm.cmd run test:workflow` 已固化并通过本机 PostgreSQL workflow integration 3/3；`test:providers` 的真实上游仍按 opt-in 规则跳过。
 - P8 外部验收矩阵已写入桌面 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，clean Windows 10/11、另一台电脑、安装升级/卸载、故障注入、真实 Provider/Edge TTS、容量和完整播放仍为 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）

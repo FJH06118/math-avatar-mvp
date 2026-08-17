@@ -31,6 +31,7 @@
     "t0:migrate": "npm run db:migrate:deploy --workspace @ppt-digital-human/backend",
     "t0:test": "npm run t0:generate && npm run t0:migrate && npm run test:t0 --workspace @ppt-digital-human/backend",
     "test:integration": "npm run t0:generate && npm run t0:migrate && npm run test:integration --workspace @ppt-digital-human/backend",
+    "test:workflow": "npm run t0:generate && npm run t0:migrate && npm run test:workflow --workspace @ppt-digital-human/backend",
     "test:stage-11a": "npm run t0:generate && npm run t0:migrate && npm run test:t0 --workspace @ppt-digital-human/backend && npm run test:stage-11a --workspace @ppt-digital-human/backend",
     "test:stage-11b": "npm run t0:generate && npm run t0:migrate && npm run test:stage-11b --workspace @ppt-digital-human/backend",
     "eval:agent": "npm run eval:agent --workspace @ppt-digital-human/backend",

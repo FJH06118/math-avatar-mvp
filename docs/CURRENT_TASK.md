@@ -5,6 +5,7 @@
 - 桌面仓库已新增候选发布审计：校验 v2 manifest、文件/许可证计数、bundle metadata 与源码提交一致性、第三方 notices、安装包 SHA-256 和 bundle 文本密钥模式；依赖包固定测试 canary 单独记录，第一方命中才使审计失败。
 - 本机审计结果为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98` 和安装包 SHA-256 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3` 均匹配；安装包大小 1,008,956,662 bytes，签名状态为 `NotSigned`。
 - 最终 bundle verify、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 四服务 READY/STOPPED、3 轮新 bootstrap soak 和隔离 `UNCLEAN -> CLEAN` recovery 均通过。解包候选 20 秒启动 smoke 观察到 3 个 loopback listener；强杀后 1 个 PostgreSQL fork child 被候选路径内精确清理，最终 residual process/listener 为 0。该结果不替代 clean VM、真实安装器交互或硬崩溃/Job Object 证据。
+- 已补齐计划要求的根命令 `npm.cmd run test:workflow`，串行执行 Prisma generate/migrate 和 `workflow.integration.test.ts`，本机通过 3/3；这不替代另一台电脑、外部 Provider 或完整媒体证据。
 - 已建立 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，覆盖 Windows 10/11、普通用户/中文路径/DPI、安装升级卸载、migration 失败恢复、强杀/断网/磁盘/篡改、五家 Provider、Edge TTS、容量和完整播放人工验收。clean VM/另一台 Windows 电脑结果必须由外部执行后回填，当前保持 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）
