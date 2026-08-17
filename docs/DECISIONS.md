@@ -5,11 +5,17 @@
 
 ## 已确定
 
+### D-46 P8 候选只接受有界运行时源并隔离每次输出
+
+- **决策**：桌面 Python 必须来自带 `python310._pth` 和必需依赖闭包的 Python 3.10 embeddable，并受文件数/体积预算约束；FFmpeg 不复制 `ffplay.exe`，LibreOffice 不复制 headless 运行不需要的 help。bundle/installer 必须写入尚不存在的 `.artifacts` 子目录，构建器不得删除或覆盖旧候选；NSIS 继续保留 updated-uninstaller 原子回滚，不增加递归删除安装根的 `customRemoveFiles`。
+- **原因**：旧候选误收全局 Python 等冗余，形成 85,246 个 manifest 文件并使覆盖超过 30 分钟。缩小可审计闭包能降低体积和逐文件升级成本；每次新目录可把失败残件与已验证产物隔离。
+- **影响**：最新本机 runtime 为 `p7-a5641d4b243b`（25,981 文件、1,571,136,839 bytes），NSIS 为 558,770,630 bytes、SHA-256 `A139CC2824FC8ED9F964013F6700EA4B1A7A687848C494B518D4D0E97342F623`、`NotSigned`。同路径原子覆盖 470.161 秒退出 0，L-02 更新为 `LOCAL_PASS / EXTERNAL_PENDING`；该决定不授权删除用户数据，也不替代 clean Windows、卸载、签名和外部媒体验收。
+
 ### D-45 P7 使用可校验的离线 runtime manifest 和用户级迁移备份
 
 - **决策**：Windows x64 候选以 NSIS per-user 包交付，所有运行时和应用制品放在 `resources/runtime`；启动只接受 strict v2 runtime manifest，并在 bundle-only PATH 下按 `PostgreSQL -> Prisma migrate deploy -> Hono -> Worker -> Next` 顺序运行。每次已有数据库迁移前复制 `postgres-data` 到版本化备份目录，迁移失败阻断启动并保留备份，不执行未经验证的 down migration。
 - **原因**：单机离线软件不能把系统 PATH、开发仓库 Prisma CLI 或全局 Office/FFmpeg 当作隐式依赖；升级失败也不能破坏唯一用户数据库。Manifest 文件级 hash、许可证路径和迁移前备份能把完整性与恢复边界变成可检查的启动门。
-- **影响**：安装包可在无预装 Node/Python/PostgreSQL/LibreOffice/FFmpeg 的目标机上尝试运行；P8 本机候选 runtime 为 `p7-065a181e095d`，当前保留安装包 SHA-256 为 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5`，大小 1,008,956,669 bytes，当前未签名，只允许本机和受控验证，不得公开发布。clean VM、升级/回滚、卸载和媒体质量仍必须在 P8 外部验收中通过。
+- **影响**：安装包可在无预装 Node/Python/PostgreSQL/LibreOffice/FFmpeg 的目标机上尝试运行；最新 P8 本机候选和隔离/瘦身边界见 D-46。当前候选未签名，只允许本机和受控验证，不得公开发布。clean VM、外部升级/回滚、卸载和媒体质量仍必须在 P8 外部验收中通过。
 
 ### D-44 P6 打包生产模式与脱敏运行时健康边界
 

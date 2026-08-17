@@ -3,11 +3,11 @@
 ## 2026-08-17 P8 候选发布审计（本机部分）
 
 - 已新增 `scripts/audit-release-artifact.mjs` 和桌面 `desktop:audit` 命令，检查 runtime v2 manifest、文件/许可证数量、bundle metadata/source commit、第三方 notices、安装包存在性/SHA-256，以及 bundle 文本中的第一方密钥模式。
-- 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98`、当前保留安装包 1,008,956,669 bytes 和 SHA-256 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5` 通过；安装包仍是 `NotSigned`。
-- 最终 `desktop:verify`、migration smoke、完整四服务 smoke、3 轮 `test:desktop:soak`、隔离 unclean recovery 和最终解包 app smoke 均通过；smoke 的 3 个 listener 均为 loopback，强杀后 1 个 fork child 被精确清理，最终 residual process/listener 为 0。硬崩溃/Job Object、clean VM 和真实安装器交互仍未取得证据。
+- 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：瘦身 runtime `p7-a5641d4b243b`、15 个组件、25,981 文件、1,571,136,839 bytes、7 条许可证和 desktop/web source commit 一致；安装包为 558,770,630 bytes、SHA-256 `A139CC2824FC8ED9F964013F6700EA4B1A7A687848C494B518D4D0E97342F623`、`NotSigned`。旧 1,008,956,669-byte 候选和失败候选均隔离保留。
+- 新候选的 `desktop:verify`、migration smoke、完整四服务 smoke、3 轮 `test:desktop:soak` 和 release audit 均通过；桌面 27 项测试为 25 pass/2 skip/0 fail，新增打包策略测试 3/3 通过。硬崩溃/Job Object、clean VM 和真实安装器 UI 仍未取得完整证据。
 - 根命令 `npm.cmd run test:workflow` 已固化并通过本机 PostgreSQL workflow integration 3/3；`test:providers` 的真实上游仍按 opt-in 规则跳过。
-- disposable NSIS 探针在中文/空格临时目录首次安装退出码 0，安装后启动 smoke 通过且临时数据标记保留；静默保留数据修复后同版本覆盖安装不再弹窗，但约 85,000 个文件处理超过 30 分钟未返回，终止后为 `installerExitCode=-1`，覆盖后的 app smoke 通过。L-02 仍明确为 `LOCAL_FAIL / EXTERNAL_PENDING`，临时目录和中断打包目录已清理。
-- 桌面 `desktop:package` 在缺少 `PPT_DH_WEB_ROOT` 等绝对输入时会按设计拒绝执行，本次安装包由已验证 bundle 直接调用 electron-builder 生成；受限沙箱中的安装后 smoke 需要提升权限读取 WMI，提升权限重跑通过。两项均记录为可复现性/验收环境限制。
+- 旧候选的覆盖失败根因已收敛到 85,246 文件的逐文件原子处理；新构建门拒绝全局 Python 和既有输出目录，只复制有界 embeddable 闭包并省略 `ffplay.exe`/LibreOffice help，没有绕过原子回滚。同路径覆盖在 470.161 秒退出 0，真实数据目录元数据不变，L-02 为 `LOCAL_PASS / EXTERNAL_PENDING`。
+- 桌面 `desktop:package` 在缺少 `PPT_DH_WEB_ROOT` 等绝对输入时仍按设计拒绝执行；本轮使用显式已审计输入完成 production build -> bundle -> NSIS，但这不是 clean/外部重建证据。坏快捷方式和注册键先隔离备份，再由 NSIS 更新到存在的 per-user 目标；未手工删除用户数据或注册表。用户明确允许后，稳定目标已可视化显示首次启动设置窗口，未填写密钥或触发业务动作，窗口保留供用户继续使用。
 - P8 外部验收矩阵已写入桌面 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，clean Windows 10/11、另一台电脑、安装升级/卸载、故障注入、真实 Provider/Edge TTS、容量和完整播放仍为 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）

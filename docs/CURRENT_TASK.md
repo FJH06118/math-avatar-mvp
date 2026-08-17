@@ -3,11 +3,12 @@
 ## 2026-08-17 P8 候选发布审计（本机部分，外部验收待补）
 
 - 桌面仓库已新增候选发布审计：校验 v2 manifest、文件/许可证计数、bundle metadata 与源码提交一致性、第三方 notices、安装包 SHA-256 和 bundle 文本密钥模式；依赖包固定测试 canary 单独记录，第一方命中才使审计失败。
-- 本机审计结果为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98` 和当前保留安装包 SHA-256 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5` 均匹配；安装包大小 1,008,956,669 bytes，签名状态为 `NotSigned`。
-- 最终 bundle verify、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 四服务 READY/STOPPED、3 轮新 bootstrap soak 和隔离 `UNCLEAN -> CLEAN` recovery 均通过。解包候选 20 秒启动 smoke 观察到 3 个 loopback listener；强杀后 1 个 PostgreSQL fork child 被候选路径内精确清理，最终 residual process/listener 为 0。该结果不替代 clean VM、真实安装器交互或硬崩溃/Job Object 证据。
+- 本机审计结果仍为 `PASS_WITH_EVIDENCE_GAPS`：瘦身 runtime `p7-a5641d4b243b`、15 个组件、25,981 文件、1,571,136,839 bytes、7 条许可证、desktop sourceCommit `a5641d4b243b77049dc73d4ec14dc8ddaebb9b84` 和 webSourceCommit `5b3693da435a828f3a605293e4b8d7e44c241a5e` 均匹配；隔离安装包大小 558,770,630 bytes，SHA-256 `A139CC2824FC8ED9F964013F6700EA4B1A7A687848C494B518D4D0E97342F623`，签名状态为 `NotSigned`。原 1,008,956,669-byte 候选与失败候选均保留，未覆盖或删除。
+- 新 bundle verify、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 四服务 READY/STOPPED、3 轮新 bootstrap soak 和 release audit 均通过。桌面测试仍为 27 total（25 pass、2 skip、0 fail），新增 runtime 来源/输出隔离策略测试 3/3 通过；第一方密钥模式命中为 0，仅记录 Pillow 依赖 canary。该结果不替代 clean VM、真实安装器交互或硬崩溃/Job Object 证据。
 - 已补齐计划要求的根命令 `npm.cmd run test:workflow`，串行执行 Prisma generate/migrate 和 `workflow.integration.test.ts`，本机通过 3/3；这不替代另一台电脑、外部 Provider 或完整媒体证据。
-- 已在 disposable 中文/空格临时目录完成 NSIS 首次安装和安装后启动 smoke；首次安装退出码为 0，启动后残留进程/listener 为 0。加入静默卸载数据保留逻辑后，同版本覆盖安装不再弹出删除数据确认，隔离标记仍保留，但约 85,000 个文件处理超过 30 分钟未返回，终止后 `installerExitCode=-1`；覆盖安装后的 app smoke 仍能启动并停止。因此覆盖升级不是本机通过项，不能把 P8 写成安装生命周期完成；临时目录和中断打包目录已清理。
-- `npm.cmd run desktop:package` 仍要求 `PPT_DH_WEB_ROOT` 等绝对构建输入；本次保留的 unsigned `.exe` 使用已验证 bundle 直接调用 electron-builder 生成，不能宣称空白输入的完整桌面重建已通过。受限沙箱首次运行 smoke 还遇到 WMI `Get-CimInstance` 拒绝访问，提升权限重跑才形成完整报告。
+- 旧候选误收全局 Python、`ffplay.exe` 和 LibreOffice help，是 85,246 文件/覆盖超时的主要冗余。新构建门只接受 3,240-file/84,033,505-byte Python 3.10 embeddable，省略未使用组件，并强制 bundle/installer 使用尚不存在的 `.artifacts` 子目录；没有加入 `customRemoveFiles` 或绕过 updated-uninstaller 原子回滚。
+- 本机先完成 per-user 安装，再由 NSIS 从旧临时注册路径原子迁移到 `LocalAppData\Programs`（381.181 秒、退出 0）；随后同路径静默原子覆盖在 470.161 秒内退出 0。覆盖前后真实 `%APPDATA%\MathAvatar` 均为 10,083 个文件、469,210,520 bytes，最新写入时间一致；桌面/开始菜单快捷方式目标存在，相关进程为 0。L-02 更新为 `LOCAL_PASS / EXTERNAL_PENDING`。坏快捷方式和两个应用专用注册键均已隔离备份，空的旧临时程序目录保留未删。用户明确允许后，稳定目标成功显示“首次启动设置｜数学课程制作”窗口；未填写密钥、保存设置、上传或生成，窗口保留供用户继续使用。
+- `npm.cmd run desktop:package` 仍要求 `PPT_DH_WEB_ROOT` 等绝对构建输入；本轮使用显式已审计输入从网页 production build、backend runtime-dist 重新构建 bundle 后生成 unsigned `.exe`，但不能宣称空白或另一台机器的完整桌面重建已通过。受限沙箱运行安装后 smoke 时的 WMI 权限限制仍需在外部验收脚本中说明。
 - 已建立 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，覆盖 Windows 10/11、普通用户/中文路径/DPI、安装升级卸载、migration 失败恢复、强杀/断网/磁盘/篡改、五家 Provider、Edge TTS、容量和完整播放人工验收。clean VM/另一台 Windows 电脑结果必须由外部执行后回填，当前保持 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）
@@ -17,9 +18,9 @@
 - 最终 bundle PostgreSQL/Prisma migration smoke 通过；基于真实 `RuntimeBootstrap` 的完整启动 smoke 已验证 PostgreSQL、Hono、Worker、Next 全部进入 `READY`，Next HTTP readiness 通过，停止后无本项目残留子进程。最终解包 app 启动 smoke 在 20 秒窗口内存活并实际拉起 bundle PostgreSQL/Node 子进程；按精确根 PID 清理后无残留，但仍未替代 clean VM 安装后 UI/首次启动/真实媒体验收。
 - P7 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、普通用户安装/覆盖升级/migration 失败恢复、卸载两种路径、125%/150% DPI、硬崩溃恢复、真实 Provider/Edge TTS 和 50 页/60 分钟媒体仍为 `EXTERNAL_VALIDATION_PENDING`。
 
-## P8 下一步：优化覆盖升级并完成外部容量、故障注入和候选验收
+## P8 下一步：完成外部容量、故障注入和候选验收
 
-- 本机候选审计和首次安装/启动 smoke 已收口，但覆盖安装探针先后出现旧卸载器退出码 2、修复后 30 分钟超时；下一步先优化安装目录清理并复验 NSIS 原地升级，再处理真实安装产物的 clean VM/另一台 Windows 验收、容量、故障注入、媒体质量和人工播放。不得把本机 bundle/解包 smoke 写成外部验收完成。
+- 本机候选审计、瘦身、bundle smoke/soak、NSIS 同路径原子覆盖和已安装 UI 启动确认已收口；下一步是真实安装产物在 clean Windows 10/11/另一台普通用户电脑上的安装升级/回滚/卸载、容量、故障注入、媒体质量和人工播放。不得把本机结果写成外部验收完成。
 
 ## 2026-08-17 P6 首次启动、设置页和生产模式（本机收口，外部验证待补）
 
