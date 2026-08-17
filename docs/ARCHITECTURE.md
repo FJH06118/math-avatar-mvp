@@ -1,5 +1,11 @@
 # 当前真实架构
 
+## 2026-08-17 固定桌面 principal 与 bundle Python 导入边界
+
+- Desktop Host 不再每次启动生成业务 principal，统一使用 `local-desktop-user`。Prisma migrate 和预迁移备份完成后、Hono/Worker/Next 启动前，捆绑 `psql` 在一个事务内统计 `T0Task`、`Project`、`ProviderProfile`、`GenerationTask`、`WorkflowRun`：0 个/已固定时不写，唯一 legacy 值才迁移，多值时阻断恢复。数据库口令只经 `PGPASSWORD` 子进程环境传递。
+- 复制后的 Python embeddable `python310._pth` 显式包含 runtime 父目录 `..`，使 `python -m backend.cli.prepare` 能导入同级 backend；构建门执行导入探针，运行时设置 `PYTHONNOUSERSITE=1` 和 `PYTHONDONTWRITEBYTECODE=1`。这不会修改源 Python，也不允许系统预装 Python 进入发布闭包。
+- 最新 runtime `p7-dd47b2e90ef4` 为 16 组件、25,981 条 manifest 文件记录、1,571,136,842 bytes、7 条许可证。当前候选本机验证了真实 14 页解析、官方卸载默认保留数据、全新安装、应用正常 Exit/第二次启动和原项目跨重启可见；同路径原子覆盖未通过，L-02 为 `LOCAL_PARTIAL / EXTERNAL_PENDING`。
+
 ## 2026-08-17 P7/P8 离线 bundle、安装与迁移保护（本机候选）
 
 - 桌面发布拓扑为 `NSIS installer -> Electron app -> resources/runtime/runtime-manifest.json -> RuntimeBootstrap -> bundled PostgreSQL -> bundled Prisma migrate deploy -> Hono -> Worker -> Next standalone`。安装包把 Node、Python embeddable、PostgreSQL、LibreOffice、FFmpeg/ffprobe、Noto 字体、项目 backend runtime-dist、Next standalone/static/public 和 Prisma migration 运行入口放入 `resources/runtime`；服务进程不通过系统全局 PATH 找依赖。

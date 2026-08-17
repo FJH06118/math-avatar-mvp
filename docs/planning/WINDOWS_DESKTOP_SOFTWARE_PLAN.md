@@ -684,6 +684,8 @@ STOP：
 
 当前代码收口记录（2026-08-17）：已完成 x64 NSIS 离线候选、`runtime-manifest` v2、bundle 构建/校验、Prisma migration runtime entry、迁移前 PostgreSQL 备份、卸载保留/删除数据脚本、第三方 notices 和 bundle 完整启动 smoke。瘦身 bundle `p7-a5641d4b243b` 包含 15 个组件、25,981 个文件、1,571,136,839 bytes、7 条许可证记录；manifest/hash/size/license 校验通过。隔离的未签名 NSIS 候选为 558,770,630 bytes，SHA-256 `A139CC2824FC8ED9F964013F6700EA4B1A7A687848C494B518D4D0E97342F623`。旧全局 Python、`ffplay.exe` 和 LibreOffice help 不再进入候选；构建器拒绝既有输出目录且没有绕过 NSIS 原子回滚。同路径覆盖在 470.161 秒退出 0，真实数据元数据不变，L-02 为 `LOCAL_PASS / EXTERNAL_PENDING`。P8 本机结论仍为 `PASS_WITH_EVIDENCE_GAPS`；clean Windows 10/11、普通用户外部升级/回滚/卸载、DPI/焦点、硬崩溃/Job Object、真实 Provider/Edge TTS 和容量/媒体质量仍为 `EXTERNAL_VALIDATION_PENDING`。
 
+最新修复记录（2026-08-17）：runtime `p7-dd47b2e90ef4` 新增 `psql`，共 16 组件、25,981 条文件记录、1,571,136,842 bytes、7 条许可证；NSIS 为 558,771,599 bytes、SHA-256 `C5BACF777BCEBFA33DECDE53CCB37163711E85B286AEE89D1FD413770197FDA0`、`NotSigned`。已修复 Python `_pth` 导入边界和随机 principal；真实 14 页解析及原项目跨第二次启动可见通过。当前候选原子覆盖挂起，最终在用户授权下采用官方卸载保留数据后全新安装，因此 L-02 只能为 `LOCAL_PARTIAL / EXTERNAL_PENDING`；不得用历史候选覆盖成功替代当前候选升级/回滚证据。
+
 ### P8：容量、故障注入和候选发布
 
 目标：
@@ -691,6 +693,8 @@ STOP：
 - 用真实安装产物完成容量、恢复、安全、媒体质量和用户验收。
 
 当前本机收口记录（2026-08-17）：桌面仓库已完成候选发布审计、运行时冗余收敛、全新隔离打包和 Windows 外部验收矩阵；本机 manifest/hash/license/metadata/第一方密钥模式检查通过，结果为 `PASS_WITH_EVIDENCE_GAPS`。25,981-file 候选的同版本原子覆盖在 470.161 秒退出 0且真实数据元数据不变，因此 L-02 为 `LOCAL_PASS / EXTERNAL_PENDING`。未签名安装包、clean Windows 10/11/另一台普通用户电脑、外部升级/卸载/故障注入、真实 Provider/Edge TTS、容量和完整播放人工证据仍保持 `EXTERNAL_VALIDATION_PENDING`，不得以本机审计替代发布门。
+
+最新本机补证（2026-08-17）：桌面 29 total（27 pass、2 skip、0 fail）及 bundle/full smoke、3 轮 soak、audit 通过；官方卸载默认保留数据和应用第二次启动已取得本机证据。当前候选原子升级/回滚、卸载确认删除数据、migration 失败恢复、各业务阶段强杀/Job Object、外部 Provider/Edge TTS、容量/媒体人工播放、签名和 clean Windows 仍未取得证据。
 
 测试矩阵：
 

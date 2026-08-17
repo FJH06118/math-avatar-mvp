@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-47 桌面固定单用户 principal，并只迁移唯一 legacy 作用域
+
+- **决策**：桌面打包运行固定使用 `local-desktop-user`。Prisma migrate 后、业务服务启动前，通过 bundle 内 `psql` 在单事务中检查五张业务表；唯一 legacy principal 才迁移，多个 principal 以 `RUNTIME_RECOVERY_REQUIRED` 阻断。Python embeddable 候选副本的 `_pth` 必须加入 runtime 父目录并通过 `backend` 导入探针。
+- **原因**：随机 principal 让仍在数据库中的项目在重启后不可见；缺失 runtime 父目录让真实 PARSE 在 0% 因 `backend` 无法导入而失败。
+- **影响**：真实 14 页课件在候选和安装目录解析成功，原项目在修复版第二次启动仍通过 UI/API 可见。该迁移不猜测或合并多个用户作用域，不删除用户数据。最新候选为 16 组件、558,771,599-byte 未签名 NSIS；clean Windows、当前候选原子升级/回滚、真实 Provider/Edge TTS、容量和完整媒体仍待外部验收。
+
 ### D-46 P8 候选只接受有界运行时源并隔离每次输出
 
 - **决策**：桌面 Python 必须来自带 `python310._pth` 和必需依赖闭包的 Python 3.10 embeddable，并受文件数/体积预算约束；FFmpeg 不复制 `ffplay.exe`，LibreOffice 不复制 headless 运行不需要的 help。bundle/installer 必须写入尚不存在的 `.artifacts` 子目录，构建器不得删除或覆盖旧候选；NSIS 继续保留 updated-uninstaller 原子回滚，不增加递归删除安装根的 `customRemoveFiles`。

@@ -1,5 +1,14 @@
 # 当前任务
 
+## 2026-08-17 P8 解析、固定单用户身份与本机安装修复
+
+- 桌面最新 runtime 为 `p7-dd47b2e90ef4`：16 个组件、25,981 条 manifest 文件记录、1,571,136,842 bytes、7 条许可证；未签名安装包位于 `.artifacts/p8-stable-principal-dd47b2e/installer/math-avatar-desktop-0.1.0-win-x64-unsigned.exe`，大小 558,771,599 bytes，SHA-256 `C5BACF777BCEBFA33DECDE53CCB37163711E85B286AEE89D1FD413770197FDA0`。桌面 typecheck、lint、29 total（27 pass、2 skip、0 fail）、build、verify、bundle/full smoke、3 轮 soak 和 audit 已通过。
+- 真实课件 0% 解析失败是复制后的 Python embeddable `_pth` 缺 runtime 父目录，`backend` 无法导入。构建现在只修改候选副本，加入 `..`、执行 `backend` 导入探针并禁止用户 site/pyc 写入；同一 14 页课件已在候选和安装目录解析成功，源文件 SHA-256 未变化。
+- 重启后项目列表为空不是数据删除，而是桌面每次启动生成随机 principal。桌面现固定使用 `local-desktop-user`；Prisma migrate 后由捆绑 `psql` 在单事务中只迁移唯一 legacy principal，检测到多个 principal 则 `RUNTIME_RECOVERY_REQUIRED` fail closed。保留数据全新安装后的首次和第二次启动，UI/API 均显示原项目及原 task ID。
+- 当前修复候选的同路径原子覆盖挂起，精确终止 PID 15784 后未改动目标或用户数据；没有加入递归删除安装目录或绕过原子回滚的脚本。经用户明确授权，先安全停止 17 个 Math Avatar 自有进程，再由官方静默卸载器保留数据（退出 0，17.627 秒）并全新安装。卸载前后的 `%APPDATA%\MathAvatar` 基线为 12,983 个文件、608,937,883 bytes，路径/大小/修改时间差异为 0。L-01/L-04 本机通过，L-02/L-06 仅 `LOCAL_PARTIAL / EXTERNAL_PENDING`。
+- 桌面与开始菜单快捷方式都指向 `C:\Users\Fangjunhao\AppData\Local\Programs\Math\Math Avatar.exe`。应用菜单 Exit 后 0 受管进程/listener，第二次启动正常；窗口保留在“最近项目”页，没有自动重试或修改失败课程。
+- 结论仍为 `PASS_WITH_EVIDENCE_GAPS`。clean Windows 10/11、另一台普通用户电脑、当前候选原子升级/回滚、migration 失败恢复、卸载确认删除数据、DPI/焦点、硬崩溃/Job Object、真实 Provider/Edge TTS、容量、完整媒体播放和签名保持 `EXTERNAL_VALIDATION_PENDING`。
+
 ## 2026-08-17 P8 候选发布审计（本机部分，外部验收待补）
 
 - 桌面仓库已新增候选发布审计：校验 v2 manifest、文件/许可证计数、bundle metadata 与源码提交一致性、第三方 notices、安装包 SHA-256 和 bundle 文本密钥模式；依赖包固定测试 canary 单独记录，第一方命中才使审计失败。

@@ -1,5 +1,13 @@
 # 项目状态
 
+## 2026-08-17 P8 本机可用性修复（外部验收仍待补）
+
+- 最新桌面候选 `p7-dd47b2e90ef4` 含 16 个组件、25,981 条文件记录和 7 条许可证，NSIS 为 558,771,599 bytes、SHA-256 `C5BACF777BCEBFA33DECDE53CCB37163711E85B286AEE89D1FD413770197FDA0`、`NotSigned`。桌面 29 total（27 pass、2 skip、0 fail），verify/smoke/3 轮 soak/audit 通过；旧候选和失败候选全部隔离保留。
+- Python embeddable 候选 `_pth` 已加入 runtime 父目录并在构建时探测 `backend` 导入，真实 14 页课件在候选和安装目录解析成功；不依赖本机全局 Python。
+- 随机 principal 导致重启后项目不可见的问题已修复：固定 `local-desktop-user`，唯一 legacy principal 才通过捆绑 `psql` 单事务迁移五表，多个 principal fail closed。应用正常 Exit 后 0 残留，第二次启动 UI/API 仍显示同一原项目。
+- 当前候选原子覆盖挂起且没有被记为通过。用户授权后执行“保留数据官方卸载 + 全新安装”，卸载退出 0，用户数据 12,983 个文件、608,937,883 bytes 元数据差异为 0；快捷方式和卸载项已正确重建。L-02/L-06 为 `LOCAL_PARTIAL / EXTERNAL_PENDING`，不是 clean Windows 结论。
+- P8 仍为 `PASS_WITH_EVIDENCE_GAPS`：真实 Provider/Edge TTS、容量、完整播放、签名、当前候选原子升级/回滚、删除数据卸载、migration 失败恢复、DPI/焦点、Job Object/硬崩溃和外部机器均未完成。
+
 ## 2026-08-17 P8 候选发布审计（本机部分）
 
 - 已新增 `scripts/audit-release-artifact.mjs` 和桌面 `desktop:audit` 命令，检查 runtime v2 manifest、文件/许可证数量、bundle metadata/source commit、第三方 notices、安装包存在性/SHA-256，以及 bundle 文本中的第一方密钥模式。
