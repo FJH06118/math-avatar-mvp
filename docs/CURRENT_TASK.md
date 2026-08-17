@@ -24,7 +24,7 @@
 - 已完成首次启动 `/setup`、设置 `/settings`、Provider 创建/编辑/密钥轮换/启用/默认选择/配置级连接测试，以及只返回非秘密字段的真实设置流程；没有 Provider 时真实上传在 BFF/Hono 两侧均被 `PROVIDER_NOT_CONFIGURED` 阻断。
 - 已新增严格 `runtime-health` Contract、Hono 健康/脱敏诊断端点、Next 同源 BFF、健康面板和浏览器诊断 JSON 导出。健康结果包含数据库/API/Provider/Edge TTS、桌面宿主、磁盘和 Workflow 状态，不含路径、端口、密钥或堆栈。
 - 真实生产模式默认使用 real adapter；打包桌面进程启动时拒绝 Mock/stage-t/非法模式。桌面 preload 仅暴露公开运行时快照、一次显式 retry 和脱敏 Workflow 状态；主进程增加托盘、磁盘告警和后台工作流状态展示。
-- P6 本地专项：共享 Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 27 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build 均通过。
+- P6 本地专项：共享 Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 25 pass/2 个按环境跳过（27 total），0 fail；网页和桌面 typecheck、lint、build 均通过。
 - P6 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、125%/150% 缩放与键盘焦点、真实 Provider/Edge TTS、离线 staging、安装包、硬崩溃恢复和升级回滚仍为 `EXTERNAL_VALIDATION_PENDING`，不得写成已完成。
 
 ## 2026-08-17 P5 服务端根工作流（本地收口，外部验证待补）
