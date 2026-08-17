@@ -1,5 +1,22 @@
 # 当前任务
 
+## 2026-08-17 P8 候选发布审计（本机部分，外部验收待补）
+
+- 桌面仓库已新增候选发布审计：校验 v2 manifest、文件/许可证计数、bundle metadata 与源码提交一致性、第三方 notices、安装包 SHA-256 和 bundle 文本密钥模式；依赖包固定测试 canary 单独记录，第一方命中才使审计失败。
+- 本机审计结果为 `PASS_WITH_EVIDENCE_GAPS`：runtime `p7-03a6e091e0ef`、31,321 文件、7 条许可证、安装包 SHA-256 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9` 均匹配；候选仍为 `NotSigned`。
+- 已建立 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，覆盖 Windows 10/11、普通用户/中文路径/DPI、安装升级卸载、migration 失败恢复、强杀/断网/磁盘/篡改、五家 Provider、Edge TTS、容量和完整播放人工验收。clean VM/另一台 Windows 电脑结果必须由外部执行后回填，当前保持 `EXTERNAL_VALIDATION_PENDING`。
+
+## 2026-08-17 P7 完整离线安装包与升级链路（本机收口，外部验证待补）
+
+- 已新增 x64 NSIS 安装配置、bundle 构建/校验、完整打包运行时 smoke、安装后启动 smoke、迁移前 PostgreSQL 备份、v2 runtime manifest、第三方 notices 和卸载保留/删除数据脚本；生产运行时不依赖系统 PATH 中的 Node、Python、PostgreSQL、LibreOffice 或 FFmpeg。
+- 最终本机 bundle manifest 为 `p7-03a6e091e0ef`，包含 15 个组件、31,321 个文件和 7 条许可证记录；完整 manifest/hash/size/license 校验通过。最终 NSIS 候选为未签名本地包 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe`，SHA-256 为 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9`，签名状态为 `NotSigned`，不得直接公开发布。
+- 最终 bundle PostgreSQL/Prisma migration smoke 通过；基于真实 `RuntimeBootstrap` 的完整启动 smoke 已验证 PostgreSQL、Hono、Worker、Next 全部进入 `READY`，Next HTTP readiness 通过，停止后无本项目残留子进程。最终解包 app 启动 smoke 在 20 秒窗口内存活并实际拉起 bundle PostgreSQL/Node 子进程；按精确根 PID 清理后无残留，但仍未替代 clean VM 安装后 UI/首次启动/真实媒体验收。
+- P7 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、普通用户安装/覆盖升级/migration 失败恢复、卸载两种路径、125%/150% DPI、硬崩溃恢复、真实 Provider/Edge TTS 和 50 页/60 分钟媒体仍为 `EXTERNAL_VALIDATION_PENDING`。
+
+## 下一阶段：P8 容量、故障注入和候选发布
+
+- 只处理真实安装产物的 clean VM/另一台 Windows 验收、容量、故障注入、媒体质量、密钥扫描和候选发布审计；不得把本机 bundle smoke 写成外部验收完成。
+
 ## 2026-08-17 P6 首次启动、设置页和生产模式（本机收口，外部验证待补）
 
 - 已完成首次启动 `/setup`、设置 `/settings`、Provider 创建/编辑/密钥轮换/启用/默认选择/配置级连接测试，以及只返回非秘密字段的真实设置流程；没有 Provider 时真实上传在 BFF/Hono 两侧均被 `PROVIDER_NOT_CONFIGURED` 阻断。
@@ -7,10 +24,6 @@
 - 真实生产模式默认使用 real adapter；打包桌面进程启动时拒绝 Mock/stage-t/非法模式。桌面 preload 仅暴露公开运行时快照、一次显式 retry 和脱敏 Workflow 状态；主进程增加托盘、磁盘告警和后台工作流状态展示。
 - P6 本地专项：共享 Contract 48/48，前端 unit 13/13、component 17/17、routes 6/6，完整 backend integration 38 pass/1 个外部 Edge TTS opt-in skip，桌面测试 23 pass/2 个按环境跳过，0 fail；网页和桌面 typecheck、lint、build 均通过。
 - P6 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、125%/150% 缩放与键盘焦点、真实 Provider/Edge TTS、离线 staging、安装包、硬崩溃恢复和升级回滚仍为 `EXTERNAL_VALIDATION_PENDING`，不得写成已完成。
-
-## 下一阶段：P7 完整离线安装包与升级链路
-
-- 只处理 x64 安装包、捆绑运行时、版本/许可证清单、数据备份、升级回滚和卸载保留数据；不得跳过 clean VM 或把本机开发运行时探针当作发布证据。
 
 ## 2026-08-17 P5 服务端根工作流（本地收口，外部验证待补）
 

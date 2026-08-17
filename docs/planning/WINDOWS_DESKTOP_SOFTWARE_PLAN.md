@@ -682,11 +682,15 @@ STOP：
 - 升级失败会破坏唯一数据库或项目文件。
 - 卸载可能越过应用数据根目录删除文件。
 
+当前代码收口记录（2026-08-17）：已完成 x64 NSIS 离线候选、`runtime-manifest` v2、bundle 构建/校验、Prisma migration runtime entry、迁移前 PostgreSQL 备份、卸载保留/删除数据脚本、第三方 notices、安装后启动 smoke 和 bundle 完整启动 smoke。最终本机 bundle `p7-03a6e091e0ef` 包含 15 个组件、31,321 个文件、7 条许可证记录；manifest/hash/size/license 校验通过。最终未签名 NSIS 候选 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe` SHA-256 为 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9`。PostgreSQL/Prisma migration smoke 和真实 `RuntimeBootstrap` 全链 smoke 均通过，四个受管服务进入 READY 后可受控停止且无残留进程；最终解包 app smoke 在 20 秒内存活并实际拉起 bundle PostgreSQL/Node 子进程，按精确根 PID 清理后无残留，但不替代 clean VM 安装后 UI/媒体验收。P7 结论为 `PASS_WITH_EVIDENCE_GAPS`，clean Windows 10/11、普通用户安装/升级/回滚/卸载、DPI/焦点、硬崩溃、真实 Provider/Edge TTS 和容量/媒体质量仍为 `EXTERNAL_VALIDATION_PENDING`。
+
 ### P8：容量、故障注入和候选发布
 
 目标：
 
 - 用真实安装产物完成容量、恢复、安全、媒体质量和用户验收。
+
+当前本机收口记录（2026-08-17）：桌面仓库已完成候选发布审计脚本和 Windows 外部验收矩阵；本机 manifest/hash/license/metadata/第一方密钥模式检查通过，结果为 `PASS_WITH_EVIDENCE_GAPS`。未签名安装包、clean Windows 10/11/另一台普通用户电脑、升级/卸载/故障注入、真实 Provider/Edge TTS、容量和完整播放人工证据仍保持 `EXTERNAL_VALIDATION_PENDING`，不得以本机审计替代发布门。
 
 测试矩阵：
 

@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-45 P7 使用可校验的离线 runtime manifest 和用户级迁移备份
+
+- **决策**：Windows x64 候选以 NSIS per-user 包交付，所有运行时和应用制品放在 `resources/runtime`；启动只接受 strict v2 runtime manifest，并在 bundle-only PATH 下按 `PostgreSQL -> Prisma migrate deploy -> Hono -> Worker -> Next` 顺序运行。每次已有数据库迁移前复制 `postgres-data` 到版本化备份目录，迁移失败阻断启动并保留备份，不执行未经验证的 down migration。
+- **原因**：单机离线软件不能把系统 PATH、开发仓库 Prisma CLI 或全局 Office/FFmpeg 当作隐式依赖；升级失败也不能破坏唯一用户数据库。Manifest 文件级 hash、许可证路径和迁移前备份能把完整性与恢复边界变成可检查的启动门。
+- **影响**：安装包可在无预装 Node/Python/PostgreSQL/LibreOffice/FFmpeg 的目标机上尝试运行；当前候选未签名，只允许本机和受控验证，不得公开发布。clean VM、升级/回滚、卸载和媒体质量仍必须在 P8 外部验收中通过。
+
 ### D-44 P6 打包生产模式与脱敏运行时健康边界
 
 - **决策**：网页真实模式默认使用生产 adapter；打包 Electron 启动时只接受 `production`，Mock/stage-t/非法值直接进入失败快照。首次启动必须先完成 Provider 配置，上传接口在服务端再次阻断未配置默认 Provider。

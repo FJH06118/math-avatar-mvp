@@ -36,7 +36,9 @@ python -m pip install -r backend\requirements.txt
 
 如果 PowerPoint COM 不可用于当前终端，请安装 LibreOffice。后端会使用
 `soffice.com` 生成本地 PDF，并用随 Python 依赖安装的 `pypdfium2` 渲染每页
-PNG；不依赖 Codex 私有运行时或桌面 Office 会话。
+PNG；不依赖 Codex 私有运行时或桌面 Office 会话。桌面 bundle 通过
+`PPT_DH_LIBREOFFICE_PATH` 注入 bundle 内的 `soffice.com` 绝对路径，并只把
+bundle 的 LibreOffice/FFmpeg 等目录加入受限 PATH，避免回退到系统全局工具。
 
 ## 2. 推荐流程：先审核，再生成
 

@@ -1,5 +1,18 @@
 # 项目状态
 
+## 2026-08-17 P8 候选发布审计（本机部分）
+
+- 已新增 `scripts/audit-release-artifact.mjs` 和桌面 `desktop:audit` 命令，检查 runtime v2 manifest、文件/许可证数量、bundle metadata/source commit、第三方 notices、安装包存在性/SHA-256，以及 bundle 文本中的第一方密钥模式。
+- 本机审计为 `PASS_WITH_EVIDENCE_GAPS`：`p7-03a6e091e0ef`、31,321 文件、7 条许可证、安装包 SHA-256 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9` 通过；依赖 Pillow 源码的固定测试 canary 单独列出；安装包仍是 `NotSigned`。
+- P8 外部验收矩阵已写入桌面 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，clean Windows 10/11、另一台电脑、安装升级/卸载、故障注入、真实 Provider/Edge TTS、容量和完整播放仍为 `EXTERNAL_VALIDATION_PENDING`。
+
+## 2026-08-17 P7 完整离线安装包与升级链路
+
+- 已新增 x64 NSIS 安装配置、bundle 构建/校验、完整打包运行时 smoke、安装后启动 smoke、迁移前 PostgreSQL 备份、v2 runtime manifest、第三方 notices 和卸载保留/删除数据脚本；运行时通过受限的 bundle-only PATH 解析，不依赖系统预装 Node、Python、PostgreSQL、LibreOffice 或 FFmpeg。
+- 最终本机 bundle 为 `p7-03a6e091e0ef`，15 个组件、31,321 个文件、7 条许可证记录，manifest/hash/size/license 校验通过。NSIS 候选 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe` 的 SHA-256 为 `029919C0ECA4EA83C5DDEA7E6817E4E89B58C8ECB1EDB3DA16ECB46589E6A7D9`，签名状态为 `NotSigned`，仅供本地验收，不得公开发布。
+- PostgreSQL/Prisma migration smoke 和真实 `RuntimeBootstrap` 完整启动 smoke 均通过：PostgreSQL、Hono、Worker、Next 全部 `READY`，Next HTTP readiness 通过，停止后无本项目残留子进程。最终解包 app smoke 在 20 秒内实际拉起 bundle PostgreSQL/Node 子进程，按精确根 PID 清理后无残留；这仍不等价于 clean VM 安装后 UI/媒体验收。
+- 结论：`PASS_WITH_EVIDENCE_GAPS`。clean Windows 10/11、普通用户安装/升级/回滚/卸载、DPI/焦点、硬崩溃恢复、真实 Provider/Edge TTS、50 页/60 分钟媒体仍为 `EXTERNAL_VALIDATION_PENDING`。
+
 ## 2026-08-17 P6 首次启动、设置页和生产模式
 
 - 已接入首次启动 `/setup`、设置 `/settings`、Provider profile 的创建/编辑/密钥轮换/启用/默认选择/配置级连接测试；完整 Key 仍只经既有桌面主进程安全存储边界流转，浏览器只接收非秘密状态。真实生产上传在服务端再次检查默认 Provider，未配置时返回 `PROVIDER_NOT_CONFIGURED`。

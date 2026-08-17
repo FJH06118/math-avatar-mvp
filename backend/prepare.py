@@ -318,9 +318,11 @@ def render_with_powerpoint(pptx_path: Path, output_dir: Path) -> str:
 def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
     import pypdfium2 as pdfium
 
+    configured_soffice = os.environ.get("PPT_DH_LIBREOFFICE_PATH", "").strip()
     soffice = find_program(
         ["soffice.com", "soffice", "libreoffice"],
-        [
+        ([Path(configured_soffice)] if configured_soffice else [])
+        + [
             Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
             Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
             Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
@@ -388,9 +390,11 @@ def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
 
 
 def convert_legacy_ppt(source_path: Path, output_path: Path) -> None:
+    configured_soffice = os.environ.get("PPT_DH_LIBREOFFICE_PATH", "").strip()
     soffice = find_program(
         ["soffice.com", "soffice", "libreoffice"],
-        [
+        ([Path(configured_soffice)] if configured_soffice else [])
+        + [
             Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
             Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
             Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
