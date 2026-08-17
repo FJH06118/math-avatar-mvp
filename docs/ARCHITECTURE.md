@@ -6,7 +6,7 @@
 - `runtime-manifest.json` v2 对平台、x64 架构、产品/源码/Node 版本、组件相对路径、sha256、文件大小、文件分类和许可证路径做 strict 校验。启动前校验列出的组件哈希和版本；受管子进程的 PATH 只包含 bundle 内 Node/Python/PostgreSQL/LibreOffice/FFmpeg 目录，避免开发机全局依赖伪装成发布依赖。
 - 首次数据库初始化使用 bundle `initdb`，数据库就绪后由 bundle Node 执行 `prisma migrate deploy`；v2 每次迁移前将既有 `postgres-data` 复制到 `dataRoot/backups/pre-migration-*`，迁移失败以稳定错误阻断启动并保留备份，不执行自动 down migration。数据库口令继续由 Electron safeStorage/DPAPI 边界保存。
 - NSIS 采用 per-user、x64、离线候选包；卸载脚本默认保留 `%APPDATA%\\MathAvatar`，用户显式确认后才删除该精确数据根。当前包未签名，仅能用于本机/受控验证，不能视为公开发布构建。
-- 本机 P7/P8 证据已通过最终 bundle `p7-065a181e095d` 的 manifest/hash/license 校验、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 全链启动/Next HTTP readiness/受控停止、3 轮 soak、隔离 stale marker recovery 和解包 app 进程启动 smoke；最终 NSIS 候选为 1,008,956,662 bytes、SHA-256 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3`、`NotSigned`。clean VM、覆盖升级、migration 失败恢复、卸载两路径、硬崩溃/Job Object 和真实媒体仍需外部验证。
+- 本机 P7/P8 证据已通过最终 bundle `p7-065a181e095d` 的 manifest/hash/license 校验、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 全链启动/Next HTTP readiness/受控停止、3 轮 soak、隔离 stale marker recovery 和解包 app 进程启动 smoke；当前保留 NSIS 候选为 1,008,956,669 bytes、SHA-256 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5`、`NotSigned`。首次安装和安装后 smoke 通过，静默覆盖安装不再弹出数据删除确认但处理约 85,000 个文件超过 30 分钟未返回，仍属本机失败。clean VM、覆盖升级、migration 失败恢复、卸载两路径、硬崩溃/Job Object 和真实媒体仍需外部验证。
 
 ## 2026-08-17 P6 首次启动、生产设置和运行时健康
 

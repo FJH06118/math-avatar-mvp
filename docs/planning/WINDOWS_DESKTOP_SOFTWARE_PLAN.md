@@ -682,7 +682,7 @@ STOP：
 - 升级失败会破坏唯一数据库或项目文件。
 - 卸载可能越过应用数据根目录删除文件。
 
-当前代码收口记录（2026-08-17）：已完成 x64 NSIS 离线候选、`runtime-manifest` v2、bundle 构建/校验、Prisma migration runtime entry、迁移前 PostgreSQL 备份、卸载保留/删除数据脚本、第三方 notices、安装后启动 smoke 和 bundle 完整启动 smoke。最终本机 bundle `p7-065a181e095d` 包含 15 个组件、85,246 个文件、7 条许可证记录；manifest/hash/size/license 校验通过。最终未签名 NSIS 候选 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe` 大小为 1,008,956,662 bytes，SHA-256 为 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3`。PostgreSQL/Prisma migration smoke、真实 `RuntimeBootstrap` 四服务 READY/STOPPED、3 轮 soak、隔离 stale marker recovery 和最终解包 app smoke 均通过；smoke 观察到 3 个 loopback listener，强杀后 1 个 fork child 被精确清理，最终无进程/listener 残留。P8 本机结论为 `PASS_WITH_EVIDENCE_GAPS`，clean Windows 10/11、普通用户安装/升级/回滚/卸载、DPI/焦点、硬崩溃/Job Object、真实 Provider/Edge TTS 和容量/媒体质量仍为 `EXTERNAL_VALIDATION_PENDING`。
+当前代码收口记录（2026-08-17）：已完成 x64 NSIS 离线候选、`runtime-manifest` v2、bundle 构建/校验、Prisma migration runtime entry、迁移前 PostgreSQL 备份、卸载保留/删除数据脚本、第三方 notices、安装后启动 smoke 和 bundle 完整启动 smoke。最终本机 bundle `p7-065a181e095d` 包含 15 个组件、85,246 个文件、7 条许可证记录；manifest/hash/size/license 校验通过。当前保留的未签名 NSIS 候选 `math-avatar-desktop-0.1.0-win-x64-unsigned.exe` 大小为 1,008,956,669 bytes，SHA-256 为 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5`。PostgreSQL/Prisma migration smoke、真实 `RuntimeBootstrap` 四服务 READY/STOPPED、3 轮 soak、隔离 stale marker recovery 和最终解包 app smoke 均通过；smoke 观察到 3 个 loopback listener，强杀后 1 个 fork child 被精确清理，最终无进程/ listener 残留。disposable 中文/空格路径 NSIS 探针的首次安装和安装后 smoke 通过；静默保留数据修复后覆盖安装不再弹窗且标记保留，但约 85,000 个文件处理超过 30 分钟未返回，退出码记录为 `-1`，覆盖升级仍为 `LOCAL_FAIL / EXTERNAL_PENDING`。P8 本机结论保留 `PASS_WITH_EVIDENCE_GAPS`，必须优化目录清理后复验；clean Windows 10/11、普通用户升级/回滚/卸载、DPI/焦点、硬崩溃/Job Object、真实 Provider/Edge TTS 和容量/媒体质量仍为 `EXTERNAL_VALIDATION_PENDING`。
 
 ### P8：容量、故障注入和候选发布
 
@@ -690,7 +690,7 @@ STOP：
 
 - 用真实安装产物完成容量、恢复、安全、媒体质量和用户验收。
 
-当前本机收口记录（2026-08-17）：桌面仓库已完成候选发布审计脚本和 Windows 外部验收矩阵；本机 manifest/hash/license/metadata/第一方密钥模式检查通过，结果为 `PASS_WITH_EVIDENCE_GAPS`。未签名安装包、clean Windows 10/11/另一台普通用户电脑、升级/卸载/故障注入、真实 Provider/Edge TTS、容量和完整播放人工证据仍保持 `EXTERNAL_VALIDATION_PENDING`，不得以本机审计替代发布门。
+当前本机收口记录（2026-08-17）：桌面仓库已完成候选发布审计脚本和 Windows 外部验收矩阵；本机 manifest/hash/license/metadata/第一方密钥模式检查通过，结果为 `PASS_WITH_EVIDENCE_GAPS`。首次安装和安装后启动 smoke 已通过；静默保留数据修复后同版本覆盖安装不再弹出确认，但约 85,000 个文件处理超过 30 分钟未返回并被终止，因此 L-02 仍为 `LOCAL_FAIL / EXTERNAL_PENDING`，必须优化目录清理后再复验。未签名安装包、clean Windows 10/11/另一台普通用户电脑、升级/卸载/故障注入、真实 Provider/Edge TTS、容量和完整播放人工证据仍保持 `EXTERNAL_VALIDATION_PENDING`，不得以本机审计替代发布门。
 
 测试矩阵：
 

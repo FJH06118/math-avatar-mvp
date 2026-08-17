@@ -3,9 +3,11 @@
 ## 2026-08-17 P8 候选发布审计（本机部分，外部验收待补）
 
 - 桌面仓库已新增候选发布审计：校验 v2 manifest、文件/许可证计数、bundle metadata 与源码提交一致性、第三方 notices、安装包 SHA-256 和 bundle 文本密钥模式；依赖包固定测试 canary 单独记录，第一方命中才使审计失败。
-- 本机审计结果为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98` 和安装包 SHA-256 `54824DC998A18F59489DE89C21EFDDCC77561F0A85E1A1F3CCB406C198BCF0C3` 均匹配；安装包大小 1,008,956,662 bytes，签名状态为 `NotSigned`。
+- 本机审计结果为 `PASS_WITH_EVIDENCE_GAPS`：最终 runtime `p7-065a181e095d`、15 个组件、85,246 文件、7 条许可证、sourceCommit `065a181e095dbdf23476cf6d241cfff2382d3d98` 和当前保留安装包 SHA-256 `AAA8A57C178C8C543B41D7DCD47F88CE3AE3CC0BF9BA0B96B4435EB0BFD238B5` 均匹配；安装包大小 1,008,956,669 bytes，签名状态为 `NotSigned`。
 - 最终 bundle verify、PostgreSQL/Prisma migration smoke、真实 RuntimeBootstrap 四服务 READY/STOPPED、3 轮新 bootstrap soak 和隔离 `UNCLEAN -> CLEAN` recovery 均通过。解包候选 20 秒启动 smoke 观察到 3 个 loopback listener；强杀后 1 个 PostgreSQL fork child 被候选路径内精确清理，最终 residual process/listener 为 0。该结果不替代 clean VM、真实安装器交互或硬崩溃/Job Object 证据。
 - 已补齐计划要求的根命令 `npm.cmd run test:workflow`，串行执行 Prisma generate/migrate 和 `workflow.integration.test.ts`，本机通过 3/3；这不替代另一台电脑、外部 Provider 或完整媒体证据。
+- 已在 disposable 中文/空格临时目录完成 NSIS 首次安装和安装后启动 smoke；首次安装退出码为 0，启动后残留进程/listener 为 0。加入静默卸载数据保留逻辑后，同版本覆盖安装不再弹出删除数据确认，隔离标记仍保留，但约 85,000 个文件处理超过 30 分钟未返回，终止后 `installerExitCode=-1`；覆盖安装后的 app smoke 仍能启动并停止。因此覆盖升级不是本机通过项，不能把 P8 写成安装生命周期完成；临时目录和中断打包目录已清理。
+- `npm.cmd run desktop:package` 仍要求 `PPT_DH_WEB_ROOT` 等绝对构建输入；本次保留的 unsigned `.exe` 使用已验证 bundle 直接调用 electron-builder 生成，不能宣称空白输入的完整桌面重建已通过。受限沙箱首次运行 smoke 还遇到 WMI `Get-CimInstance` 拒绝访问，提升权限重跑才形成完整报告。
 - 已建立 `docs/operations/WINDOWS_ACCEPTANCE_MATRIX.md`，覆盖 Windows 10/11、普通用户/中文路径/DPI、安装升级卸载、migration 失败恢复、强杀/断网/磁盘/篡改、五家 Provider、Edge TTS、容量和完整播放人工验收。clean VM/另一台 Windows 电脑结果必须由外部执行后回填，当前保持 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P7 完整离线安装包与升级链路（历史基线，已由 P8 候选 supersede）
@@ -15,9 +17,9 @@
 - 最终 bundle PostgreSQL/Prisma migration smoke 通过；基于真实 `RuntimeBootstrap` 的完整启动 smoke 已验证 PostgreSQL、Hono、Worker、Next 全部进入 `READY`，Next HTTP readiness 通过，停止后无本项目残留子进程。最终解包 app 启动 smoke 在 20 秒窗口内存活并实际拉起 bundle PostgreSQL/Node 子进程；按精确根 PID 清理后无残留，但仍未替代 clean VM 安装后 UI/首次启动/真实媒体验收。
 - P7 结论为 `PASS_WITH_EVIDENCE_GAPS`：clean Windows 10/11、普通用户安装/覆盖升级/migration 失败恢复、卸载两种路径、125%/150% DPI、硬崩溃恢复、真实 Provider/Edge TTS 和 50 页/60 分钟媒体仍为 `EXTERNAL_VALIDATION_PENDING`。
 
-## P8 下一步：外部容量、故障注入和候选验收
+## P8 下一步：优化覆盖升级并完成外部容量、故障注入和候选验收
 
-- 本机候选审计已收口；后续只处理真实安装产物的 clean VM/另一台 Windows 验收、容量、故障注入、媒体质量和人工播放。不得把本机 bundle/解包 smoke 写成外部验收完成。
+- 本机候选审计和首次安装/启动 smoke 已收口，但覆盖安装探针先后出现旧卸载器退出码 2、修复后 30 分钟超时；下一步先优化安装目录清理并复验 NSIS 原地升级，再处理真实安装产物的 clean VM/另一台 Windows 验收、容量、故障注入、媒体质量和人工播放。不得把本机 bundle/解包 smoke 写成外部验收完成。
 
 ## 2026-08-17 P6 首次启动、设置页和生产模式（本机收口，外部验证待补）
 
