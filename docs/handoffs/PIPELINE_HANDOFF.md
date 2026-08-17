@@ -84,7 +84,7 @@
 ## 恢复工作命令
 
 ```powershell
-Set-Location "D:\Workspace\projects\web\数字人前端"
+Set-Location "C:\path\to\math-avatar-web"
 npm.cmd run backend:test
 npm.cmd run typecheck
 npm.cmd run lint -- --max-warnings=0

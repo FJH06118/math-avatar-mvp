@@ -2,7 +2,7 @@
 
 你正在接管项目：
 
-`D:\Workspace\projects\web\数字人前端`
+`C:\path\to\math-avatar-web`
 
 你的任务是依据项目内的持久上下文继续开发，不要根据聊天记忆猜测现状，也不要重新搭建项目。
 

@@ -140,7 +140,7 @@
 
 - 此前把上传失效完全归因于非交互 `<span>` 的判断不完整：选择按钮虽然已改为真实控件，但上传、拖拽和首页“查看最近项目”共同失效的主因是 Next.js 开发资源跨来源保护。
 - `frontend/next.config.ts` 现按本地 Next.js 16 官方指南允许 `127.0.0.1` 访问开发资源。服务以新配置重启后，`/upload` 返回 200，日志不再报告 `Blocked cross-origin request`。
-- 上传边界不会移动或删除用户源文件；桌面只读检查确认 `C:\Users\Fangjunhao\Desktop\test.pptx` 仍存在。若用户指的是其他文件，需要按准确文件名继续只读定位。
+- 上传边界不会移动或删除用户源文件；桌面只读检查确认用户提供的源文件仍存在。若用户指的是其他文件，需要按准确文件名继续只读定位。
 - 内置浏览器控制仍受宿主 `process` 属性初始化故障阻塞，未把真实点击记为通过。
 - 完整串行门禁通过：typecheck、0-warning lint、Python 13/13、Contract 29/29、unit 9/9、component 13/13、Next production build、路由 6/6 与服务回收。
 
