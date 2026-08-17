@@ -37,7 +37,7 @@ describe("runtime health contracts", () => {
           components: [],
         },
         databaseUrl: "postgresql://user:password@127.0.0.1:5432/app",
-        runtimeRoot: "C:\\Users\\Fangjunhao\\AppData\\Local\\runtime",
+        runtimeRoot: "C:\\path\\to\\runtime",
       }).success,
     ).toBe(false);
   });
