@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
-import { inspectAudioFile } from "./audio-adapter.ts";
+import { inspectAudioFile, parseEdgeTtsChildError } from "./audio-adapter.ts";
 import { WorkerError } from "./worker-error.ts";
 
 const require = createRequire(import.meta.url);
@@ -32,6 +32,20 @@ test("rejects silence, clipping, and unsupported sample rate with stable codes",
   const lowRate = join(root, "low-rate.mp3");
   createAudio(lowRate, "sine=frequency=440:duration=1,volume=0.2", 8_000);
   await rejectsCode(lowRate, "AUDIO_SAMPLE_RATE_INVALID");
+});
+
+test("accepts only the bounded Edge TTS child error protocol", () => {
+  assert.equal(parseEdgeTtsChildError(JSON.stringify({
+    type: "edge-tts-error",
+    protocolVersion: 1,
+    code: "EDGE_TTS_CONNECTION_FAILED",
+  })), "EDGE_TTS_CONNECTION_FAILED");
+  assert.equal(parseEdgeTtsChildError("Error: secret path C:\\private\\stack"), null);
+  assert.equal(parseEdgeTtsChildError(JSON.stringify({
+    type: "edge-tts-error",
+    protocolVersion: 1,
+    code: "UNSAFE_INTERNAL_ERROR",
+  })), null);
 });
 
 function createAudio(path: string, source: string, sampleRate: number) {

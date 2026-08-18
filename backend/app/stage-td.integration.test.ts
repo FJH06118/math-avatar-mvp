@@ -258,6 +258,84 @@ test("Stage 7 persists settings and serves an authorized generated voice preview
   assert.equal((await prisma.audioSegment.findFirstOrThrow({ where: { taskId: cachedTask.id } })).assetId, timeline.segments[0]!.assetId);
 });
 
+test("voice preview does not auto-repeat Edge TTS and explicit retry is idempotent", async () => {
+  const seeded = await seedApprovedPresentation();
+  const app = createApplication({ prisma, assetRoot, internalToken });
+  const initialBody = {
+    presentationId: seeded.presentationId,
+    idempotencyKey: "preview_initial_stage_td",
+    voice: "zh-CN-XiaoxiaoNeural",
+    rate: "+0%",
+    pitch: "+0Hz",
+  };
+  const first = AudioTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${seeded.projectId}/voice-previews`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(initialBody) },
+  )).json()).data;
+  await dispatchPendingOutbox(prisma);
+  const claim = await claimNextProductStep(pool, "td-preview-no-auto-retry", 8_000, 3, "AUDIO");
+  assert(claim);
+  let edgeCalls = 0;
+  const failingAdapter: AudioAdapter = {
+    async run() {
+      edgeCalls += 1;
+      throw new WorkerError("EDGE_TTS_CONNECTION_FAILED", "Edge TTS 网络连接失败。", true);
+    },
+  };
+  const result = await runClaimedAudioStep({
+    prisma,
+    pool,
+    assets: new LocalAssetStore(assetRoot),
+    attemptRoot,
+    leaseMs: 8_000,
+    adapter: failingAdapter,
+  }, claim, "td-preview-no-auto-retry");
+  assert.equal(result, "FAILED");
+  assert.equal(edgeCalls, 1);
+  assert.equal(await claimNextProductStep(pool, "td-preview-no-auto-retry-2", 8_000, 3, "AUDIO"), null);
+  const failed = await prisma.generationTask.findUniqueOrThrow({ where: { id: first.id } });
+  assert.equal(failed.errorCode, "EDGE_TTS_CONNECTION_FAILED");
+  assert.equal(failed.retryCount, 0);
+
+  const retryBody = { ...initialBody, idempotencyKey: `preview_retry_${first.id}` };
+  const retry = AudioTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${seeded.projectId}/voice-previews`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(retryBody) },
+  )).json()).data;
+  const replay = AudioTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${seeded.projectId}/voice-previews`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(retryBody) },
+  )).json()).data;
+  assert.notEqual(retry.id, first.id);
+  assert.equal(replay.id, retry.id);
+  assert.equal(await prisma.generationTask.count({ where: { projectId: seeded.projectId, kind: "AUDIO" } }), 2);
+
+  await dispatchPendingOutbox(prisma);
+  const interrupted = await claimNextProductStep(pool, "td-preview-interrupted", 8_000, 3, "AUDIO");
+  assert(interrupted);
+  await prisma.generationTaskStep.update({
+    where: { id: interrupted.taskStepId },
+    data: { leaseExpiresAt: new Date(0) },
+  });
+  const recovery = await claimNextProductStep(pool, "td-preview-recovery", 8_000, 3, "AUDIO");
+  assert(recovery);
+  assert.equal(recovery.attempt, 2);
+  assert.equal(await runClaimedAudioStep({
+    prisma,
+    pool,
+    assets: new LocalAssetStore(assetRoot),
+    attemptRoot,
+    leaseMs: 8_000,
+    adapter: failingAdapter,
+  }, recovery, "td-preview-recovery"), "FAILED");
+  assert.equal(edgeCalls, 1);
+  const recovered = await prisma.generationTask.findUniqueOrThrow({ where: { id: retry.id } });
+  assert.equal(recovered.errorCode, "PREVIEW_RETRY_REQUIRES_USER");
+});
+
 test("real Edge TTS produces decodable non-silent Chinese audio", {
   skip: process.env.PPT_DH_STAGE_TD_REAL_EDGE !== "1" ? "external Edge validation is opt-in" : false,
 }, async () => {

@@ -36,7 +36,9 @@ export async function proxyProviderRequest(
         "X-Principal": config.principal,
       },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(10_000),
+      // The backend probe has a 15-second timeout; the BFF must not abort first
+      // or a Provider timeout would be misreported as a local service failure.
+      signal: AbortSignal.timeout(20_000),
       cache: "no-store",
     });
     if (upstream.status === 204) return new Response(null, { status: 204 });

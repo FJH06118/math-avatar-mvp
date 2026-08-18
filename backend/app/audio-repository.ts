@@ -11,6 +11,7 @@ import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface AudioRequestedPayload {
+  purpose: "PREVIEW" | "FINAL";
   timingCaptureVersion: "edge-word-boundary-v1";
   voice: string;
   rate: string;
@@ -61,6 +62,7 @@ export class AudioRepository {
       inputHash: stableHash({ revisionId: revision.id, narrationId, spokenText, voice: input.voice, rate: input.rate, pitch: input.pitch, timingCaptureVersion: "edge-word-boundary-v1" }),
     };
     const payload: AudioRequestedPayload = {
+      purpose: "PREVIEW",
       timingCaptureVersion: "edge-word-boundary-v1",
       voice: input.voice,
       rate: input.rate,
@@ -164,6 +166,7 @@ export class AudioRepository {
       throw new AppHttpError(409, "NARRATION_EMPTY", "已批准讲稿不包含可合成的逐句文本。", false);
     }
     const payload: AudioRequestedPayload = {
+      purpose: "FINAL",
       timingCaptureVersion: "edge-word-boundary-v1",
       voice: input.voice,
       rate: input.rate,

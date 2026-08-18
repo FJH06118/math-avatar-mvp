@@ -24,6 +24,7 @@ export async function runClaimedPlanStep(
     adapter: AgentAdapter;
     leaseMs: number;
     maxAttempts?: number;
+    maxExternalAttempts?: number;
   },
   claim: ProductClaim,
   workerId: string,
@@ -37,6 +38,20 @@ export async function runClaimedPlanStep(
   });
   if (task.kind !== "PLAN" || task.stage !== "PLAN") {
     return failProductStep(dependencies.pool, claim, workerId, "UNSUPPORTED_TASK", "Worker 收到了不支持的任务类型。", false, dependencies.maxAttempts);
+  }
+  if (
+    dependencies.maxExternalAttempts !== undefined &&
+    claim.attempt > dependencies.maxExternalAttempts
+  ) {
+    return failProductStep(
+      dependencies.pool,
+      claim,
+      workerId,
+      "PLAN_RETRY_REQUIRES_USER",
+      "上次规划在结果确认前中断；为避免重复调用 Provider，请显式重试规划。",
+      false,
+      dependencies.maxAttempts,
+    );
   }
   if (task.presentation.revision !== task.presentationRevision) {
     return failProductStep(dependencies.pool, claim, workerId, "STALE_PRESENTATION", "课件解析修订已变化。", false, dependencies.maxAttempts);

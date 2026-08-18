@@ -56,9 +56,9 @@ export class EdgeTtsAudioAdapter implements AudioAdapter {
       outputPath,
     }));
     try {
-      const { code } = await collect(child);
+      const { code, stderr } = await collect(child);
       if (input.signal.aborted) throw new WorkerError("AUDIO_CANCELLED", "音频合成已取消。", true);
-      if (code !== 0) throw new WorkerError("EDGE_TTS_FAILED", "Edge TTS 合成失败。", true);
+      if (code !== 0) throw edgeTtsWorkerError(stderr);
       if ((await stat(outputPath)).size <= 2_000) {
         throw new WorkerError("AUDIO_EMPTY", "音频文件为空或过小。", true);
       }
@@ -147,11 +147,48 @@ function detectVolume(path: string): Promise<{ meanDb: number; peakDb: number }>
   });
 }
 
-function collect(child: ChildProcess): Promise<{ code: number | null }> {
+export function parseEdgeTtsChildError(stderr: string):
+  | "EDGE_TTS_TIMEOUT"
+  | "EDGE_TTS_CONNECTION_FAILED"
+  | "EDGE_TTS_UPSTREAM_FAILED"
+  | null {
+  try {
+    const value: unknown = JSON.parse(stderr);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    if (
+      record.type !== "edge-tts-error" ||
+      record.protocolVersion !== 1 ||
+      !["EDGE_TTS_TIMEOUT", "EDGE_TTS_CONNECTION_FAILED", "EDGE_TTS_UPSTREAM_FAILED"].includes(String(record.code))
+    ) return null;
+    return record.code as "EDGE_TTS_TIMEOUT" | "EDGE_TTS_CONNECTION_FAILED" | "EDGE_TTS_UPSTREAM_FAILED";
+  } catch {
+    return null;
+  }
+}
+
+function edgeTtsWorkerError(stderr: string): WorkerError {
+  const code = parseEdgeTtsChildError(stderr);
+  switch (code) {
+    case "EDGE_TTS_TIMEOUT":
+      return new WorkerError(code, "Edge TTS 请求超时。", true);
+    case "EDGE_TTS_CONNECTION_FAILED":
+      return new WorkerError(code, "Edge TTS 网络连接失败。", true);
+    case "EDGE_TTS_UPSTREAM_FAILED":
+      return new WorkerError(code, "Edge TTS 服务暂时不可用。", true);
+    default:
+      return new WorkerError("EDGE_TTS_FAILED", "Edge TTS 合成失败。", true);
+  }
+}
+
+function collect(child: ChildProcess): Promise<{ code: number | null; stderr: string }> {
   return new Promise((resolve, reject) => {
-    child.stderr?.resume();
+    let stderr = "";
+    child.stderr?.on("data", (chunk) => {
+      if (stderr.length < 1_024) stderr += String(chunk);
+    });
     child.once("error", reject);
-    child.once("exit", (code) => resolve({ code }));
+    child.once("exit", (code) => resolve({ code, stderr }));
   });
 }
 

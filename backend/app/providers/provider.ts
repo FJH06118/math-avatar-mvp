@@ -28,6 +28,7 @@ export interface ProviderCompletionInput {
   systemPrompt: string;
   userPayload: unknown;
   signal: AbortSignal;
+  maxTokens?: number;
 }
 
 export interface LlmProvider {

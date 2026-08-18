@@ -152,8 +152,8 @@ function providerHealth(
     return {
       id: "provider",
       status: "WARN",
-      message: `${provider.displayName} 已配置，但还没有连接测试记录。`,
-      action: "在设置页点击“连接测试”，确认模型和密钥可用。",
+      message: `${provider.displayName} 已配置，但还没有通过真实连接测试。`,
+      action: "在设置页点击“连接测试”，确认地址、模型、密钥和网络均可用。",
       version: null,
       latencyMs: null,
     };
@@ -161,7 +161,7 @@ function providerHealth(
   return {
     id: "provider",
     status: "READY",
-    message: `${provider.displayName} 已配置并通过最近一次连接测试。`,
+    message: `${provider.displayName} 已通过最近一次真实连接测试。`,
     action: null,
     version: null,
     latencyMs: null,

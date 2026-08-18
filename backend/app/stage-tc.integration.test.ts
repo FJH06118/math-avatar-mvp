@@ -27,6 +27,7 @@ import { runClaimedParseStep } from "./parse-worker.ts";
 import { runClaimedPlanStep } from "./plan-worker.ts";
 import { claimNextProductStep } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
+import { WorkerError } from "./worker-error.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) throw new Error("PPT_DH_DATABASE_URL is required for stage T-C integration tests.");
@@ -191,6 +192,97 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   assert.equal(approved.approval.status === "approved" && approved.approval.approvedBy, principal);
   const untouched = await prisma.lessonPlanRevision.findUniqueOrThrow({ where: { id: original.id } });
   assert.equal(untouched.approvalStatus, "pending");
+});
+
+test("PLAN calls an external Provider at most once per task and explicit retry is idempotent", async () => {
+  const app = createApplication({ prisma, assetRoot, internalToken });
+  const upload = await uploadProject(app, "stage-tc-no-auto-retry-upload");
+  await dispatchPendingOutbox(prisma);
+  const parseClaim = await claimNextProductStep(pool, "tc-no-retry-parse", 8_000);
+  assert(parseClaim);
+  assert.equal(await runClaimedParseStep({
+    prisma,
+    pool,
+    assets: new LocalAssetStore(assetRoot),
+    adapter: new PythonParseAdapter("python"),
+    attemptRoot,
+    leaseMs: 8_000,
+  }, parseClaim, "tc-no-retry-parse"), "SUCCEEDED");
+
+  const createBody = {
+    presentationId: upload.presentation.id,
+    idempotencyKey: "stage-tc-no-auto-retry-plan",
+    audience: "大学一年级学生",
+    style: "严谨、逐页讲解",
+    targetMinutes: 6,
+  };
+  const first = PlanTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${upload.project.id}/plans`,
+    { method: "POST", body: JSON.stringify(createBody), headers: { "content-type": "application/json" } },
+  )).json()).data;
+  await dispatchPendingOutbox(prisma);
+  const claim = await claimNextProductStep(pool, "tc-no-retry-plan", 8_000, 2, "PLAN");
+  assert(claim);
+  let providerCalls = 0;
+  const failingAdapter: AgentAdapter = {
+    async run() {
+      providerCalls += 1;
+      throw new WorkerError("AGENT_CONNECTION_FAILED", "Provider 服务连接失败。", true);
+    },
+  };
+  const failed = await runClaimedPlanStep({
+    prisma,
+    pool,
+    leaseMs: 8_000,
+    maxAttempts: 1,
+    maxExternalAttempts: 1,
+    adapter: failingAdapter,
+  }, claim, "tc-no-retry-plan");
+  assert.equal(failed, "FAILED");
+  assert.equal(providerCalls, 1);
+  assert.equal(await claimNextProductStep(pool, "tc-no-retry-plan-2", 8_000, 1, "PLAN"), null);
+  assert.equal(await prisma.taskStepAttempt.count({ where: { taskStep: { taskId: first.id } } }), 1);
+
+  const retryBody = {
+    ...createBody,
+    idempotencyKey: `plan_retry_${first.id}`,
+  };
+  const retry = PlanTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${upload.project.id}/plans`,
+    { method: "POST", body: JSON.stringify(retryBody), headers: { "content-type": "application/json" } },
+  )).json()).data;
+  const replay = PlanTaskResponseSchema.parse(await (await request(
+    app,
+    `/v1/projects/${upload.project.id}/plans`,
+    { method: "POST", body: JSON.stringify(retryBody), headers: { "content-type": "application/json" } },
+  )).json()).data;
+  assert.notEqual(retry.id, first.id);
+  assert.equal(replay.id, retry.id);
+  assert.equal(await prisma.generationTask.count({ where: { projectId: upload.project.id, kind: "PLAN" } }), 2);
+
+  await dispatchPendingOutbox(prisma);
+  const interrupted = await claimNextProductStep(pool, "tc-interrupted-plan", 8_000, 2, "PLAN");
+  assert(interrupted);
+  await prisma.generationTaskStep.update({
+    where: { id: interrupted.taskStepId },
+    data: { leaseExpiresAt: new Date(0) },
+  });
+  const recovery = await claimNextProductStep(pool, "tc-plan-recovery", 8_000, 2, "PLAN");
+  assert(recovery);
+  assert.equal(recovery.attempt, 2);
+  assert.equal(await runClaimedPlanStep({
+    prisma,
+    pool,
+    leaseMs: 8_000,
+    maxAttempts: 1,
+    maxExternalAttempts: 1,
+    adapter: failingAdapter,
+  }, recovery, "tc-plan-recovery"), "FAILED");
+  assert.equal(providerCalls, 1);
+  const recovered = await prisma.generationTask.findUniqueOrThrow({ where: { id: retry.id } });
+  assert.equal(recovered.errorCode, "PLAN_RETRY_REQUIRES_USER");
 });
 
 test("OpenAI-compatible adapter treats provider JSON as unknown and rejects extra fields", async () => {

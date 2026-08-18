@@ -10,7 +10,12 @@ import {
   type ProviderTestResult,
 } from "@ppt-digital-human/contracts";
 import { AppHttpError } from "./errors.ts";
+import {
+  RealProviderConnectionTester,
+  type ProviderConnectionTester,
+} from "./provider-connection-tester.ts";
 import { ProviderRepository, type ProviderProfileRecord } from "./provider-repository.ts";
+import { ProviderError } from "./providers/errors.ts";
 import { SecretClientError, type SecretClient } from "./secret-client.ts";
 
 export class ProviderService {
@@ -18,6 +23,7 @@ export class ProviderService {
     private readonly repository: ProviderRepository,
     private readonly secretClient: SecretClient,
     private readonly now: () => Date = () => new Date(),
+    private readonly connectionTester: ProviderConnectionTester = new RealProviderConnectionTester(),
   ) {}
 
   async list(principal: string): Promise<ProviderProfile[]> {
@@ -92,6 +98,16 @@ export class ProviderService {
       patch.keyLast4 = secret.keyLast4;
       patch.keyVersion = secret.keyVersion;
     }
+    if (
+      input.kind !== undefined ||
+      input.protocol !== undefined ||
+      input.baseUrl !== undefined ||
+      input.model !== undefined ||
+      input.enabled !== undefined ||
+      input.apiKey !== undefined
+    ) {
+      patch.lastTestAt = null;
+    }
     const record = await this.repository.update(principal, id, input.expectedVersion, patch);
     return toPublicProfile(record);
   }
@@ -111,6 +127,9 @@ export class ProviderService {
 
   async test(principal: string, id: string, expectedVersion: number): Promise<ProviderTestResult> {
     const existing = await this.require(principal, id);
+    if (existing.version !== expectedVersion) {
+      throw new AppHttpError(409, "STALE_PROVIDER_PROFILE", "Provider Profile 已有更新，请刷新后重试。", false);
+    }
     const testedAt = this.now();
     const base = {
       profileId: existing.id,
@@ -120,29 +139,59 @@ export class ProviderService {
       testedAt: testedAt.toISOString(),
     };
     if (!existing.enabled) {
-      return { ...base, status: "FAILED", errorCode: "PROFILE_DISABLED" };
+      return this.failedTest(principal, existing, expectedVersion, base, "PROFILE_DISABLED");
     }
     if (!existing.keyConfigured || existing.keyVersion < 1) {
-      return { ...base, status: "FAILED", errorCode: "CREDENTIAL_NOT_CONFIGURED" };
+      return this.failedTest(principal, existing, expectedVersion, base, "CREDENTIAL_NOT_CONFIGURED");
     }
     const startedAt = Date.now();
+    let apiKey: string;
     try {
-      if (!(await this.secretClient.has(existing.credentialRef, existing.keyVersion))) {
-        return { ...base, status: "FAILED", errorCode: "CREDENTIAL_NOT_CONFIGURED" };
-      }
+      apiKey = await this.secretClient.get(existing.credentialRef, existing.keyVersion);
     } catch (error: unknown) {
       if (error instanceof SecretClientError) {
-        return { ...base, status: "FAILED", errorCode: "SECRET_STORE_UNAVAILABLE" };
+        return this.failedTest(
+          principal,
+          existing,
+          expectedVersion,
+          base,
+          error.code === "SECRET_NOT_FOUND" ? "CREDENTIAL_NOT_CONFIGURED" : "SECRET_STORE_UNAVAILABLE",
+        );
       }
       throw error;
     }
-    await this.repository.markTested(principal, id, expectedVersion, testedAt);
+    try {
+      await this.connectionTester.test({
+        kind: parseKind(existing.kind),
+        protocol: parseProtocol(existing.protocol),
+        baseUrl: existing.baseUrl,
+        model: existing.model,
+        apiKey,
+      });
+    } catch (error: unknown) {
+      const errorCode = error instanceof ProviderError
+        ? providerTestErrorCode(error.code)
+        : "PROVIDER_TEST_FAILED";
+      return this.failedTest(principal, existing, expectedVersion, base, errorCode);
+    }
+    await this.repository.setLastTestAt(principal, id, expectedVersion, testedAt);
     return {
       ...base,
-      status: "CONFIGURED",
+      status: "CONNECTED",
       latencyMs: Math.max(0, Date.now() - startedAt),
       errorCode: null,
     };
+  }
+
+  private async failedTest(
+    principal: string,
+    existing: ProviderProfileRecord,
+    expectedVersion: number,
+    base: Omit<ProviderTestResult, "status" | "errorCode">,
+    errorCode: Exclude<ProviderTestResult["errorCode"], null>,
+  ): Promise<ProviderTestResult> {
+    await this.repository.setLastTestAt(principal, existing.id, expectedVersion, null);
+    return { ...base, status: "FAILED", errorCode };
   }
 
   private async require(principal: string, id: string): Promise<ProviderProfileRecord> {
@@ -160,6 +209,27 @@ export class ProviderService {
       }
       throw error;
     }
+  }
+}
+
+function providerTestErrorCode(
+  code: ProviderError["code"],
+): Exclude<ProviderTestResult["errorCode"], null> {
+  switch (code) {
+    case "PROVIDER_AUTH_FAILED":
+    case "PROVIDER_RATE_LIMITED":
+    case "PROVIDER_UPSTREAM_FAILED":
+    case "PROVIDER_REQUEST_REJECTED":
+    case "PROVIDER_TIMEOUT":
+    case "PROVIDER_CONNECTION_FAILED":
+    case "PROVIDER_RESPONSE_INVALID":
+      return code;
+    case "PROVIDER_CREDENTIAL_NOT_CONFIGURED":
+      return "CREDENTIAL_NOT_CONFIGURED";
+    case "PROVIDER_SECRET_UNAVAILABLE":
+      return "SECRET_STORE_UNAVAILABLE";
+    default:
+      return "PROVIDER_TEST_FAILED";
   }
 }
 

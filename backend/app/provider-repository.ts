@@ -62,7 +62,9 @@ export class ProviderRepository {
     principal: string,
     id: string,
     expectedVersion: number,
-    patch: Partial<Omit<ProviderProfileWrite, "id" | "principal" | "credentialRef">>,
+    patch: Partial<Omit<ProviderProfileWrite, "id" | "principal" | "credentialRef">> & {
+      lastTestAt?: Date | null;
+    },
   ): Promise<ProviderProfileRecord> {
     try {
       const updated = await this.prisma.$transaction(async (transaction) => {
@@ -118,11 +120,11 @@ export class ProviderRepository {
     return record;
   }
 
-  async markTested(
+  async setLastTestAt(
     principal: string,
     id: string,
     expectedVersion: number,
-    lastTestAt: Date,
+    lastTestAt: Date | null,
   ): Promise<ProviderProfileRecord> {
     const updated = await this.prisma.providerProfile.updateMany({
       where: { principal, id, version: expectedVersion },

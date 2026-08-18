@@ -10,6 +10,7 @@ export class OpenAiChatProvider implements LlmProvider {
       model: this.config.model,
       temperature: 0.2,
       response_format: { type: "json_object" },
+      ...(input.maxTokens === undefined ? {} : { max_tokens: input.maxTokens }),
       ...(this.config.kind === "DEEPSEEK" ? { extra_body: { thinking: { type: "disabled" } } } : {}),
       messages: [
         { role: "system", content: input.systemPrompt },

@@ -5,6 +5,12 @@
 
 ## 已确定
 
+### D-48 Provider 测试必须真实联网，PLAN/试听外呼只由显式重试重复
+
+- **决策**：Provider 测试必须使用选定密钥版本向所选模型发出一次限额、限时真实请求，只有成功才记录 `CONNECTED/lastTestAt`；连接相关配置变化或任何测试失败立即使旧结果失效。PLAN 与 Voice Preview 每个 task 的外部调用正常尝试上限为 1，用户重试以失败 task ID 派生稳定幂等后继 task。讲稿未生成时不创建试听任务。
+- **原因**：旧测试只检查密钥存在却宣称模型已响应；旧 PLAN 自动执行 3 次可能造成重复计费；前端把 `LESSON_PLAN_NOT_READY` 映射成 Edge 失败，无法区分前置条件、Provider 网络、本地规划和音频质量。
+- **影响**：错误边界新增连接、上游、请求拒绝、响应无效、本地 runtime 与 Edge 网络/超时/上游分类，旧通用错误只按已知安全文案兼容映射，任意历史文本不直接渲染。失败保持失败，公共诊断不记录 Key、路径、端口、堆栈或上游正文。真实 Provider、真实 Edge、容量、完整播放和外部 Windows 验收仍保持 pending；更新安装候选前必须生成可追溯的新 Contract 制品。
+
 ### D-47 桌面固定单用户 principal，并只迁移唯一 legacy 作用域
 
 - **决策**：桌面打包运行固定使用 `local-desktop-user`。Prisma migrate 后、业务服务启动前，通过 bundle 内 `psql` 在单事务中检查五张业务表；唯一 legacy principal 才迁移，多个 principal 以 `RUNTIME_RECOVERY_REQUIRED` 阻断。Python embeddable 候选副本的 `_pth` 必须加入 runtime 父目录并通过 `backend` 导入探针。

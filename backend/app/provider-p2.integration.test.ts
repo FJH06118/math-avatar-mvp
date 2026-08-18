@@ -13,6 +13,7 @@ import {
 import { createApplication } from "./app.ts";
 import { clearProductState, createProductPrismaClient } from "./database.ts";
 import { LessonPlanRepository } from "./lesson-plan-repository.ts";
+import { ProviderError } from "./providers/errors.ts";
 import { InMemorySecretClient } from "./secret-client.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
@@ -22,9 +23,25 @@ const prisma = createProductPrismaClient(databaseUrl);
 const secretClient = new InMemorySecretClient();
 const internalToken = "p2-provider-integration-token";
 const principal = "p2-provider-user";
-const app = createApplication({ prisma, assetRoot: "", internalToken, secretClient });
+let providerTestFailure: ProviderError | null = null;
+let providerTestCalls = 0;
+const app = createApplication({
+  prisma,
+  assetRoot: "",
+  internalToken,
+  secretClient,
+  providerConnectionTester: {
+    async test(input) {
+      providerTestCalls += 1;
+      assert.equal(input.apiKey, "sk-test-provider-key-v2");
+      if (providerTestFailure) throw providerTestFailure;
+    },
+  },
+});
 
 beforeEach(async () => {
+  providerTestFailure = null;
+  providerTestCalls = 0;
   await clearProductState(prisma);
 });
 
@@ -94,7 +111,55 @@ test("P2 stores only redacted profile metadata and preserves old key versions on
     body: JSON.stringify({ expectedVersion: 2 }),
   });
   assert.equal(tested.status, 200);
-  assert.equal(ProviderTestResponseSchema.parse(await tested.json()).data.status, "CONFIGURED");
+  assert.equal(ProviderTestResponseSchema.parse(await tested.json()).data.status, "CONNECTED");
+  assert.equal(providerTestCalls, 1);
+});
+
+test("P2 performs a real connection probe, clears stale success after edits, and returns safe failure codes", async () => {
+  const created = ProviderProfileResponseSchema.parse(
+    await (await request("/v1/providers", {
+      method: "POST",
+      body: JSON.stringify(createBody({ apiKey: "sk-test-provider-key-v2" })),
+    })).json(),
+  ).data;
+  const connected = ProviderTestResponseSchema.parse(
+    await (await request(`/v1/providers/${created.id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: created.version }),
+    })).json(),
+  ).data;
+  assert.equal(connected.status, "CONNECTED");
+  assert.equal(providerTestCalls, 1);
+
+  const afterTest = (await request("/v1/providers")).json();
+  const testedProfile = ProviderProfileListResponseSchema.parse(await afterTest).data[0];
+  assert(testedProfile?.lastTestAt);
+  const edited = ProviderProfileResponseSchema.parse(
+    await (await request(`/v1/providers/${created.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ expectedVersion: testedProfile.version, model: "deepseek-reasoner" }),
+    })).json(),
+  ).data;
+  assert.equal(edited.lastTestAt, null);
+
+  providerTestFailure = new ProviderError(
+    "PROVIDER_CONNECTION_FAILED",
+    true,
+    "secret upstream detail must not escape",
+  );
+  const failed = ProviderTestResponseSchema.parse(
+    await (await request(`/v1/providers/${created.id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: edited.version }),
+    })).json(),
+  ).data;
+  assert.equal(failed.status, "FAILED");
+  assert.equal(failed.errorCode, "PROVIDER_CONNECTION_FAILED");
+  assert(!JSON.stringify(failed).includes("secret upstream detail"));
+  const afterFailure = ProviderProfileListResponseSchema.parse(
+    await (await request("/v1/providers")).json(),
+  ).data[0];
+  assert.equal(afterFailure?.lastTestAt, null);
 });
 
 test("P2 enforces strict input, optimistic versions, principal isolation, and default deletion protection", async () => {

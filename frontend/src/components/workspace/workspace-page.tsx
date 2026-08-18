@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -29,6 +30,11 @@ import {
 } from "./slide-content-tabs";
 import { SlideSidebar } from "./slide-sidebar";
 import { TeachingSettingsForm } from "./teaching-settings-form";
+import {
+  planFailureMessage,
+  planFailureNeedsProviderCheck,
+  planIdempotencyKey,
+} from "./plan-failure-guidance";
 import { WorkspaceActions } from "./workspace-actions";
 import {
   WorkspaceHeader,
@@ -140,13 +146,16 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
     )?.avatarPosition ?? previewSettings.avatarPosition;
 
   const createPlanMutation = useMutation({
-    mutationFn: async (retryToken?: string) => {
+    mutationFn: async (failedTaskId?: string) => {
       if (!realAdapter || !data.slides[0]) {
         throw new Error("真实规划服务未启用。");
       }
       return realAdapter.createPlanTask(data.project.id, {
         presentationId: data.slides[0].presentationId,
-        idempotencyKey: `plan_${data.project.id}_${data.slides[0].presentationId}_${retryToken ?? "initial"}`,
+        idempotencyKey: planIdempotencyKey(
+          data.slides[0].presentationId,
+          failedTaskId,
+        ),
         audience: "大学一年级学生",
         style: "严谨、逐页讲解、保留原页",
         targetMinutes: Math.max(1, Math.round(data.slides.length * 1.5)),
@@ -471,6 +480,8 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
           onPreviewSettingsChange={setPreviewSettings}
           selectedSlideId={selectedSlide.id}
           selectedSlideTitle={selectedSlide.title}
+          previewAvailable={!missingRevision}
+          previewUnavailableReason={missingRevision ? "请先重试规划并生成初始讲稿；当前尚未调用 Edge TTS。" : undefined}
         />
       </div>
 
@@ -479,17 +490,22 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
           <Alert>
             <AlertTitle>初始讲稿尚未生成</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>
+              <span className="flex flex-col items-start gap-1">
                 {createPlanMutation.isError
                   ? getUserFacingErrorMessage(
                       createPlanMutation.error,
                       "规划任务创建失败，请检查连接后重试。",
                     )
                   : planTaskQuery.data?.status === "FAILED"
-                  ? `规划失败：${planTaskQuery.data.errorMessage ?? planTaskQuery.data.errorCode ?? "未知错误"}`
+                  ? `规划失败：${planFailureMessage(planTaskQuery.data.errorCode, planTaskQuery.data.errorMessage)}`
                   : planTaskId
                     ? `服务端正在规划讲稿，已完成 ${planTaskQuery.data?.progressCompleted ?? 0}/${planTaskQuery.data?.progressTotal ?? data.slides.length} 页。`
                     : "创建真实规划任务后，工作台会读取逐页 revision；不会使用占位讲稿进入生成。"}
+                {planTaskQuery.data?.status === "FAILED" && planFailureNeedsProviderCheck(planTaskQuery.data.errorCode, planTaskQuery.data.errorMessage) ? (
+                  <Link href="/settings" className="font-medium text-primary underline underline-offset-4">
+                    检查 Provider 并重新测试连接
+                  </Link>
+                ) : null}
               </span>
               {!planTaskId || planTaskQuery.data?.status === "FAILED" ? (
                 <Button
@@ -498,16 +514,12 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
                   variant="outline"
                   className="shrink-0"
                   disabled={createPlanMutation.isPending}
-                  onClick={() =>
-                    createPlanMutation.mutate(
-                      planTaskId ? `retry_${crypto.randomUUID()}` : undefined,
-                    )
-                  }
+                  onClick={() => createPlanMutation.mutate(planTaskId ?? undefined)}
                 >
                   {createPlanMutation.isPending ? (
                     <Spinner data-icon="inline-start" aria-hidden="true" />
                   ) : null}
-                  {createPlanMutation.isPending ? "正在创建..." : "生成初始讲稿"}
+                  {createPlanMutation.isPending ? "正在创建..." : planTaskId ? "重试规划" : "生成初始讲稿"}
                 </Button>
               ) : null}
             </AlertDescription>

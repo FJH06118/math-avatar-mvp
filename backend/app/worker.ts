@@ -35,6 +35,8 @@ const renderAdapter = new SharpFfmpegPageRenderAdapter();
 const compositeAdapter = new FfmpegCompositeAdapter();
 const validationAdapter = new FfmpegMediaValidationAdapter();
 const workflowOrchestrator = new WorkflowOrchestrator(prisma);
+const PLAN_CLAIM_ATTEMPTS = 2;
+const PLAN_EXTERNAL_ATTEMPTS = 1;
 
 process.once("SIGINT", () => abort.abort());
 process.once("SIGTERM", () => abort.abort());
@@ -49,7 +51,7 @@ try {
     await dispatchPendingOutbox(prisma);
     const claim =
       (await claimNextProductStep(pool, workerId, 30_000)) ??
-      (await claimNextProductStep(pool, workerId, 30_000, 3, "PLAN")) ??
+      (await claimNextProductStep(pool, workerId, 30_000, PLAN_CLAIM_ATTEMPTS, "PLAN")) ??
       (await claimNextProductStep(pool, workerId, 30_000, 3, "AUDIO")) ??
       (await claimNextProductStep(pool, workerId, 60_000, 3, "PAGE_RENDER")) ??
       (await claimNextProductStep(pool, workerId, 60_000, 3, "COMPOSITE")) ??
@@ -75,7 +77,14 @@ try {
         workerId,
       );
     } else if (step.stage === "PLAN") {
-      await runClaimedPlanStep({ prisma, pool, adapter: agentAdapter, leaseMs: 30_000 }, claim, workerId);
+      await runClaimedPlanStep({
+        prisma,
+        pool,
+        adapter: agentAdapter,
+        leaseMs: 30_000,
+        maxAttempts: PLAN_EXTERNAL_ATTEMPTS,
+        maxExternalAttempts: PLAN_EXTERNAL_ATTEMPTS,
+      }, claim, workerId);
     } else if (step.stage === "AUDIO") {
       await runClaimedAudioStep(
         { prisma, pool, assets, adapter: audioAdapter, attemptRoot: config.attemptRoot, leaseMs: 30_000 },

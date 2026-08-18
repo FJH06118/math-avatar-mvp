@@ -8,6 +8,7 @@ import {
   ProviderGatewayAgentAdapter,
   type AgentAdapterInput,
 } from "../agent-adapter.ts";
+import { RealProviderConnectionTester } from "../provider-connection-tester.ts";
 import { InMemorySecretClient } from "../secret-client.ts";
 import { ProviderError } from "./errors.ts";
 import { createProvider, type ProviderHttpConfig } from "./provider.ts";
@@ -127,7 +128,7 @@ for (const providerCase of providerCases) {
       mode = "invalid";
       await assert.rejects(
         adapter.run(adapterInput()),
-        (error: unknown) => error instanceof Error && "code" in error && error.code === "AGENT_OUTPUT_INVALID" && !error.message.includes("test-key"),
+        (error: unknown) => error instanceof Error && "code" in error && "retryable" in error && error.code === "AGENT_OUTPUT_INVALID" && error.retryable === false && !error.message.includes("test-key"),
       );
     } finally {
       await fixture.close();
@@ -216,6 +217,47 @@ test("Provider adapters classify a timeout as retryable", async () => {
   } finally {
     await fixture.close();
   }
+});
+
+test("real Provider connection test sends one bounded probe", async () => {
+  let requestBody: Record<string, unknown> | undefined;
+  const fixture = await startFixtureServer(async (request, response) => {
+    requestBody = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    response.end(JSON.stringify(envelopeFor("DEEPSEEK", '{"ok":true}')));
+  });
+  try {
+    await new RealProviderConnectionTester().test({
+      kind: "DEEPSEEK",
+      protocol: "OPENAI_CHAT",
+      baseUrl: fixture.baseUrl,
+      model: "fixture-model",
+      apiKey: "test-key",
+    });
+    assert.equal(requestBody?.max_tokens, 16);
+    assert.deepEqual(requestBody?.response_format, { type: "json_object" });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("unexpected local planning failures use a safe non-retryable runtime code", async () => {
+  const adapter = new ProviderGatewayAgentAdapter({
+    async resolve() {
+      throw new Error("secret-key C:\\private\\runtime.log");
+    },
+  });
+  await assert.rejects(
+    adapter.run(adapterInput()),
+    (error: unknown) => {
+      assert(error instanceof Error && "code" in error && "retryable" in error);
+      assert.equal(error.code, "AGENT_RUNTIME_FAILED");
+      assert.equal(error.retryable, false);
+      assert.equal(error.message, "本地课程规划组件执行失败。");
+      assert(!error.message.includes("secret-key"));
+      assert(!error.message.includes("runtime.log"));
+      return true;
+    },
+  );
 });
 
 function configFor(providerCase: typeof providerCases[number], baseUrl: string, timeoutMs?: number): ProviderHttpConfig {

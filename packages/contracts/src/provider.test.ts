@@ -5,6 +5,7 @@ import {
   ProviderProfileSchema,
   ProviderProfileUpdateInputSchema,
   ProviderSelectionSnapshotSchema,
+  ProviderTestResultSchema,
 } from "./provider";
 
 describe("provider contracts", () => {
@@ -62,5 +63,31 @@ describe("provider contracts", () => {
         apiKey: "sk-test-provider-key",
       }).success,
     ).toBe(false);
+  });
+
+  it("distinguishes a real connection result from safe failure categories", () => {
+    const base = {
+      profileId: "provider_test",
+      latencyMs: 42,
+      model: "deepseek-chat",
+      capabilities: ["CHAT"],
+      testedAt: "2026-08-18T00:00:00.000Z",
+    };
+    expect(ProviderTestResultSchema.safeParse({
+      ...base,
+      status: "CONNECTED",
+      errorCode: null,
+    }).success).toBe(true);
+    expect(ProviderTestResultSchema.safeParse({
+      ...base,
+      status: "FAILED",
+      latencyMs: null,
+      errorCode: "PROVIDER_CONNECTION_FAILED",
+    }).success).toBe(true);
+    expect(ProviderTestResultSchema.safeParse({
+      ...base,
+      status: "CONFIGURED",
+      errorCode: null,
+    }).success).toBe(false);
   });
 });

@@ -1,5 +1,19 @@
 # 当前任务
 
+## 2026-08-18 Provider 规划与 Edge TTS 试听失败闭环（本机修复候选已安装，真实外部链路待复验）
+
+- 已逐层核对已安装 UI、Next BFF、Hono、PostgreSQL task/step/attempt、Worker、Provider Gateway、Edge TTS adapter 和 Desktop Host。两个失败 PLAN task 都在同一 task/step 内自动执行了 3 次；一项最终为 Provider 连接失败，另一项保留了旧的通用课程规划错误。数据库中没有 AUDIO task，因此截图中的“试听失败”发生在 `LESSON_PLAN_NOT_READY` 前置门，不是 Edge TTS 网络或音频失败。
+- 根因一是旧“连接测试”只检查加密密钥版本是否存在，却把结果显示成模型已响应；根因二是前端把试听任务创建的所有错误压成同一句；根因三是 PLAN 的旧通用错误、Provider 错误和 UI 映射没有形成一一对应。Desktop Host 当前只持久化脱敏生命周期快照并丢弃受管子进程 stdout/stderr，所以历史原始异常无法安全追溯；本轮改为依靠稳定公共错误码和 attempt 记录，不新增可能泄露密钥、路径、端口或堆栈的原始日志。
+- Provider 测试现在会取选定密钥版本并发送一次最多 16 tokens、15 秒超时的真实模型探针；Next BFF 超时为 20 秒，避免先于 Hono 把 Provider 超时误报成本地服务不可用。成功状态改为 `CONNECTED`；配置、模型、地址、启用状态或密钥变化以及测试失败都会清除 `lastTestAt`，浏览器与 Hono 上传门都要求最近真实测试通过。
+- PLAN 的鉴权、限流、超时、连接、上游、请求拒绝、响应无效、输出无效和本地 runtime 失败已拆成稳定码；单个 PLAN task 不再自动重复调用可能收费的 Provider，只有用户点击“重试规划”才创建后继任务。同一失败 task 的重试键稳定且不超过 Contract 上限，重复点击只重放同一后继任务。
+- 讲稿不存在时试听按钮禁用并明确“尚未调用 Edge TTS”。真正的预览任务使用 `PREVIEW` 快照、单次外呼和稳定重试键；Edge 子进程只上报 timeout/connection/upstream 三类受控码，音频解码、采样率、静音、削波和输出失败继续使用独立码，UI 显示“重试听读”且不把失败伪装为成功。
+- 已通过 Contract 49/49、前端 unit 14/14、component 21/21、Provider gateway 39/39、Provider integration 4/4、PLAN integration 3/3、音频/试听专项 8 pass/1 个真实 Edge opt-in skip、完整 backend integration 41 pass/1 个真实 Edge opt-in skip及 routes 6/6。最终门禁已严格串行通过 typecheck、0-warning lint、Python backend:test 13/13 和 Next production build；桌面仓库 typecheck、lint、29 total（27 pass、2 个环境 skip）及 bundle policy 4/4 通过。
+- 用户再次确认真实 DeepSeek API 可连接后，截图仍显示旧版通用文案和“生成初始讲稿”，证明运行的仍是旧 P8 bundle。随后从当前未提交工作树构建本机修复候选：diff 指纹 `0519c5c9ad58d74f76e3588aeca16e1b853c4768`，runtime `p7-421bc94df074`，25,981 个文件、16 个组件、7 条许可证；未签名 NSIS 为 558,777,984 bytes，SHA-256 `CB95A5C7A3BB14CDE58954174222BE2AF998AF9163B3F00BF90CAE843B1B2596`。bundle verify 通过，audit 为 `PASS_WITH_EVIDENCE_GAPS`；由于网页工作树未提交，manifest 中的 Git 提交不能单独复现这份候选，它只允许本机修复验证。
+- 同路径 NSIS 原子覆盖在 213.04 秒后返回 2，旧 runtime、程序文件时间和用户数据基线均完全不变，证明本次失败已回滚但升级不能记为通过。按用户“直接重新安装新版”的明确授权，官方 NSIS 卸载器默认保留数据并退出 0；卸载前后均为 18,883 个文件、952,001,247 bytes，随后新版全新安装退出 0。已安装 manifest 为 `p7-421bc94df074`，前端 chunk 含新稳定错误分支，后端含 `PLAN_RETRY_REQUIRES_USER`、`PREVIEW_RETRY_REQUIRES_USER` 和 `AGENT_RUNTIME_FAILED`。
+- 安装后 smoke 保持运行 25 秒，发现 22 个自有进程和 3 个 loopback listener，非 loopback 为 0；测试停止后残留进程/listener 均为 0。首次启动按设计创建新的 pre-migration 备份，用户数据增加到 20,336 个文件、1,020,989,873 bytes，不是删除或覆盖。Windows UI 控制未能取得窗口，因此新版界面、真实 DeepSeek 规划和真实 Edge 试听仍需用户重新打开应用后实点复验。
+- 当前本地解析器只提取部分 OMML 文本节点和普通文本公式候选，不做可靠 OMML → LaTeX，也没有图片公式 OCR。DeepSeek Chat Provider 只接收解析后的文字、备注、结构和公式候选，用于课程规划、初始讲稿、推导候选与视觉分镜；它不直接接收 PPTX 或页面 PNG，因此不能补回解析器未看到的公式。复杂公式、图表和版面理解的推荐后续是“逐页渲染图 + 结构化文本”的多模态模型链路，该能力尚未实现或验收。
+- 真实 Provider（含用户当前 Key/模型）、真实 Edge TTS、容量、完整媒体播放、clean Windows 10/11、另一台普通用户电脑、签名和成功原子升级继续为 `EXTERNAL_VALIDATION_PENDING`，不得写成通过。本轮没有提交源码、删除用户数据、递归删除安装目录或绕过 NSIS；所有新制品与 smoke 报告均位于独立 P9 候选目录。
+
 ## 2026-08-17 P8 解析、固定单用户身份与本机安装修复
 
 - 桌面最新 runtime 为 `p7-dd47b2e90ef4`：16 个组件、25,981 条 manifest 文件记录、1,571,136,842 bytes、7 条许可证；未签名安装包位于 `.artifacts/p8-stable-principal-dd47b2e/installer/math-avatar-desktop-0.1.0-win-x64-unsigned.exe`，大小 558,771,599 bytes，SHA-256 `C5BACF777BCEBFA33DECDE53CCB37163711E85B286AEE89D1FD413770197FDA0`。桌面 typecheck、lint、29 total（27 pass、2 skip、0 fail）、build、verify、bundle/full smoke、3 轮 soak 和 audit 已通过。

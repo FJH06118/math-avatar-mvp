@@ -17,6 +17,7 @@ const SegmentSchema = z.object({
   displayText: z.string().min(1), spokenText: z.string().min(1), inputHash: z.string().length(64),
 }).strict();
 const PayloadSchema = z.object({
+  purpose: z.enum(["PREVIEW", "FINAL"]),
   timingCaptureVersion: z.literal("edge-word-boundary-v1"),
   voice: z.string().min(1), rate: z.string().min(1), pitch: z.string().min(1),
   revisions: z.array(z.string().min(1)).min(1), segments: z.array(SegmentSchema).min(1),
@@ -47,6 +48,17 @@ export async function runClaimedAudioStep(
   const segment = payload.success ? payload.data.segments.find((item) => item.inputHash === step.inputHash) : undefined;
   if (!payload.success || !segment) {
     return failProductStep(dependencies.pool, claim, workerId, "AUDIO_SNAPSHOT_INVALID", "音频任务快照无效。", false, dependencies.maxAttempts);
+  }
+  if (payload.data.purpose === "PREVIEW" && claim.attempt > 1) {
+    return failProductStep(
+      dependencies.pool,
+      claim,
+      workerId,
+      "PREVIEW_RETRY_REQUIRES_USER",
+      "上次试听在结果确认前中断；为避免重复调用 Edge TTS，请显式重试听读。",
+      false,
+      1,
+    );
   }
   const controller = new AbortController();
   let heartbeatRunning = false;
@@ -181,7 +193,10 @@ export async function runClaimedAudioStep(
     const publicError = error instanceof WorkerError
       ? error
       : new WorkerError("AUDIO_WORKER_FAILED", "音频 Worker 执行失败。", true);
-    return failProductStep(dependencies.pool, claim, workerId, publicError.code, publicError.message, publicError.retryable, dependencies.maxAttempts);
+    const maxAttempts = payload.success && payload.data.purpose === "PREVIEW"
+      ? 1
+      : dependencies.maxAttempts;
+    return failProductStep(dependencies.pool, claim, workerId, publicError.code, publicError.message, publicError.retryable, maxAttempts);
   } finally {
     clearInterval(timer);
     controller.abort();

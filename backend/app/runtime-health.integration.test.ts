@@ -25,6 +25,11 @@ const app = createApplication({
   internalToken,
   secretClient,
   requireProviderForUpload: true,
+  providerConnectionTester: {
+    async test(input) {
+      assert.equal(input.apiKey, "sk-p6-runtime-health-key");
+    },
+  },
 });
 
 beforeEach(async () => clearProductState(prisma));

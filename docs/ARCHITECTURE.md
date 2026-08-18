@@ -1,5 +1,12 @@
 # 当前真实架构
 
+## 2026-08-18 Provider 探针、失败分类与显式重试边界
+
+- Provider 连接测试链为 `Renderer -> Next BFF (20s) -> Hono -> Electron secret IPC -> Provider Gateway (15s)`。Hono 只取选定密钥版本到进程内存，向模型发送最多 16 tokens 的最小探针；公共 `ProviderTestResult` 只返回 `CONNECTED/FAILED`、稳定错误码、模型、能力、时间和延迟。配置变化或失败清除 `lastTestAt`，上传前浏览器和 Hono 都要求默认 Provider 最近真实测试通过。
+- PLAN Gateway 将配置、密钥存储、鉴权、限流、超时、连接、上游、请求拒绝、响应无效、输出无效和本地组件异常投影为不同 Worker 错误。Provider/Edge 原始响应、异常 cause 和堆栈不进入 task、API、renderer 或诊断。Desktop Host 仍只保留严格生命周期快照并忽略子进程原始输出；持久 task/step/attempt 的稳定码是故障审计来源。
+- PLAN task 的 Provider 自动尝试上限为 1；用户显式重试以失败 task ID 派生新幂等键并冻结当时最新 Provider 快照。同一重试操作重放同一后继 task，既保留审计链，也避免浏览器重复点击制造多次可能收费的调用。
+- Voice preview 仍复用持久 AUDIO Worker，但讲稿 revision 不存在时 UI 和 Hono 都阻止创建，并明确本次没有调用 Edge TTS。`AUDIO_REQUESTED` 增加 `PREVIEW/FINAL` 目的；PREVIEW 正常失败不自动外呼重试。Edge 子进程只通过严格 JSON 上报 timeout/connection/upstream，父进程再与既有音频质量错误分开持久化；失败时不创建可播放资产、不报告成功。
+
 ## 2026-08-17 固定桌面 principal 与 bundle Python 导入边界
 
 - Desktop Host 不再每次启动生成业务 principal，统一使用 `local-desktop-user`。Prisma migrate 和预迁移备份完成后、Hono/Worker/Next 启动前，捆绑 `psql` 在一个事务内统计 `T0Task`、`Project`、`ProviderProfile`、`GenerationTask`、`WorkflowRun`：0 个/已固定时不写，唯一 legacy 值才迁移，多值时阻断恢复。数据库口令只经 `PGPASSWORD` 子进程环境传递。

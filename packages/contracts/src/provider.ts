@@ -121,13 +121,25 @@ export const ProviderTestRequestSchema = z
 export const ProviderTestResultSchema = z
   .object({
     profileId: StableIdSchema,
-    status: z.enum(["CONFIGURED", "FAILED"]),
+    status: z.enum(["CONNECTED", "FAILED"]),
     latencyMs: z.number().int().min(0).nullable(),
     model: z.string().min(1).max(200),
     capabilities: z.array(ProviderCapabilitySchema).max(20),
     testedAt: IsoDateTimeSchema,
     errorCode: z
-      .enum(["CREDENTIAL_NOT_CONFIGURED", "SECRET_STORE_UNAVAILABLE", "PROFILE_DISABLED"])
+      .enum([
+        "CREDENTIAL_NOT_CONFIGURED",
+        "SECRET_STORE_UNAVAILABLE",
+        "PROFILE_DISABLED",
+        "PROVIDER_AUTH_FAILED",
+        "PROVIDER_RATE_LIMITED",
+        "PROVIDER_UPSTREAM_FAILED",
+        "PROVIDER_REQUEST_REJECTED",
+        "PROVIDER_TIMEOUT",
+        "PROVIDER_CONNECTION_FAILED",
+        "PROVIDER_RESPONSE_INVALID",
+        "PROVIDER_TEST_FAILED",
+      ])
       .nullable(),
   })
   .strict();

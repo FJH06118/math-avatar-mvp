@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
-import { getVoicePreview, updateTeachingSettings } from "@/lib/api";
+import { getVoicePreview, RealApiError, updateTeachingSettings } from "@/lib/api";
 import { getEnabledTracerApiAdapter } from "@/lib/api/tracer-adapter";
 import {
   edgePitchFor,
@@ -80,6 +80,8 @@ interface TeachingSettingsFormProps {
   onPreviewSettingsChange?: (settings: TeachingSettings) => void;
   selectedSlideId: string;
   selectedSlideTitle: string;
+  previewAvailable?: boolean;
+  previewUnavailableReason?: string;
 }
 
 export function TeachingSettingsForm({
@@ -93,6 +95,8 @@ export function TeachingSettingsForm({
   onPreviewSettingsChange,
   selectedSlideId,
   selectedSlideTitle,
+  previewAvailable = true,
+  previewUnavailableReason,
 }: TeachingSettingsFormProps) {
   const queryClient = useQueryClient();
   const realAdapter = getEnabledTracerApiAdapter();
@@ -188,14 +192,19 @@ export function TeachingSettingsForm({
   });
 
   const previewMutation = useMutation({
-    mutationFn: async ({ voiceId, speechRate }: { voiceId: string; speechRate: number }) => {
+    mutationFn: async ({ voiceId, speechRate, failedTaskId }: { voiceId: string; speechRate: number; failedTaskId?: string }) => {
       if (!realAdapter) {
         const preview = await getVoicePreview(voiceId, speechRate);
         return { mode: "mock" as const, ...preview };
       }
       const task = await realAdapter.createVoicePreviewTask(projectId, {
         presentationId,
-        idempotencyKey: `preview_${crypto.randomUUID()}`,
+        idempotencyKey: previewIdempotencyKey(
+          presentationId,
+          voiceId,
+          speechRate,
+          failedTaskId,
+        ),
         voice: edgeVoiceFor(voiceId),
         rate: edgeRateFor(speechRate),
         pitch: edgePitchFor(voiceId),
@@ -228,6 +237,7 @@ export function TeachingSettingsForm({
     enabled: Boolean(realAdapter && previewTaskId && previewTaskQuery.data?.status === "SUCCEEDED"),
   });
   const previewUrl = mockPreviewUrl ?? previewTimelineQuery.data?.segments[0]?.previewUrl;
+  const previewFailed = previewTaskQuery.data?.status === "FAILED" || previewTimelineQuery.isError;
 
   useEffect(() => {
     const parsed = settingsSchema.safeParse(values);
@@ -265,6 +275,20 @@ export function TeachingSettingsForm({
     setMockPreviewUrl(null);
     setMockPlaybackRate(1);
     setPreviewVoiceId(null);
+  }
+
+  function startPreview(voiceId: string, failedTaskId?: string) {
+    if (!previewAvailable || previewMutation.isPending) return;
+    if (failedTaskId) {
+      setPreviewTaskId(null);
+      setPreviewVoiceId(null);
+    }
+    previewMutation.reset();
+    previewMutation.mutate({
+      voiceId,
+      speechRate: form.getValues("speechRate"),
+      failedTaskId,
+    });
   }
 
   return (
@@ -388,15 +412,16 @@ export function TeachingSettingsForm({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    disabled={!field.value || previewMutation.isPending}
-                    onClick={() =>
-                      previewVoiceId === field.value
-                        ? stopPreview()
-                        : previewMutation.mutate({
-                            voiceId: field.value,
-                            speechRate: form.getValues("speechRate"),
-                          })
-                    }
+                    disabled={!field.value || !previewAvailable || previewMutation.isPending}
+                    onClick={() => {
+                      if (previewFailed && previewTaskId) {
+                        startPreview(field.value, previewTaskId);
+                      } else if (previewVoiceId === field.value) {
+                        stopPreview();
+                      } else {
+                        startPreview(field.value);
+                      }
+                    }}
                   >
                     {previewMutation.isPending ? (
                       <Spinner data-icon="inline-start" aria-hidden="true" />
@@ -405,14 +430,17 @@ export function TeachingSettingsForm({
                     ) : (
                       <PlayIcon data-icon="inline-start" aria-hidden="true" />
                     )}
-                    {previewVoiceId === field.value ? "停止" : "试听"}
+                    {previewFailed ? "重试听读" : previewVoiceId === field.value ? "停止" : "试听"}
                   </Button>
                 </div>
+                {!previewAvailable && previewUnavailableReason ? (
+                  <FieldDescription role="status">{previewUnavailableReason}</FieldDescription>
+                ) : null}
                 {previewMutation.isError ? (
-                  <FieldError>试听失败，请稍后重试。</FieldError>
+                  <FieldError>{previewCreationErrorMessage(previewMutation.error)}</FieldError>
                 ) : null}
                 {previewTaskQuery.data?.status === "FAILED" || previewTimelineQuery.isError ? (
-                  <FieldError>试听生成失败，请稍后重试。</FieldError>
+                  <FieldError>{previewTimelineQuery.isError ? "试听音频读取失败，请点击“重试听读”。" : previewFailureMessage(previewTaskQuery.data?.errorCode)}</FieldError>
                 ) : null}
                 {previewUrl ? (
                   <audio
@@ -554,4 +582,54 @@ export function TeachingSettingsForm({
       </form>
     </aside>
   );
+}
+
+export function previewIdempotencyKey(
+  presentationId: string,
+  voiceId: string,
+  speechRate: number,
+  failedTaskId?: string,
+): string {
+  if (failedTaskId) return `preview_retry_${compactStableId(failedTaskId, 100)}`;
+  return `preview_initial_${compactStableId(presentationId, 75)}_${compactStableId(voiceId, 24)}_${Math.round(speechRate * 100)}`;
+}
+
+export function previewFailureMessage(errorCode: string | null | undefined): string {
+  switch (errorCode) {
+    case "EDGE_TTS_CONNECTION_FAILED":
+      return "Edge TTS 网络连接失败。请检查网络或代理后点击“重试听读”。";
+    case "EDGE_TTS_TIMEOUT":
+      return "Edge TTS 请求超时。请检查网络后点击“重试听读”。";
+    case "EDGE_TTS_UPSTREAM_FAILED":
+    case "EDGE_TTS_FAILED":
+      return "Edge TTS 服务暂时不可用，请稍后点击“重试听读”。";
+    case "AUDIO_VALIDATOR_MISSING":
+      return "本地音频校验组件不可用，请重启桌面软件后重试听读。";
+    case "PREVIEW_RETRY_REQUIRES_USER":
+      return "上次试听在结果确认前中断。为避免重复调用 Edge TTS，请点击“重试听读”。";
+    case "AUDIO_EMPTY":
+    case "AUDIO_UNDECODABLE":
+    case "AUDIO_SAMPLE_RATE_INVALID":
+    case "AUDIO_SILENT":
+    case "AUDIO_CLIPPED":
+    case "AUDIO_OUTPUT_INVALID":
+      return "Edge TTS 已返回音频，但音频未通过校验。请点击“重试听读”。";
+    default:
+      return "试听任务失败且未生成可播放音频，请点击“重试听读”。";
+  }
+}
+
+function previewCreationErrorMessage(error: unknown): string {
+  if (error instanceof RealApiError && error.code === "LESSON_PLAN_NOT_READY") {
+    return "请先重试规划并生成初始讲稿；本次尚未调用 Edge TTS。";
+  }
+  return error instanceof RealApiError
+    ? error.message
+    : "试听任务创建失败，请检查本地运行时后重试。";
+}
+
+function compactStableId(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  const suffixLength = maxLength - 17;
+  return `${value.slice(0, 16)}_${value.slice(-suffixLength)}`;
 }

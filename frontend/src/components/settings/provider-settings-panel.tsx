@@ -110,7 +110,7 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
     mutationFn: (provider: ProviderProfile) => testProviderProfile(provider.id, provider.version),
     onSuccess: async (result) => {
       setTestResult(result);
-      setFeedback(result.status === "CONFIGURED" ? "连接测试通过，可以开始上传课件。" : testResultMessage(result));
+      setFeedback(null);
       await queryClient.invalidateQueries({ queryKey: ["application-settings"] });
     },
   });
@@ -161,7 +161,7 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
         <Alert>
           <ShieldCheckIcon aria-hidden="true" />
           <AlertTitle>先配置一个可用的默认 Provider</AlertTitle>
-          <AlertDescription>没有通过配置检查的 Provider 时，系统会阻止课件上传，避免进入无法完成的生成流程。</AlertDescription>
+          <AlertDescription>没有通过真实连接测试的 Provider 时，系统会阻止课件上传，避免进入无法完成的生成流程。</AlertDescription>
         </Alert>
       ) : null}
 
@@ -193,7 +193,7 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
                   <span className="font-medium">{provider.displayName}</span>
                   <span className="flex items-center gap-1.5">
                     {provider.isDefault ? <Badge variant="secondary">默认</Badge> : null}
-                    <Badge variant={provider.enabled && provider.keyConfigured ? "outline" : "destructive"}>{provider.enabled && provider.keyConfigured ? "已配置" : "待处理"}</Badge>
+                    <Badge variant={provider.lastTestAt ? "outline" : provider.enabled && provider.keyConfigured ? "secondary" : "destructive"}>{provider.lastTestAt ? "已连接" : provider.enabled && provider.keyConfigured ? "待测试" : "待处理"}</Badge>
                   </span>
                 </span>
                 <span className="text-sm text-muted-foreground">{PROVIDER_LABELS[provider.kind]} · {provider.model}</span>
@@ -226,10 +226,12 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
             {selectedProvider ? <Button type="button" variant="outline" onClick={() => testMutation.mutate(selectedProvider)} disabled={isBusy || !selectedProvider.enabled || !selectedProvider.keyConfigured}><TestTube2Icon data-icon="inline-start" aria-hidden="true" />{testMutation.isPending ? "测试中…" : "连接测试"}</Button> : null}
             {selectedProvider && !selectedProvider.isDefault ? <Button type="button" variant="outline" onClick={() => defaultMutation.mutate(selectedProvider)} disabled={isBusy || !selectedProvider.enabled || !selectedProvider.keyConfigured}>设为默认</Button> : null}
           </div>
-          {testResult ? <Alert variant={testResult.status === "CONFIGURED" ? undefined : "destructive"}><TestTube2Icon aria-hidden="true" /><AlertTitle>{testResult.status === "CONFIGURED" ? "连接测试通过" : "连接测试未通过"}</AlertTitle><AlertDescription>{testResult.status === "CONFIGURED" ? `模型 ${testResult.model} 已响应，延迟 ${testResult.latencyMs ?? "—"} ms。` : testResultMessage(testResult)}</AlertDescription></Alert> : null}
+          {testResult ? <Alert variant={testResult.status === "CONNECTED" ? undefined : "destructive"}><TestTube2Icon aria-hidden="true" /><AlertTitle>{testResult.status === "CONNECTED" ? "真实连接测试通过" : "连接测试未通过"}</AlertTitle><AlertDescription>{testResult.status === "CONNECTED" ? `模型 ${testResult.model} 已实际响应，延迟 ${testResult.latencyMs ?? "—"} ms。` : testResultMessage(testResult)}</AlertDescription></Alert> : null}
+          {testMutation.isError ? <Alert variant="destructive" role="alert"><TestTube2Icon aria-hidden="true" /><AlertTitle>连接测试请求失败</AlertTitle><AlertDescription>{getUserFacingErrorMessage(testMutation.error, "本地服务暂时无法执行连接测试，请重启桌面软件后重试。")}</AlertDescription></Alert> : null}
           {feedback ? <Alert><CheckCircle2Icon aria-hidden="true" /><AlertTitle>设置状态</AlertTitle><AlertDescription>{feedback}</AlertDescription></Alert> : null}
           <div className="flex flex-col gap-2 border-t border-foreground/12 pt-4 text-sm text-muted-foreground">
             <p className="flex items-center gap-2"><KeyRoundIcon className="size-4" aria-hidden="true" />密钥轮换不会把原密钥回显到页面、日志、任务或诊断报告。</p>
+            <p>连接测试会向所选模型发送一条极短请求，用于核验地址、模型、密钥与网络；Provider 可能产生极少量用量。</p>
             <p>Edge TTS 是内置的音频路径。保存 Provider 后，进入课程工作台的“授课配置”即可试听实际音色和语速。</p>
             <Link href="/" className="text-primary underline-offset-4 hover:underline">打开课程列表，进入工作台试听 Edge TTS</Link>
           </div>
@@ -256,6 +258,13 @@ function testResultMessage(result: ProviderTestResult): string {
     case "CREDENTIAL_NOT_CONFIGURED": return "密钥尚未配置或已不可用，请重新填写 API Key 并保存。";
     case "SECRET_STORE_UNAVAILABLE": return "Windows 安全密钥存储暂时不可用，请重启桌面软件后重试。";
     case "PROFILE_DISABLED": return "该 Provider 已停用，请先启用后再测试。";
-    default: return "Provider 连接测试未通过，请检查地址、模型和网络。";
+    case "PROVIDER_AUTH_FAILED": return "Provider 拒绝了密钥，请重新填写 API Key、保存后再次测试。";
+    case "PROVIDER_RATE_LIMITED": return "Provider 当前限流，请稍后重新测试连接。";
+    case "PROVIDER_UPSTREAM_FAILED": return "Provider 上游服务暂时不可用，请稍后重新测试连接。";
+    case "PROVIDER_REQUEST_REJECTED": return "Provider 拒绝了请求，请检查 API 地址和模型名称后重新测试。";
+    case "PROVIDER_TIMEOUT": return "Provider 请求超时，请检查网络或代理后重新测试连接。";
+    case "PROVIDER_CONNECTION_FAILED": return "无法连接 Provider，请检查网络、代理和 API 地址后重新测试。";
+    case "PROVIDER_RESPONSE_INVALID": return "Provider 返回了无法识别的响应，请检查地址、协议和模型兼容性。";
+    default: return "连接测试未完成，请检查 Provider 设置并重新测试；若持续失败，请重启桌面软件。";
   }
 }

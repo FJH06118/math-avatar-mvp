@@ -14,7 +14,7 @@ export class AnthropicProvider implements LlmProvider {
       },
       {
         model: this.config.model,
-        max_tokens: 4_096,
+        max_tokens: input.maxTokens ?? 4_096,
         temperature: 0.2,
         system: input.systemPrompt,
         messages: [{ role: "user", content: JSON.stringify(input.userPayload) }],

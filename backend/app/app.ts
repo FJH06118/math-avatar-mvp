@@ -55,6 +55,7 @@ import { WorkspaceRepository } from "./workspace-repository.ts";
 import { createProviderRoutes } from "./provider-routes.ts";
 import { ProviderRepository } from "./provider-repository.ts";
 import { ProviderService } from "./provider-service.ts";
+import type { ProviderConnectionTester } from "./provider-connection-tester.ts";
 import { UnavailableSecretClient, type SecretClient } from "./secret-client.ts";
 import { WorkflowRunRepository } from "./workflow-repository.ts";
 import { createRuntimeHealthRoutes } from "./runtime-health-routes.ts";
@@ -64,6 +65,7 @@ export interface AppDependencies {
   assetRoot: string;
   internalToken: string;
   secretClient?: SecretClient;
+  providerConnectionTester?: ProviderConnectionTester;
   requireProviderForUpload?: boolean;
 }
 
@@ -84,6 +86,8 @@ export function createApplication(dependencies: AppDependencies): Hono {
   const providerService = new ProviderService(
     new ProviderRepository(dependencies.prisma),
     dependencies.secretClient ?? new UnavailableSecretClient(),
+    () => new Date(),
+    dependencies.providerConnectionTester,
   );
   const workflows = new WorkflowRunRepository(dependencies.prisma);
   const requireProviderForUpload =
@@ -210,7 +214,13 @@ export function createApplication(dependencies: AppDependencies): Hono {
     );
     if (requireProviderForUpload) {
       const provider = await dependencies.prisma.providerProfile.findFirst({
-        where: { principal, isDefault: true, enabled: true, keyConfigured: true },
+        where: {
+          principal,
+          isDefault: true,
+          enabled: true,
+          keyConfigured: true,
+          lastTestAt: { not: null },
+        },
         select: { id: true },
       });
       if (!provider) {

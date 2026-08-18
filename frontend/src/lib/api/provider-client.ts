@@ -28,7 +28,7 @@ export function hasReadyDefaultProvider(settings: ApplicationSettings): boolean 
   const provider = settings.providers.find(
     (candidate) => candidate.id === settings.defaultProviderId,
   );
-  return Boolean(provider?.enabled && provider.keyConfigured);
+  return Boolean(provider?.enabled && provider.keyConfigured && provider.lastTestAt);
 }
 
 export async function assertReadyDefaultProvider(signal?: AbortSignal): Promise<ApplicationSettings> {

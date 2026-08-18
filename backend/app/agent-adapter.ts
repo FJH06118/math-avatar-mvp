@@ -230,7 +230,7 @@ function parseProviderProtocol(value: string): ProviderProtocol {
 function mapProviderError(error: unknown): WorkerError {
   if (error instanceof WorkerError) return error;
   if (!(error instanceof ProviderError)) {
-    return new WorkerError("AGENT_PROVIDER_FAILED", "课程规划服务暂时不可用。", true);
+    return new WorkerError("AGENT_RUNTIME_FAILED", "本地课程规划组件执行失败。", false);
   }
   switch (error.code) {
     case "PROVIDER_AUTH_FAILED":
@@ -245,14 +245,17 @@ function mapProviderError(error: unknown): WorkerError {
     case "PROVIDER_CREDENTIAL_NOT_CONFIGURED":
       return new WorkerError("AGENT_CONFIG_MISSING", error.message, false);
     case "PROVIDER_SECRET_UNAVAILABLE":
-      return new WorkerError("AGENT_CONFIG_MISSING", error.message, true);
+      return new WorkerError("AGENT_SECRET_UNAVAILABLE", error.message, true);
     case "PROVIDER_OUTPUT_INVALID":
-      return new WorkerError("AGENT_OUTPUT_INVALID", error.message, true);
+      return new WorkerError("AGENT_OUTPUT_INVALID", error.message, error.retryable);
     case "PROVIDER_UPSTREAM_FAILED":
+      return new WorkerError("AGENT_UPSTREAM_FAILED", error.message, error.retryable);
     case "PROVIDER_REQUEST_REJECTED":
+      return new WorkerError("AGENT_REQUEST_REJECTED", error.message, error.retryable);
     case "PROVIDER_CONNECTION_FAILED":
+      return new WorkerError("AGENT_CONNECTION_FAILED", error.message, error.retryable);
     case "PROVIDER_RESPONSE_INVALID":
-      return new WorkerError("AGENT_PROVIDER_FAILED", error.message, error.retryable);
+      return new WorkerError("AGENT_RESPONSE_INVALID", error.message, error.retryable);
   }
 }
 

@@ -1,5 +1,17 @@
 # 项目状态
 
+## 2026-08-18 Provider/规划/试听错误闭环（本机修复候选已安装，真实链路待复验）
+
+- 只读取证确认：旧 Provider“连接测试通过”只代表 DPAPI 密钥版本存在，不代表 Base URL、TLS、API Key、模型或响应可用；两个失败 PLAN task 各有 3 个 attempt，证明旧自动重试会重复外部调用。当前网络路径只能在不使用真实 Key 的条件下确认目标 HTTP 路由可达，不能反推历史瞬时连接/代理原因，也不能宣称真实 Provider 已通过。
+- 截图中的 Edge 试听没有创建 AUDIO task；Hono 因初始讲稿不存在返回 `LESSON_PLAN_NOT_READY`，前端错误折叠才显示通用“试听失败”。真实 Edge 网络、音频生成和播放没有在该操作中发生。
+- 当前源码已改为真实、限额 Provider 探针和 `CONNECTED` Contract，连接相关配置变化/失败会使旧成功失效，BFF/Hono 上传门均检查 `lastTestAt`。Provider/本地规划/Edge 网络/Edge 超时/Edge 上游/音频校验的稳定错误分类和行动提示已接通，公开响应不含 Key、路径、端口、堆栈或上游正文。
+- PLAN 和 PREVIEW 每个任务只执行一次外部调用；失败后由用户显式点击“重试规划”或“重试听读”，以失败 task ID 派生幂等键。集成测试证明同键重放不会创建第三个任务，失败不会投影为成功。
+- 当前专项通过：Contract 49/49，frontend unit 14/14、component 21/21，Provider gateway 39/39、Provider integration 4/4、PLAN integration 3/3、音频/试听 8 pass/1 个外部 Edge skip、完整 backend integration 41 pass/1 个外部 Edge skip及 routes 6/6。最终门禁已严格串行通过 typecheck、0-warning lint、Python backend:test 13/13 和 Next production build；桌面仓库 typecheck、lint、29 total（27 pass、2 个环境 skip）及 bundle policy 4/4 通过。
+- 本机修复候选 runtime `p7-421bc94df074` 已完成 build、verify、`PASS_WITH_EVIDENCE_GAPS` audit 和全新安装；NSIS 为 558,777,984 bytes，SHA-256 `CB95A5C7A3BB14CDE58954174222BE2AF998AF9163B3F00BF90CAE843B1B2596`。该候选来自未提交网页工作树，另以 diff 指纹 `0519c5c9ad58d74f76e3588aeca16e1b853c4768` 标识，不能作为干净源码可复现发布证据。
+- 首次同路径原子覆盖返回 2 并完整回滚；官方 NSIS 卸载器保留数据后全新安装退出 0。卸载前后用户数据精确保持 18,883 个文件、952,001,247 bytes；首次启动仅新增 pre-migration 备份。安装后 smoke 为 `STARTED_AND_STOPPED_PENDING_UI_CHECK`：25 秒内 22 个自有进程、3 个 loopback listener，清理后残留为 0。
+- 本地公式链当前只能从部分原生 OMML 文本节点和普通文本中生成需人工核对的候选；没有可靠 OMML → LaTeX，也没有图片公式 OCR。DeepSeek Chat 仅规划本地解析结果，不直接读取 PPTX/页面图，因此对复杂公式和图表不能视为完整理解；“页面图 + 文本/备注”的多模态 Provider 是推荐后续但尚未实现。
+- 状态仍为 `PASS_WITH_EVIDENCE_GAPS`。新版 UI 实点、用户真实 DeepSeek 规划、真实 Edge TTS、容量、完整播放、签名、clean Windows 10/11、外部机器和成功原子升级仍为 `EXTERNAL_VALIDATION_PENDING`。
+
 ## 2026-08-17 P8 本机可用性修复（外部验收仍待补）
 
 - 最新桌面候选 `p7-dd47b2e90ef4` 含 16 个组件、25,981 条文件记录和 7 条许可证，NSIS 为 558,771,599 bytes、SHA-256 `C5BACF777BCEBFA33DECDE53CCB37163711E85B286AEE89D1FD413770197FDA0`、`NotSigned`。桌面 29 total（27 pass、2 skip、0 fail），verify/smoke/3 轮 soak/audit 通过；旧候选和失败候选全部隔离保留。
