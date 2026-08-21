@@ -4,8 +4,18 @@ const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const MAX_ENTRIES = 10_000;
 const MAX_EXPANDED_BYTES = 500 * 1024 * 1024;
+const MAX_SLIDES = 100;
+const OLE_HEADER = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] as const;
 
 export function validatePptxStructure(bytes: Uint8Array): void {
+  if (hasOleHeader(bytes)) {
+    throw new AppHttpError(
+      422,
+      "ENCRYPTED_PPTX",
+      "课件是加密的 Office 容器，或文件扩展名与实际格式不一致。请取消密码保护并另存为 .pptx 后重试。",
+      false,
+    );
+  }
   if (bytes.byteLength < 22) {
     throw invalidPptx("文件不是完整的 PPTX ZIP 包。");
   }
@@ -68,18 +78,45 @@ export function validatePptxStructure(bytes: Uint8Array): void {
   if (!names.has("[Content_Types].xml") || !names.has("ppt/presentation.xml")) {
     throw invalidPptx("ZIP 包缺少 PPTX 必需结构。");
   }
+  const slideCount = [...names].filter((name) => /^ppt\/slides\/[^/]+\.xml$/i.test(name)).length;
+  if (slideCount === 0) {
+    throw new AppHttpError(
+      422,
+      "PPTX_NO_SLIDES",
+      "课件中没有幻灯片。请至少添加一页内容并保存后重新上传。",
+      false,
+    );
+  }
+  if (slideCount > MAX_SLIDES) {
+    throw new AppHttpError(
+      422,
+      "PPTX_TOO_MANY_SLIDES",
+      `课件包含 ${slideCount} 页，当前最多支持 ${MAX_SLIDES} 页。请拆分课件后重试。`,
+      false,
+    );
+  }
 }
 
 export function validateLegacyPptStructure(bytes: Uint8Array): void {
-  const oleHeader = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
-  const validHeader = bytes.byteLength >= 512 && oleHeader.every((value, index) => bytes[index] === value);
-  if (!validHeader) {
+  if (bytes.byteLength < 512 || !hasOleHeader(bytes)) {
     throw new AppHttpError(422, "INVALID_PPT_STRUCTURE", "旧版 PPT 文件结构无效或已损坏。", false);
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint16(0x1c, true) !== 0xfffe || view.getUint16(0x1e, true) !== 9) {
+  const majorVersion = view.getUint16(0x1a, true);
+  const sectorShift = view.getUint16(0x1e, true);
+  const expectedSectorShift = majorVersion === 3 ? 9 : majorVersion === 4 ? 12 : -1;
+  if (
+    view.getUint16(0x1c, true) !== 0xfffe ||
+    sectorShift !== expectedSectorShift ||
+    view.getUint16(0x20, true) !== 6 ||
+    bytes.byteLength < 2 ** sectorShift
+  ) {
     throw new AppHttpError(422, "INVALID_PPT_STRUCTURE", "旧版 PPT 的复合文档头无效。", false);
   }
+}
+
+function hasOleHeader(bytes: Uint8Array): boolean {
+  return bytes.byteLength >= OLE_HEADER.length && OLE_HEADER.every((value, index) => bytes[index] === value);
 }
 
 function invalidPptx(message: string): AppHttpError {

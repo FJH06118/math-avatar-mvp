@@ -6,6 +6,8 @@ import type { AgentAdapter } from "./agent-adapter.ts";
 import { buildAgentRevision, stableId } from "./lesson-plan-builder.ts";
 import { persistRevision } from "./lesson-plan-repository.ts";
 import { failProductStep, heartbeatProductLease, type ProductClaim } from "./product-lease.ts";
+import { LocalAssetStore } from "./storage.ts";
+import { prepareVisionInputs } from "./vision-input.ts";
 import { toWorkerError, WorkerError } from "./worker-error.ts";
 
 const PlanConfigSchema = z
@@ -21,6 +23,7 @@ export async function runClaimedPlanStep(
   dependencies: {
     prisma: PrismaClient;
     pool: Pool;
+    assets: LocalAssetStore;
     adapter: AgentAdapter;
     leaseMs: number;
     maxAttempts?: number;
@@ -32,7 +35,14 @@ export async function runClaimedPlanStep(
   const task = await dependencies.prisma.generationTask.findUniqueOrThrow({
     where: { id: claim.taskId },
     include: {
-      presentation: { include: { slides: { orderBy: { slideNumber: "asc" } } } },
+      presentation: {
+        include: {
+          slides: {
+            include: { renderAsset: true },
+            orderBy: { slideNumber: "asc" },
+          },
+        },
+      },
       outbox: { where: { eventType: "PLAN_REQUESTED" }, take: 1 },
     },
   });
@@ -77,6 +87,7 @@ export async function runClaimedPlanStep(
   }, Math.max(50, Math.floor(dependencies.leaseMs / 3)));
 
   try {
+    const visionInputs = await prepareVisionInputs(slides, dependencies.assets, controller.signal);
     const result = await dependencies.adapter.run({
       slides: slides.map((slide) => ({
         id: slide.id,
@@ -85,6 +96,7 @@ export async function runClaimedPlanStep(
         extractedText: slide.extractedText,
         notes: slide.notes,
         formulas: slide.formulaJson,
+        image: visionInputs.get(slide.id),
       })),
       principal: task.principal,
       ...configResult.data,

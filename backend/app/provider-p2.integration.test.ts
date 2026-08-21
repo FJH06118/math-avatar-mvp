@@ -33,8 +33,9 @@ const app = createApplication({
   providerConnectionTester: {
     async test(input) {
       providerTestCalls += 1;
-      assert.equal(input.apiKey, "sk-test-provider-key-v2");
+      assert.match(input.apiKey, /^sk-test-provider-key-v[12]$/);
       if (providerTestFailure) throw providerTestFailure;
+      return { capabilities: [...input.capabilities, "VISION" as const] };
     },
   },
 });
@@ -111,7 +112,9 @@ test("P2 stores only redacted profile metadata and preserves old key versions on
     body: JSON.stringify({ expectedVersion: 2 }),
   });
   assert.equal(tested.status, 200);
-  assert.equal(ProviderTestResponseSchema.parse(await tested.json()).data.status, "CONNECTED");
+  const testedBody = ProviderTestResponseSchema.parse(await tested.json()).data;
+  assert.equal(testedBody.status, "CONNECTED");
+  assert(testedBody.capabilities.includes("VISION"));
   assert.equal(providerTestCalls, 1);
 });
 
@@ -236,6 +239,16 @@ test("provider rotation freezes a redacted selection snapshot per new PLAN task"
       await request("/v1/providers", { method: "POST", body: JSON.stringify(createBody()) })
     ).json(),
   ).data;
+  const firstTest = ProviderTestResponseSchema.parse(
+    await (await request(`/v1/providers/${created.id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: created.version }),
+    })).json(),
+  ).data;
+  assert(firstTest.capabilities.includes("VISION"));
+  const firstTestedProfile = ProviderProfileListResponseSchema.parse(
+    await (await request("/v1/providers")).json(),
+  ).data[0]!;
   const plans = new LessonPlanRepository(prisma);
   const firstPresentation = await seedPresentation("one");
   const first = await plans.createPlanTask(principal, firstPresentation.projectId, {
@@ -248,9 +261,19 @@ test("provider rotation freezes a redacted selection snapshot per new PLAN task"
 
   const rotated = await request(`/v1/providers/${created.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ expectedVersion: created.version, apiKey: "sk-test-provider-key-v2" }),
+    body: JSON.stringify({ expectedVersion: firstTestedProfile.version, apiKey: "sk-test-provider-key-v2" }),
   });
   assert.equal(rotated.status, 200);
+  const rotatedProfile = ProviderProfileResponseSchema.parse(await rotated.json()).data;
+  assert.equal(rotatedProfile.lastTestAt, null);
+  assert(!rotatedProfile.capabilities.includes("VISION"));
+  const secondTest = ProviderTestResponseSchema.parse(
+    await (await request(`/v1/providers/${created.id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: rotatedProfile.version }),
+    })).json(),
+  ).data;
+  assert(secondTest.capabilities.includes("VISION"));
 
   const secondPresentation = await seedPresentation("two");
   const second = await plans.createPlanTask(principal, secondPresentation.projectId, {
@@ -272,8 +295,10 @@ test("provider rotation freezes a redacted selection snapshot per new PLAN task"
   const newSnapshot = snapshot(second.task.id);
   assert.equal(oldSnapshot.keyVersion, 1);
   assert.equal(newSnapshot.keyVersion, 2);
-  assert.equal(oldSnapshot.profileVersion, 1);
-  assert.equal(newSnapshot.profileVersion, 2);
+  assert.equal(oldSnapshot.profileVersion, 2);
+  assert.equal(newSnapshot.profileVersion, 4);
+  assert(oldSnapshot.capabilities.includes("VISION"));
+  assert(newSnapshot.capabilities.includes("VISION"));
   assert(!JSON.stringify(outboxes).includes("sk-test-provider-key"));
 });
 

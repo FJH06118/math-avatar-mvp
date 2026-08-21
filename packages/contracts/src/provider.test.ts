@@ -57,12 +57,30 @@ describe("provider contracts", () => {
         protocol: "OPENAI_CHAT",
         baseUrl: "https://api.deepseek.com/v1",
         model: "deepseek-chat",
+        capabilities: ["CHAT", "VISION"],
         profileVersion: 2,
         keyVersion: 3,
         promptVersion: "stage-p2-v1",
         apiKey: "sk-test-provider-key",
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts Doubao and Qwen as OpenAI-compatible multimodal provider kinds", () => {
+    for (const kind of ["DOUBAO", "QWEN"] as const) {
+      expect(ProviderProfileCreateInputSchema.safeParse({
+        displayName: kind,
+        kind,
+        protocol: "OPENAI_CHAT",
+        baseUrl: kind === "DOUBAO"
+          ? "https://ark.cn-beijing.volces.com/api/v3"
+          : "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model: "user-selected-vision-model",
+        enabled: true,
+        isDefault: true,
+        apiKey: "sk-test-provider-key",
+      }).success).toBe(true);
+    }
   });
 
   it("distinguishes a real connection result from safe failure categories", () => {
@@ -77,6 +95,12 @@ describe("provider contracts", () => {
       ...base,
       status: "CONNECTED",
       errorCode: null,
+    }).success).toBe(true);
+    expect(ProviderTestResultSchema.safeParse({
+      ...base,
+      status: "FAILED",
+      latencyMs: null,
+      errorCode: "PROVIDER_VISION_UNSUPPORTED",
     }).success).toBe(true);
     expect(ProviderTestResultSchema.safeParse({
       ...base,

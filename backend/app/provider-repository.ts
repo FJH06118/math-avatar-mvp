@@ -120,15 +120,20 @@ export class ProviderRepository {
     return record;
   }
 
-  async setLastTestAt(
+  async setTestState(
     principal: string,
     id: string,
     expectedVersion: number,
     lastTestAt: Date | null,
+    capabilities: ProviderCapability[],
   ): Promise<ProviderProfileRecord> {
     const updated = await this.prisma.providerProfile.updateMany({
       where: { principal, id, version: expectedVersion },
-      data: { lastTestAt, version: { increment: 1 } },
+      data: {
+        lastTestAt,
+        capabilities,
+        version: { increment: 1 },
+      },
     });
     if (updated.count !== 1) await this.assertVersion(principal, id, expectedVersion);
     const record = await this.get(principal, id);

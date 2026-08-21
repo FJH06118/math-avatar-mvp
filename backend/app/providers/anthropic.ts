@@ -5,6 +5,23 @@ export class AnthropicProvider implements LlmProvider {
   constructor(private readonly config: ProviderHttpConfig) {}
 
   async complete(input: ProviderCompletionInput): Promise<ProviderCompletion> {
+    const serializedPayload = JSON.stringify(input.userPayload);
+    const userContent = input.images?.length
+      ? [
+          { type: "text", text: serializedPayload },
+          ...input.images.flatMap((image) => [
+            { type: "text", text: `图像引用：${image.ref}` },
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: image.mimeType,
+                data: image.base64,
+              },
+            },
+          ]),
+        ]
+      : serializedPayload;
     const envelope = await postProviderJson(
       this.config,
       "messages",
@@ -17,7 +34,7 @@ export class AnthropicProvider implements LlmProvider {
         max_tokens: input.maxTokens ?? 4_096,
         temperature: 0.2,
         system: input.systemPrompt,
-        messages: [{ role: "user", content: JSON.stringify(input.userPayload) }],
+        messages: [{ role: "user", content: userContent }],
       },
       input.signal,
     );

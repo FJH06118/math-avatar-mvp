@@ -15,6 +15,39 @@ export const PresentationUploadMimeTypeSchema = z.union([
   LegacyPptMimeTypeSchema,
 ]);
 
+const GenericBinaryMimeTypes = new Set([
+  "",
+  "application/octet-stream",
+  "binary/octet-stream",
+]);
+const PptxMimeTypeAliases = new Set([
+  PptxMimeTypeSchema.value,
+  "application/zip",
+  "application/x-zip-compressed",
+]);
+const LegacyPptMimeTypeAliases = new Set([
+  LegacyPptMimeTypeSchema.value,
+  "application/mspowerpoint",
+  "application/powerpoint",
+  "application/x-mspowerpoint",
+]);
+
+function canonicalMimeType(fileName: string) {
+  return fileName.toLowerCase().endsWith(".pptx")
+    ? PptxMimeTypeSchema.value
+    : LegacyPptMimeTypeSchema.value;
+}
+
+function acceptsBrowserMimeType(fileName: string, mimeType: string): boolean {
+  const normalized = mimeType.trim().toLowerCase();
+  if (GenericBinaryMimeTypes.has(normalized)) {
+    return true;
+  }
+  return fileName.toLowerCase().endsWith(".pptx")
+    ? PptxMimeTypeAliases.has(normalized)
+    : LegacyPptMimeTypeAliases.has(normalized);
+}
+
 export const TracerUploadMetadataSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
@@ -22,23 +55,24 @@ export const TracerUploadMetadataSchema = z
       (value) => /\.pptx?$/i.test(value),
       "仅接受 .ppt 或 .pptx",
     ),
-    mimeType: PresentationUploadMimeTypeSchema,
+    mimeType: z.string().max(160),
     fileSize: z.number().int().positive().max(100 * 1024 * 1024),
     idempotencyKey: StableIdSchema,
   })
   .strict()
   .superRefine((value, context) => {
-    const expected = value.fileName.toLowerCase().endsWith(".pptx")
-      ? PptxMimeTypeSchema.value
-      : LegacyPptMimeTypeSchema.value;
-    if (value.mimeType !== expected) {
+    if (!acceptsBrowserMimeType(value.fileName, value.mimeType)) {
       context.addIssue({
         code: "custom",
         path: ["mimeType"],
         message: "文件扩展名与 MIME 不一致",
       });
     }
-  });
+  })
+  .transform((value) => ({
+    ...value,
+    mimeType: canonicalMimeType(value.fileName),
+  }));
 
 export const TracerUploadReceiptSchema = z
   .object({

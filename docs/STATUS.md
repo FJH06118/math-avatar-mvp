@@ -1,5 +1,27 @@
 # 项目状态
 
+> [!WARNING]
+> 当前源码仍处于 `MANUAL_TESTING_REQUIRED`：自动化门禁通过不替代真实豆包/千问等账号、外部 PPT 样本、视觉准确率、容量和重建后桌面安装包的人工试验测试。
+
+## 2026-08-21 PPT 多模态理解接入（源码完成，真实供应商与桌面候选待验）
+
+- 产品链此前在 PARSE 后只向 PLAN Provider 发送本地提取文字、备注和公式候选，完全没有发送原页图。当前链路改为 `确定性 PPT 校验/渲染 -> 原页资产完整性复核/有界压缩 -> 页面图 + 结构化文本多模态 PLAN -> strict Contract -> 人工审核`；模型不决定真实页数、不替换原页，也不能解除批准门。
+- Provider 类型现为 OpenAI、DeepSeek、GLM、Kimi、豆包、千问和 Anthropic。前六类复用 OpenAI Chat 多模态 `image_url` Data URL，Anthropic 使用 Messages Base64 image block；保留用户自填 Base URL/model，未硬编码供应商最新模型。设置页提供豆包方舟与千问百炼入口，并清楚显示“多模态已连接/需重测视觉”。
+- 连接测试随机发送纯红、纯绿或纯蓝的 64×64 PNG，并验证返回主色；只有接口接受图片且模型识别正确才授予 `VISION`。任何影响调用的配置变化或失败都会撤销 `lastTestAt/VISION`，上传、健康检查、PLAN 创建和 Gateway 四层均 fail closed。文本模型或不兼容端点返回可操作视觉错误，不会无提示走旧文本规划。
+- PLAN 只读取已登记 `SLIDE_RENDER`，验证 lifecycle/MIME/size/SHA-256 后压成 JPEG；总 Base64 图像预算 16 MiB，按 1440×810、1152×648、960×540、768×432 逐级降级，仍超限才返回 `AGENT_VISION_PAYLOAD_TOO_LARGE`。Provider 快照新增 capabilities，Prompt 升至 `stage-tc-agent-prompt-v2-vision`，任务 hash 纳入 render asset IDs。
+- 本轮证据：Contract 52/52；Provider Gateway + 随机视觉探针 + 视觉资产 57/57；frontend unit 14/14、component 21/21；Provider PostgreSQL 4/4；完整 Node/PostgreSQL integration 46 pass/1 skip。最终根门禁已严格串行通过：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 15/15、Next 16.2.11 production build 成功。
+- 视觉模型可以辅助课程规划理解图片公式、图表和版式，但当前没有将识别结果写成结构化 OCR，也没有真实供应商准确率评测；图片公式 OCR 仍不得宣称完成。七家真实 API、费用/限流/地域、100 页视觉请求容量、桌面 bundle 重建与安装仍为外部/后续验证。
+
+## 2026-08-21 PowerPoint 兼容性修复（源码与本机回归收口，桌面候选待重建）
+
+- 安装版用户数据中的真实失败课件不是普通一页课件，而是 WPS 保存的零幻灯片 PPTX；其 38,441 bytes、SHA-256 为 `55e6ddd111f51897dd6459d9a32439f0b4f59af806e9ddddd2ccc5ee81b665a9`，两个 attempt 都留下 `slideCount: 0` 与 LibreOffice 生成的伪空白页，旧流程随后在场景契约处通用失败。新上传门以 `PPTX_NO_SLIDES` 在事务前拒绝，不创建 Project/Task/Outbox；Worker/CLI 对 `.ppt` 转换后的零页结果使用同一稳定码且不可自动重试。
+- 合法非 16:9 课件此前是实际兼容缺陷：4:3 与纵向回归分别生成 `1920×1440`、`1440×1920`，必然命中 `ORIGINAL_PAGE_INVALID`。现在 LibreOffice 与 PowerPoint 两条渲染路径都把完整源页等比 `contain` 到白色 `1920×1080` 画布，不裁切或拉伸，并在解析警告中保留源比例适配事实。
+- 上传 MIME 现在接受浏览器常见的空值、通用二进制及 PowerPoint/ZIP 别名并规范化为 canonical MIME；明确的扩展名/MIME 冲突仍拒绝，服务端继续按实际 ZIP/OLE 字节检查。标准 Office 加密容器得到 `ENCRYPTED_PPTX`；`.ppt` CFB v3/v4 均可进入隔离转换，损坏、转换失败、渲染失败和 runtime 缺失分别使用稳定公共错误。
+- 结构化提取增加有界兼容降级：无法读取的非关键对象、超长文本/备注和过多公式候选不再导致整套课件契约崩溃，而是完整保留原页并产生明确警告；公式候选 ID 支持第 100～500 项，OOXML 公式按真实 slide part/展示顺序关联。
+- 已通过：真实零页样本错误复现与修复验证、真实 14 页回归、Python 定向 6/6、Contract 51/51、Stage T-A 10/10、Stage T-B 7/7、Stage 11B 4 pass/1 skip。Stage 11B 覆盖 1/10/50/100 页、4:3、纵向、中文文件名、空白页、表格和真实 `.ppt` 转换。
+- 最终门禁在文档更新后严格串行通过：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 15/15、Next 16.2.11 production build 成功。没有重建或安装桌面 bundle，因此当前已安装应用仍保持旧行为，外部 Windows/容量/媒体/Provider/TTS 证据状态不变。
+- 支持范围仍是未加密、结构合法、1～100 页 `.pptx`，以及 LibreOffice 可转换的合法 `.ppt`。空课件、损坏/加密文件、宏/插件、完整动画复现和图片公式 OCR 不会被伪装为成功。源码尚未重建为桌面 bundle，当前已安装应用不宣称已包含本修复。
+
 ## 2026-08-18 Provider/规划/试听错误闭环（本机修复候选已安装，真实链路待复验）
 
 - 只读取证确认：旧 Provider“连接测试通过”只代表 DPAPI 密钥版本存在，不代表 Base URL、TLS、API Key、模型或响应可用；两个失败 PLAN task 各有 3 个 attempt，证明旧自动重试会重复外部调用。当前网络路径只能在不使用真实 Key 的条件下确认目标 HTTP 路由可达，不能反推历史瞬时连接/代理原因，也不能宣称真实 Provider 已通过。
@@ -9,7 +31,7 @@
 - 当前专项通过：Contract 49/49，frontend unit 14/14、component 21/21，Provider gateway 39/39、Provider integration 4/4、PLAN integration 3/3、音频/试听 8 pass/1 个外部 Edge skip、完整 backend integration 41 pass/1 个外部 Edge skip及 routes 6/6。最终门禁已严格串行通过 typecheck、0-warning lint、Python backend:test 13/13 和 Next production build；桌面仓库 typecheck、lint、29 total（27 pass、2 个环境 skip）及 bundle policy 4/4 通过。
 - 本机修复候选 runtime `p7-421bc94df074` 已完成 build、verify、`PASS_WITH_EVIDENCE_GAPS` audit 和全新安装；NSIS 为 558,777,984 bytes，SHA-256 `CB95A5C7A3BB14CDE58954174222BE2AF998AF9163B3F00BF90CAE843B1B2596`。该候选来自未提交网页工作树，另以 diff 指纹 `0519c5c9ad58d74f76e3588aeca16e1b853c4768` 标识，不能作为干净源码可复现发布证据。
 - 首次同路径原子覆盖返回 2 并完整回滚；官方 NSIS 卸载器保留数据后全新安装退出 0。卸载前后用户数据精确保持 18,883 个文件、952,001,247 bytes；首次启动仅新增 pre-migration 备份。安装后 smoke 为 `STARTED_AND_STOPPED_PENDING_UI_CHECK`：25 秒内 22 个自有进程、3 个 loopback listener，清理后残留为 0。
-- 本地公式链当前只能从部分原生 OMML 文本节点和普通文本中生成需人工核对的候选；没有可靠 OMML → LaTeX，也没有图片公式 OCR。DeepSeek Chat 仅规划本地解析结果，不直接读取 PPTX/页面图，因此对复杂公式和图表不能视为完整理解；“页面图 + 文本/备注”的多模态 Provider 是推荐后续但尚未实现。
+- 本地公式链仍只能从部分原生 OMML 文本节点和普通文本中生成需人工核对的候选，没有可靠 OMML → LaTeX 或结构化图片公式 OCR。新 PLAN 已发送“页面图 + 文本/备注”给通过视觉探针的 Provider，用于可审核课程规划；视觉理解没有写回公式候选，真实准确率尚未验收。
 - 状态仍为 `PASS_WITH_EVIDENCE_GAPS`。新版 UI 实点、用户真实 DeepSeek 规划、真实 Edge TTS、容量、完整播放、签名、clean Windows 10/11、外部机器和成功原子升级仍为 `EXTERNAL_VALIDATION_PENDING`。
 
 ## 2026-08-17 P8 本机可用性修复（外部验收仍待补）

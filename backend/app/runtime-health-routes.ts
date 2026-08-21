@@ -125,6 +125,7 @@ function providerHealth(
         keyConfigured: boolean;
         lastTestAt: string | null;
         displayName: string;
+        capabilities: string[];
       }
     | undefined,
 ): RuntimeHealthComponent {
@@ -158,10 +159,20 @@ function providerHealth(
       latencyMs: null,
     };
   }
+  if (!provider.capabilities.includes("VISION")) {
+    return {
+      id: "provider",
+      status: "WARN",
+      message: `${provider.displayName} 尚未通过多模态图片输入测试。`,
+      action: "在设置页选择支持视觉的模型并重新执行连接测试。",
+      version: null,
+      latencyMs: null,
+    };
+  }
   return {
     id: "provider",
     status: "READY",
-    message: `${provider.displayName} 已通过最近一次真实连接测试。`,
+    message: `${provider.displayName} 已通过最近一次多模态连接测试。`,
     action: null,
     version: null,
     latencyMs: null,

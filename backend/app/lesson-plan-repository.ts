@@ -12,6 +12,8 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { stableHash, stableId } from "./lesson-plan-builder.ts";
 
+export const VISION_PROMPT_VERSION = "stage-tc-agent-prompt-v2-vision";
+
 export class LessonPlanRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -32,10 +34,19 @@ export class LessonPlanRepository {
     const providerSelection =
       providerSelectionOverride ??
       (await findDefaultProviderSelection(this.prisma, principal));
+    if (providerSelection && !providerSelection.capabilities.includes("VISION")) {
+      throw new AppHttpError(
+        409,
+        "PROVIDER_VISION_REQUIRED",
+        "默认 Provider 尚未通过多模态视觉测试，请在设置页选择视觉模型并重新测试。",
+        false,
+      );
+    }
     const inputHash = stableHash({
       presentationId: presentation.id,
       revision: presentation.revision,
       slideIds: presentation.slides.map((slide) => slide.id),
+      renderAssetIds: presentation.slides.map((slide) => slide.renderAssetId),
       audience: input.audience,
       style: input.style,
       targetMinutes: input.targetMinutes,
@@ -65,7 +76,7 @@ export class LessonPlanRepository {
             kind: "PLAN",
             idempotencyKey: input.idempotencyKey,
             inputHash,
-            configHash: createHash("sha256").update("stage-tc-agent-prompt-v1").digest("hex"),
+            configHash: createHash("sha256").update(VISION_PROMPT_VERSION).digest("hex"),
             status: "QUEUED",
             stage: "PLAN",
             progressTotal: presentation.slides.length,
@@ -185,9 +196,10 @@ export async function findDefaultProviderSelection(prisma: PrismaClient, princip
     protocol: provider.protocol,
     baseUrl: provider.baseUrl,
     model: provider.model,
+    capabilities: provider.capabilities,
     profileVersion: provider.version,
     keyVersion: provider.keyVersion,
-    promptVersion: "stage-tc-agent-prompt-v1",
+    promptVersion: VISION_PROMPT_VERSION,
   });
 }
 

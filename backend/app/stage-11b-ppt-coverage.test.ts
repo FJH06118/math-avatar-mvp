@@ -8,6 +8,7 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import { TracerUploadResponseSchema } from "@ppt-digital-human/contracts";
+import sharp from "sharp";
 import { createApplication } from "./app.ts";
 import { clearProductState, createProductPool, createProductPrismaClient } from "./database.ts";
 import { dispatchPendingOutbox } from "./dispatcher.ts";
@@ -15,6 +16,7 @@ import { PythonParseAdapter } from "./parse-adapter.ts";
 import { runClaimedParseStep } from "./parse-worker.ts";
 import { claimNextProductStep } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
+import { WorkerError } from "./worker-error.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) throw new Error("PPT_DH_DATABASE_URL is required for stage 11B coverage tests.");
@@ -50,6 +52,63 @@ test("synthetic 1/10/50/100-page decks keep continuous coverage and original pag
     assert.equal((await readdir(join(result.attemptDir, "slides"))).filter((name) => name.endsWith(".png")).length, slideCount);
     assert(result.deck.slides[minImageSlide(slideCount) - 1]!.warnings.some((warning) => warning.includes("OCR 已延期")));
   }
+});
+
+test("standard, portrait, blank, table, and Chinese-name decks render as contained 1080p pages", async () => {
+  const cases = [
+    { layout: "standard", name: "中文标准四比三.pptx", slides: 3, blankSlide: 2 },
+    { layout: "portrait", name: "中文纵向课件.pptx", slides: 1, blankSlide: 0 },
+  ] as const;
+  for (const item of cases) {
+    const source = join(root, item.name);
+    await run("python", [
+      "-m", "backend.tools.create_coverage_fixture",
+      "--output", source,
+      "--slides", String(item.slides),
+      "--layout", item.layout,
+      "--blank-slide", String(item.blankSlide),
+    ]);
+    const result = await new PythonParseAdapter("python").run({
+      sourcePath: source,
+      attemptDir: join(root, `attempt-${item.layout}`),
+      signal: new AbortController().signal,
+    });
+    assert.equal(result.deck.slideCount, item.slides);
+    for (const slide of result.deck.slides) {
+      const metadata = await sharp(join(result.attemptDir, slide.thumbnail)).metadata();
+      assert.deepEqual([metadata.width, metadata.height], [1920, 1080]);
+      assert(slide.warnings.some((warning) => warning.includes("等比完整适配")));
+    }
+    assert(result.deck.slides[0]!.extractedText.includes("结构 | 兼容性"));
+    if (item.blankSlide > 0) {
+      const blank = result.deck.slides[item.blankSlide - 1]!;
+      assert.equal(blank.title, `第${item.blankSlide}页`);
+      assert.equal(blank.extractedText, "");
+    }
+  }
+});
+
+test("an empty presentation fails once with a stable non-retryable error", async () => {
+  const source = join(root, "空课件.pptx");
+  await run("python", [
+    "-m", "backend.tools.create_coverage_fixture",
+    "--output", source,
+    "--slides", "0",
+  ]);
+  await assert.rejects(
+    new PythonParseAdapter("python").run({
+      sourcePath: source,
+      attemptDir: join(root, "attempt-empty"),
+      signal: new AbortController().signal,
+    }),
+    (error: unknown) => {
+      assert(error instanceof WorkerError);
+      assert.equal(error.code, "PPTX_NO_SLIDES");
+      assert.equal(error.retryable, false);
+      assert.match(error.message, /至少添加一页/);
+      return true;
+    },
+  );
 });
 
 test("a real legacy PPT is converted inside the parse attempt and follows the PPTX contract", async () => {

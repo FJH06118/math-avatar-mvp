@@ -60,9 +60,16 @@ export function loadAgentProviderConfig(): AgentProviderConfig | null {
   if (!apiKey || !baseUrl || !model) return null;
   const parsedKind = ProviderKindSchema.safeParse((process.env.LLM_PROVIDER_KIND?.trim() || "DEEPSEEK").toUpperCase());
   if (!parsedKind.success) {
-    throw new Error("LLM_PROVIDER_KIND must be one of OPENAI, DEEPSEEK, GLM, KIMI, or ANTHROPIC.");
+    throw new Error("LLM_PROVIDER_KIND must be one of OPENAI, DEEPSEEK, GLM, KIMI, DOUBAO, QWEN, or ANTHROPIC.");
   }
   const kind = parsedKind.data;
+  const visionEnabled = process.env.LLM_VISION_ENABLED?.trim() === "1";
+  const capabilities = kind === "ANTHROPIC"
+    ? ["CHAT", "STREAMING"] as const
+    : ["CHAT", "STRUCTURED_OUTPUT"] as const;
+  const resolvedCapabilities = visionEnabled
+    ? [...capabilities, "VISION" as const]
+    : [...capabilities];
   const timeoutMs = process.env.LLM_TIMEOUT_MS?.trim();
   if (timeoutMs !== undefined && timeoutMs !== "") {
     const parsedTimeout = Number(timeoutMs);
@@ -75,6 +82,7 @@ export function loadAgentProviderConfig(): AgentProviderConfig | null {
       model,
       kind,
       protocol: kind === "ANTHROPIC" ? "ANTHROPIC_MESSAGES" : "OPENAI_CHAT",
+      capabilities: resolvedCapabilities,
       timeoutMs: parsedTimeout,
     };
   }
@@ -84,5 +92,6 @@ export function loadAgentProviderConfig(): AgentProviderConfig | null {
     model,
     kind,
     protocol: kind === "ANTHROPIC" ? "ANTHROPIC_MESSAGES" : "OPENAI_CHAT",
+    capabilities: resolvedCapabilities,
   };
 }

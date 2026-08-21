@@ -21,7 +21,7 @@ vi.mock("@/lib/api/provider-client", () => ({
 }));
 
 describe("ProviderSettingsPanel", () => {
-  it("shows a real connection failure with a concrete recovery action", async () => {
+  it("lists Chinese multimodal providers and explains a failed vision probe", async () => {
     getApplicationSettings.mockResolvedValue({
       revision: 1,
       defaultProviderId: "provider_test",
@@ -52,7 +52,7 @@ describe("ProviderSettingsPanel", () => {
       model: "deepseek-chat",
       capabilities: ["CHAT", "STRUCTURED_OUTPUT"],
       testedAt: "2026-08-18T00:00:00.000Z",
-      errorCode: "PROVIDER_CONNECTION_FAILED",
+      errorCode: "PROVIDER_VISION_UNSUPPORTED",
     });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -64,9 +64,11 @@ describe("ProviderSettingsPanel", () => {
     );
 
     fireEvent.click(await screen.findByRole("listitem"));
+    expect(screen.getByRole("option", { name: "豆包 / 火山方舟" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "通义千问 / 百炼" })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "连接测试" }));
     await waitFor(() => expect(testProviderProfile).toHaveBeenCalledWith("provider_test", 1));
-    expect(await screen.findByText(/无法连接 Provider，请检查网络、代理和 API 地址后重新测试/)).toBeDefined();
+    expect(await screen.findByText(/模型未接受图片输入，请改用支持视觉的多模态模型/)).toBeDefined();
     expect(screen.getByText(/Provider 可能产生极少量用量/)).toBeDefined();
   });
 });

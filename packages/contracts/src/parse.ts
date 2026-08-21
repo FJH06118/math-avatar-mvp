@@ -23,7 +23,7 @@ const ParsedTextBlockSchema = z
 
 const ParsedFormulaCandidateSchema = z
   .object({
-    id: z.string().regex(/^slide-\d{3}-formula-\d{2}$/),
+    id: z.string().regex(/^slide-\d{3}-formula-\d{2,3}$/),
     source: z.enum(["ooxml", "text"]),
     display: z.string().min(1).max(10_000),
     latex: z.string().max(10_000),

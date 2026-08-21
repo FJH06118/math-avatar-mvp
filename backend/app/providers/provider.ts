@@ -1,12 +1,15 @@
 import type {
+  ProviderCapability,
   ProviderKind,
   ProviderProtocol,
 } from "@ppt-digital-human/contracts";
 import { AnthropicProvider } from "./anthropic.ts";
 import { DeepSeekProvider } from "./deepseek.ts";
+import { DoubaoProvider } from "./doubao.ts";
 import { GlmProvider } from "./glm.ts";
 import { KimiProvider } from "./kimi.ts";
 import { OpenAiProvider } from "./openai.ts";
+import { QwenProvider } from "./qwen.ts";
 import { ProviderError, providerErrorFromStatus } from "./errors.ts";
 
 export interface ProviderHttpConfig {
@@ -15,7 +18,14 @@ export interface ProviderHttpConfig {
   baseUrl: string;
   model: string;
   apiKey: string;
+  capabilities?: ProviderCapability[];
   timeoutMs?: number;
+}
+
+export interface ProviderImageInput {
+  ref: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  base64: string;
 }
 
 export interface ProviderCompletion {
@@ -28,6 +38,7 @@ export interface ProviderCompletionInput {
   systemPrompt: string;
   userPayload: unknown;
   signal: AbortSignal;
+  images?: ProviderImageInput[];
   maxTokens?: number;
 }
 
@@ -44,6 +55,8 @@ export function createProvider(config: ProviderHttpConfig): LlmProvider {
   if (config.kind === "DEEPSEEK") return new DeepSeekProvider(config);
   if (config.kind === "GLM") return new GlmProvider(config);
   if (config.kind === "KIMI") return new KimiProvider(config);
+  if (config.kind === "DOUBAO") return new DoubaoProvider(config);
+  if (config.kind === "QWEN") return new QwenProvider(config);
   return new AnthropicProvider(config);
 }
 

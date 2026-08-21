@@ -27,12 +27,20 @@ const settings = {
 };
 
 describe("Provider upload guard", () => {
-  it("requires the default Provider to have passed a real connection test", () => {
+  it("requires the default Provider to have passed the multimodal vision test", () => {
     expect(hasReadyDefaultProvider(settings)).toBe(false);
     expect(hasReadyDefaultProvider({
       ...settings,
       providers: [{
         ...settings.providers[0],
+        lastTestAt: "2026-08-18T00:01:00.000Z",
+      }],
+    })).toBe(false);
+    expect(hasReadyDefaultProvider({
+      ...settings,
+      providers: [{
+        ...settings.providers[0],
+        capabilities: ["CHAT" as const, "VISION" as const],
         lastTestAt: "2026-08-18T00:01:00.000Z",
       }],
     })).toBe(true);

@@ -108,6 +108,7 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   const planResult = await runClaimedPlanStep({
     prisma,
     pool,
+    assets: new LocalAssetStore(assetRoot),
     adapter: configuredAgent(),
     leaseMs: 8_000,
   }, planClaim, "tc-plan-worker");
@@ -234,6 +235,7 @@ test("PLAN calls an external Provider at most once per task and explicit retry i
   const failed = await runClaimedPlanStep({
     prisma,
     pool,
+    assets: new LocalAssetStore(assetRoot),
     leaseMs: 8_000,
     maxAttempts: 1,
     maxExternalAttempts: 1,
@@ -275,6 +277,7 @@ test("PLAN calls an external Provider at most once per task and explicit retry i
   assert.equal(await runClaimedPlanStep({
     prisma,
     pool,
+    assets: new LocalAssetStore(assetRoot),
     leaseMs: 8_000,
     maxAttempts: 1,
     maxExternalAttempts: 1,
@@ -346,6 +349,13 @@ function request(app: ReturnType<typeof createApplication>, path: string, init: 
 function validAgent(): AgentAdapter {
   return {
     async run(input) {
+      assert(input.slides.every((slide) =>
+        slide.image?.ref.startsWith("slide-image-") &&
+        slide.image.mimeType === "image/jpeg" &&
+        slide.image.base64.length > 0 &&
+        slide.image.width > 0 &&
+        slide.image.height > 0
+      ));
       const output: AgentPlanOutput = {
         schemaVersion: "stage-tc-agent-v1",
         slides: input.slides.map((slide) => ({
@@ -357,7 +367,7 @@ function validAgent(): AgentAdapter {
           preservationMode: "FULL_PRESERVE",
         })),
       };
-      return { output, provider: "integration-stub", model: "strict-fixture", promptVersion: "stage-tc-agent-prompt-v1" };
+      return { output, provider: "integration-stub", model: "strict-fixture", promptVersion: "stage-tc-agent-prompt-v2-vision" };
     },
   };
 }

@@ -51,6 +51,28 @@ describe("stage T tracer contracts", () => {
     ).toBe(false);
   });
 
+  it("canonicalizes browser-generic MIME values after extension validation", () => {
+    const pptx = TracerUploadMetadataSchema.parse({
+      title: "中文名宽屏课件",
+      fileName: "中文名宽屏课件.pptx",
+      mimeType: "application/octet-stream",
+      fileSize: 1024,
+      idempotencyKey: "upload-generic-pptx",
+    });
+    expect(pptx.mimeType).toBe(
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
+
+    const ppt = TracerUploadMetadataSchema.parse({
+      title: "旧版课件",
+      fileName: "旧版课件.ppt",
+      mimeType: "",
+      fileSize: 1024,
+      idempotencyKey: "upload-generic-ppt",
+    });
+    expect(ppt.mimeType).toBe("application/vnd.ms-powerpoint");
+  });
+
   it("accepts a bounded PPTX upload and rejects paths or legacy PPT", () => {
     const valid = {
       title: "导数的概念",

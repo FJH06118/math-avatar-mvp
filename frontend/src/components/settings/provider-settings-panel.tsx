@@ -39,20 +39,32 @@ interface ProviderFormState {
 
 const DEFAULT_FORM: ProviderFormState = {
   displayName: "",
-  kind: "DEEPSEEK",
-  baseUrl: "https://api.deepseek.com/v1",
-  model: "deepseek-chat",
+  kind: "QWEN",
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  model: "",
   apiKey: "",
   enabled: true,
   isDefault: true,
 };
 
 const PROVIDER_LABELS: Record<ProviderKind, string> = {
-  OPENAI: "OpenAI 兼容",
+  OPENAI: "OpenAI / 兼容接口",
   DEEPSEEK: "DeepSeek",
   GLM: "智谱 GLM",
   KIMI: "Kimi",
+  DOUBAO: "豆包 / 火山方舟",
+  QWEN: "通义千问 / 百炼",
   ANTHROPIC: "Anthropic",
+};
+
+const PROVIDER_BASE_URLS: Record<ProviderKind, string> = {
+  OPENAI: "https://api.openai.com/v1",
+  DEEPSEEK: "https://api.deepseek.com/v1",
+  GLM: "https://open.bigmodel.cn/api/paas/v4",
+  KIMI: "https://api.moonshot.cn/v1",
+  DOUBAO: "https://ark.cn-beijing.volces.com/api/v3",
+  QWEN: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  ANTHROPIC: "https://api.anthropic.com/v1",
 };
 
 export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPanelProps) {
@@ -148,6 +160,19 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
     setFeedback(null);
   }
 
+  function updateProviderKind(kind: ProviderKind) {
+    setForm((current) => ({
+      ...current,
+      kind,
+      baseUrl: !current.baseUrl.trim() || current.baseUrl === PROVIDER_BASE_URLS[current.kind]
+        ? PROVIDER_BASE_URLS[kind]
+        : current.baseUrl,
+      model: current.kind === kind ? current.model : "",
+    }));
+    setFeedback(null);
+    setTestResult(null);
+  }
+
   if (settingsQuery.isPending) {
     return <div className="rounded-lg border border-foreground/12 bg-card p-6 text-sm text-muted-foreground" role="status">正在读取 Provider 设置…</div>;
   }
@@ -161,7 +186,7 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
         <Alert>
           <ShieldCheckIcon aria-hidden="true" />
           <AlertTitle>先配置一个可用的默认 Provider</AlertTitle>
-          <AlertDescription>没有通过真实连接测试的 Provider 时，系统会阻止课件上传，避免进入无法完成的生成流程。</AlertDescription>
+          <AlertDescription>没有通过真实图片输入测试的多模态 Provider 时，系统会阻止课件上传，避免只按文本误读公式、图表和版式。</AlertDescription>
         </Alert>
       ) : null}
 
@@ -180,26 +205,29 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
           <div className="flex flex-col gap-2" role="list" aria-label="Provider 列表">
             {providers.length === 0 ? (
               <p className="rounded-md border border-dashed border-foreground/20 px-4 py-6 text-sm text-muted-foreground">还没有 Provider。请在右侧保存一个配置。</p>
-            ) : providers.map((provider) => (
-              <button
-                key={provider.id}
-                type="button"
-                role="listitem"
-                aria-current={provider.id === selectedId ? "true" : undefined}
-                onClick={() => selectProvider(provider)}
-                className={`flex w-full flex-col gap-2 rounded-md border px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40 ${provider.id === selectedId ? "border-primary/60 bg-primary/6" : "border-foreground/12 hover:bg-foreground/[0.04]"}`}
-              >
-                <span className="flex items-center justify-between gap-3">
-                  <span className="font-medium">{provider.displayName}</span>
-                  <span className="flex items-center gap-1.5">
-                    {provider.isDefault ? <Badge variant="secondary">默认</Badge> : null}
-                    <Badge variant={provider.lastTestAt ? "outline" : provider.enabled && provider.keyConfigured ? "secondary" : "destructive"}>{provider.lastTestAt ? "已连接" : provider.enabled && provider.keyConfigured ? "待测试" : "待处理"}</Badge>
+            ) : providers.map((provider) => {
+              const visionReady = Boolean(provider.lastTestAt && provider.capabilities.includes("VISION"));
+              return (
+                <button
+                  key={provider.id}
+                  type="button"
+                  role="listitem"
+                  aria-current={provider.id === selectedId ? "true" : undefined}
+                  onClick={() => selectProvider(provider)}
+                  className={`flex w-full flex-col gap-2 rounded-md border px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40 ${provider.id === selectedId ? "border-primary/60 bg-primary/6" : "border-foreground/12 hover:bg-foreground/[0.04]"}`}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{provider.displayName}</span>
+                    <span className="flex items-center gap-1.5">
+                      {provider.isDefault ? <Badge variant="secondary">默认</Badge> : null}
+                      <Badge variant={visionReady ? "outline" : provider.enabled && provider.keyConfigured ? "secondary" : "destructive"}>{visionReady ? "多模态已连接" : provider.lastTestAt ? "需重测视觉" : provider.enabled && provider.keyConfigured ? "待测试" : "待处理"}</Badge>
+                    </span>
                   </span>
-                </span>
-                <span className="text-sm text-muted-foreground">{PROVIDER_LABELS[provider.kind]} · {provider.model}</span>
-                <span className="text-xs text-muted-foreground">密钥版本 {provider.keyVersion} · {provider.keyConfigured ? `尾号 ${provider.keyLast4 ?? "未记录"}` : "未配置"}</span>
-              </button>
-            ))}
+                  <span className="text-sm text-muted-foreground">{PROVIDER_LABELS[provider.kind]} · {provider.model}</span>
+                  <span className="text-xs text-muted-foreground">密钥版本 {provider.keyVersion} · {provider.keyConfigured ? `尾号 ${provider.keyLast4 ?? "未记录"}` : "未配置"}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -210,7 +238,7 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium">显示名称<input value={form.displayName} onChange={(event) => updateForm("displayName", event.target.value)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40" autoComplete="off" /></label>
-            <label className="flex flex-col gap-2 text-sm font-medium">Provider 类型<select value={form.kind} onChange={(event) => updateForm("kind", event.target.value as ProviderKind)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40">{Object.entries(PROVIDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="flex flex-col gap-2 text-sm font-medium">Provider 类型<select value={form.kind} onChange={(event) => updateProviderKind(event.target.value as ProviderKind)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40">{Object.entries(PROVIDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2">API 地址<input value={form.baseUrl} onChange={(event) => updateForm("baseUrl", event.target.value)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40" inputMode="url" autoComplete="url" /></label>
             <label className="flex flex-col gap-2 text-sm font-medium">模型<input value={form.model} onChange={(event) => updateForm("model", event.target.value)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40" autoComplete="off" /></label>
             <label className="flex flex-col gap-2 text-sm font-medium">API Key<input type="password" value={form.apiKey} onChange={(event) => updateForm("apiKey", event.target.value)} className="h-10 rounded-md border border-input bg-transparent px-3 font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/40" autoComplete="new-password" placeholder={selectedProvider?.keyConfigured ? "已配置，留空保持不变" : "粘贴新的 API Key"} /></label>
@@ -226,12 +254,13 @@ export function ProviderSettingsPanel({ setupMode = false }: ProviderSettingsPan
             {selectedProvider ? <Button type="button" variant="outline" onClick={() => testMutation.mutate(selectedProvider)} disabled={isBusy || !selectedProvider.enabled || !selectedProvider.keyConfigured}><TestTube2Icon data-icon="inline-start" aria-hidden="true" />{testMutation.isPending ? "测试中…" : "连接测试"}</Button> : null}
             {selectedProvider && !selectedProvider.isDefault ? <Button type="button" variant="outline" onClick={() => defaultMutation.mutate(selectedProvider)} disabled={isBusy || !selectedProvider.enabled || !selectedProvider.keyConfigured}>设为默认</Button> : null}
           </div>
-          {testResult ? <Alert variant={testResult.status === "CONNECTED" ? undefined : "destructive"}><TestTube2Icon aria-hidden="true" /><AlertTitle>{testResult.status === "CONNECTED" ? "真实连接测试通过" : "连接测试未通过"}</AlertTitle><AlertDescription>{testResult.status === "CONNECTED" ? `模型 ${testResult.model} 已实际响应，延迟 ${testResult.latencyMs ?? "—"} ms。` : testResultMessage(testResult)}</AlertDescription></Alert> : null}
+          {testResult ? <Alert variant={testResult.status === "CONNECTED" ? undefined : "destructive"}><TestTube2Icon aria-hidden="true" /><AlertTitle>{testResult.status === "CONNECTED" ? "多模态连接测试通过" : "连接测试未通过"}</AlertTitle><AlertDescription>{testResult.status === "CONNECTED" ? `模型 ${testResult.model} 已正确识别随机探针图，延迟 ${testResult.latencyMs ?? "—"} ms。` : testResultMessage(testResult)}</AlertDescription></Alert> : null}
           {testMutation.isError ? <Alert variant="destructive" role="alert"><TestTube2Icon aria-hidden="true" /><AlertTitle>连接测试请求失败</AlertTitle><AlertDescription>{getUserFacingErrorMessage(testMutation.error, "本地服务暂时无法执行连接测试，请重启桌面软件后重试。")}</AlertDescription></Alert> : null}
           {feedback ? <Alert><CheckCircle2Icon aria-hidden="true" /><AlertTitle>设置状态</AlertTitle><AlertDescription>{feedback}</AlertDescription></Alert> : null}
           <div className="flex flex-col gap-2 border-t border-foreground/12 pt-4 text-sm text-muted-foreground">
             <p className="flex items-center gap-2"><KeyRoundIcon className="size-4" aria-hidden="true" />密钥轮换不会把原密钥回显到页面、日志、任务或诊断报告。</p>
-            <p>连接测试会向所选模型发送一条极短请求，用于核验地址、模型、密钥与网络；Provider 可能产生极少量用量。</p>
+            <p>连接测试会随机发送一张纯红、纯绿或纯蓝的 64×64 探针图，并核对返回主色，用于验证地址、模型、密钥、网络及视觉能力；Provider 可能产生极少量用量。</p>
+            <p>请选择明确支持图片输入的模型。豆包、千问、GLM、Kimi、OpenAI 兼容接口均按 OpenAI 多模态格式接入；Anthropic 使用 Messages 图像块。</p>
             <p>Edge TTS 是内置的音频路径。保存 Provider 后，进入课程工作台的“授课配置”即可试听实际音色和语速。</p>
             <Link href="/" className="text-primary underline-offset-4 hover:underline">打开课程列表，进入工作台试听 Edge TTS</Link>
           </div>
@@ -265,6 +294,7 @@ function testResultMessage(result: ProviderTestResult): string {
     case "PROVIDER_TIMEOUT": return "Provider 请求超时，请检查网络或代理后重新测试连接。";
     case "PROVIDER_CONNECTION_FAILED": return "无法连接 Provider，请检查网络、代理和 API 地址后重新测试。";
     case "PROVIDER_RESPONSE_INVALID": return "Provider 返回了无法识别的响应，请检查地址、协议和模型兼容性。";
+    case "PROVIDER_VISION_UNSUPPORTED": return "模型未接受图片输入，请改用支持视觉的多模态模型，并检查 API 地址后重新测试。";
     default: return "连接测试未完成，请检查 Provider 设置并重新测试；若持续失败，请重启桌面软件。";
   }
 }

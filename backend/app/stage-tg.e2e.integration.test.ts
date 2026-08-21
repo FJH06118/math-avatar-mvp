@@ -62,7 +62,7 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   const planResponse = await request(app, `/v1/projects/${upload.project.id}/plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ presentationId: upload.presentation.id, idempotencyKey: "stage-tg-plan-key", audience: "大学一年级", style: "逐页严谨", targetMinutes: 3 }) });
   const planTask = PlanTaskResponseSchema.parse(await planResponse.json()).data; await dispatchPendingOutbox(prisma);
   const planClaim = await claimNextProductStep(pool, "tg-plan", 30_000, 3, "PLAN"); assert(planClaim);
-  assert.equal(await runClaimedPlanStep({ prisma, pool, adapter: agent(), leaseMs: 30_000 }, planClaim, "tg-plan"), "SUCCEEDED");
+  assert.equal(await runClaimedPlanStep({ prisma, pool, assets: store, adapter: agent(), leaseMs: 30_000 }, planClaim, "tg-plan"), "SUCCEEDED");
   const revisionsResponse = await request(app, `/v1/projects/${upload.project.id}/lesson-plans`);
   const revisions = LessonPlanRevisionListResponseSchema.parse(await revisionsResponse.json()).data; assert.equal(revisions.length, 3);
   for (const revision of revisions) { const approved = await request(app, `/v1/revisions/${revision.id}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedRevision: revision.revision }) }); assert.equal(approved.status, 200); }

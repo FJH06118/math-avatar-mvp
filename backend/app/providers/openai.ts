@@ -6,15 +6,30 @@ export class OpenAiChatProvider implements LlmProvider {
   constructor(protected readonly config: ProviderHttpConfig) {}
 
   async complete(input: ProviderCompletionInput): Promise<ProviderCompletion> {
+    const serializedPayload = JSON.stringify(input.userPayload);
+    const userContent = input.images?.length
+      ? [
+          { type: "text", text: serializedPayload },
+          ...input.images.flatMap((image) => [
+            { type: "text", text: `图像引用：${image.ref}` },
+            {
+              type: "image_url",
+              image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+            },
+          ]),
+        ]
+      : serializedPayload;
     const payload = {
       model: this.config.model,
       temperature: 0.2,
-      response_format: { type: "json_object" },
+      ...(this.config.capabilities === undefined || this.config.capabilities.includes("STRUCTURED_OUTPUT")
+        ? { response_format: { type: "json_object" } }
+        : {}),
       ...(input.maxTokens === undefined ? {} : { max_tokens: input.maxTokens }),
       ...(this.config.kind === "DEEPSEEK" ? { extra_body: { thinking: { type: "disabled" } } } : {}),
       messages: [
         { role: "system", content: input.systemPrompt },
-        { role: "user", content: JSON.stringify(input.userPayload) },
+        { role: "user", content: userContent },
       ],
     };
     const envelope = await postProviderJson(

@@ -37,6 +37,7 @@ import {
   WorkflowRunCreateInputSchema,
   WorkflowRunResponseSchema,
   WorkflowRunRetryInputSchema,
+  ProviderCapabilitySchema,
 } from "@ppt-digital-human/contracts";
 import { Hono } from "hono";
 import type { PrismaClient } from "../generated/prisma/client.ts";
@@ -221,13 +222,23 @@ export function createApplication(dependencies: AppDependencies): Hono {
           keyConfigured: true,
           lastTestAt: { not: null },
         },
-        select: { id: true },
+        select: { id: true, capabilities: true },
       });
       if (!provider) {
         throw new AppHttpError(
           409,
           "PROVIDER_NOT_CONFIGURED",
           "请先在设置页配置并测试默认 Provider，再上传课件。",
+          false,
+          { action: "/setup" },
+        );
+      }
+      const capabilities = ProviderCapabilitySchema.array().safeParse(provider.capabilities);
+      if (!capabilities.success || !capabilities.data.includes("VISION")) {
+        throw new AppHttpError(
+          409,
+          "PROVIDER_VISION_REQUIRED",
+          "默认 Provider 尚未通过图片输入测试，请在设置页改用多模态模型并重新测试。",
           false,
           { action: "/setup" },
         );

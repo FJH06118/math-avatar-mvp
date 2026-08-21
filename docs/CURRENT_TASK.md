@@ -1,5 +1,29 @@
 # 当前任务
 
+> [!WARNING]
+> 本工作树是待人工试验候选。真实豆包/千问等多模态账号、多个外部来源 PPT、公式/图表视觉准确率、异常文件提示、100 页容量，以及重建后的 Windows 桌面安装包仍需人工端到端测试；在完成并记录证据前不得标记为正式供应商或安装版验收通过。
+
+## 2026-08-21 PPT 原页多模态 Provider 接入（源码与离线/本机集成收口，真实供应商待验）
+
+- 既有 PLAN 只把 `extractedText`、备注和公式候选序列化为字符串发送给 Provider，原页 PNG 从未进入模型；因此复杂公式、图片文字、图表、示意图、空间关系和版式只能依赖不完整的本地提取。现在确定性 PPT 解包/渲染仍负责安全、页数和原页事实，多模态模型在其后结合“完整原页图 + 结构化文本”生成可审核课程规划，不用模型结果替换原页或绕过人工批准。
+- Provider Gateway 新增豆包/火山方舟 `DOUBAO` 与通义千问/百炼 `QWEN`，加上既有 OpenAI、DeepSeek、GLM、Kimi、Anthropic 共七类。OpenAI、豆包、千问、GLM、Kimi、DeepSeek 走 OpenAI Chat `content[]/image_url` Data URL；Anthropic 走 Messages Base64 `image` block。模型 ID 与 Base URL 仍由用户配置，不在代码中固定“最新模型”；其他兼容服务可使用 OpenAI/兼容接口类型。
+- “连接测试”不再只发文本：它会随机发送一张纯红、纯绿或纯蓝的受控 64×64 PNG，并校验模型返回的实际主色；仅接受图片字段但没有正确看图的模型也不会获得 `VISION`。地址、模型、密钥、启用状态变化或测试失败会同时清除 `lastTestAt` 与旧 `VISION`；上传、前端就绪检查、运行时健康、PLAN task 创建和 Gateway 调用均再次要求冻结快照中包含 `VISION`。文本模型返回稳定 `PROVIDER_VISION_UNSUPPORTED/PROVIDER_VISION_REQUIRED`，不会静默降级为文本规划。
+- PLAN Worker 从 PostgreSQL 的 `SLIDE_RENDER` 资产记录读取每页原图，先复核 lifecycle、MIME、文件大小和 SHA-256，再以 1440×810 起步、按总 Base64 16 MiB 预算逐级压缩到最小 768×432 JPEG。快照冻结 Provider capabilities、Prompt `stage-tc-agent-prompt-v2-vision` 和 render asset IDs；公共响应、任务和模型输入均不含磁盘路径或 storage key。
+- 多模态提示把课件文字和图像都视为不可信数据，并要求冲突或不可辨内容保守表述。该能力让模型能够在课程规划中参考图片公式和图表，但没有把视觉输出写回 `Slide.formulaJson`，没有建立图片公式 OCR 数据集/准确率门，因此 D-27 的“结构化图片公式 OCR 延期”仍成立。
+- 已通过专项：Contract 52/52；七类协议/错误/视觉请求、随机主色能力判定与资产压缩 57/57；前端 unit 14/14、component 21/21；Provider PostgreSQL 4/4；完整 Node/PostgreSQL integration 46 pass/1 个真实 Edge opt-in skip。最终根门禁已严格串行通过：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 15/15、Next 16.2.11 production build 成功。真实豆包、千问、OpenAI、GLM、Kimi、Anthropic 账号/model smoke 未执行，不能把离线请求体测试写成供应商正式验收；当前已安装桌面 bundle 也尚未重建。
+
+## 2026-08-21 PowerPoint 上传与解析兼容性修复（源码与本机回归收口，桌面候选待重建）
+
+- 从已安装应用的只读用户数据中找到真实失败样本：同一份 WPS 生成的 38,441-byte `.pptx`（SHA-256 `55e6ddd111f51897dd6459d9a32439f0b4f59af806e9ddddd2ccc5ee81b665a9`）产生过两次失败 PARSE attempt。包内 `docProps/app.xml` 和 `ppt/presentation.xml` 均证明幻灯片数为 0；旧上传门只检查 ZIP 必需结构，错误地创建任务，Python 随后在空 `scenes` 契约处以通用错误失败。
+- 另一个通用根因是原页渲染把 PDF 长边固定为 1920：16:9 恰好得到 `1920×1080`，合法 4:3 与纵向课件却分别得到 `1920×1440`、`1440×1920`，随后被产品原页硬门拒绝。浏览器把合法 PowerPoint 文件报告为空 MIME、`application/octet-stream` 或常见别名时，旧共享上传契约也会在内容检查前误拒绝。
+- 上传边界现在先拒绝零页和超过 100 页的 `.pptx`，对标准 Office 加密复合容器返回 `ENCRYPTED_PPTX`；旧 `.ppt` 复合文档头同时接受合法 CFB v3/v4，但仍必须在 Worker attempt 内通过 LibreOffice 转换和完整 PPTX 门禁。空课件不会伪造一页内容，用户会直接得到“至少添加一页”的可操作提示。
+- 浏览器 MIME 只在扩展名候选合法时规范化为空/通用二进制/常见 PowerPoint 别名；Hono 仍以 PPTX ZIP 结构或 `.ppt` OLE 头复核真实字节，扩展名与明确冲突的 MIME 继续拒绝。持久化与幂等 input hash 使用规范化后的 canonical MIME。
+- LibreOffice PDF 与 PowerPoint COM 原页统一走 `contain`：按源比例完整缩放到白色 `1920×1080` 画布，居中补边，不裁切、不拉伸。4:3、纵向等非 16:9 页面写入显式人工核对提示；复杂对象提取失败、超长文本/备注和公式候选上限也改为“保留完整原页 + 受控截断/警告”，不再让单个非关键结构击穿整套解析。
+- Python adapter 通过严格 `PPT_DH_PREPARE_ERROR` JSON 边界只上报稳定码、公共中文提示和 retryable；空页、损坏、转换、渲染、格式与 runtime 缺失不再折叠为同一个 `PREPARE_PROCESS_FAILED`，也不把路径、堆栈或 LibreOffice 原始输出持久化。
+- 专项证据：真实失败样本稳定得到 `PPTX_NO_SLIDES`；既有真实 14 页课件继续 14/14；Python 定向 6/6、共享 Contract 51/51、Stage T-A 上传 10/10、Stage T-B 解析 7/7、Stage 11B 4 pass/1 个私有金样环境 skip，且 1/10/50/100 页、4:3、纵向、中文名、空白页、表格、旧 `.ppt` 转换均通过。
+- 文档更新后最终门禁已严格串行通过：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 15/15、Next 16.2.11 production build 成功。未运行或宣称桌面 bundle 重建、安装覆盖、clean Windows、另一台电脑或外部 Provider/TTS 验收。
+- 准确支持边界：结构合法、未加密、1～100 页的 `.pptx`；结构合法的 `.ppt` 在 LibreOffice 可转换时支持。宏、插件、PowerPoint 动画完整复现、图片公式 OCR 和空课件内容生成仍不属于支持范围。当前已安装程序仍是旧 bundle，源码修复需在后续明确授权的桌面候选重建/安装后才会进入已安装应用。
+
 ## 2026-08-18 Provider 规划与 Edge TTS 试听失败闭环（本机修复候选已安装，真实外部链路待复验）
 
 - 已逐层核对已安装 UI、Next BFF、Hono、PostgreSQL task/step/attempt、Worker、Provider Gateway、Edge TTS adapter 和 Desktop Host。两个失败 PLAN task 都在同一 task/step 内自动执行了 3 次；一项最终为 Provider 连接失败，另一项保留了旧的通用课程规划错误。数据库中没有 AUDIO task，因此截图中的“试听失败”发生在 `LESSON_PLAN_NOT_READY` 前置门，不是 Edge TTS 网络或音频失败。
@@ -11,7 +35,7 @@
 - 用户再次确认真实 DeepSeek API 可连接后，截图仍显示旧版通用文案和“生成初始讲稿”，证明运行的仍是旧 P8 bundle。随后从当前未提交工作树构建本机修复候选：diff 指纹 `0519c5c9ad58d74f76e3588aeca16e1b853c4768`，runtime `p7-421bc94df074`，25,981 个文件、16 个组件、7 条许可证；未签名 NSIS 为 558,777,984 bytes，SHA-256 `CB95A5C7A3BB14CDE58954174222BE2AF998AF9163B3F00BF90CAE843B1B2596`。bundle verify 通过，audit 为 `PASS_WITH_EVIDENCE_GAPS`；由于网页工作树未提交，manifest 中的 Git 提交不能单独复现这份候选，它只允许本机修复验证。
 - 同路径 NSIS 原子覆盖在 213.04 秒后返回 2，旧 runtime、程序文件时间和用户数据基线均完全不变，证明本次失败已回滚但升级不能记为通过。按用户“直接重新安装新版”的明确授权，官方 NSIS 卸载器默认保留数据并退出 0；卸载前后均为 18,883 个文件、952,001,247 bytes，随后新版全新安装退出 0。已安装 manifest 为 `p7-421bc94df074`，前端 chunk 含新稳定错误分支，后端含 `PLAN_RETRY_REQUIRES_USER`、`PREVIEW_RETRY_REQUIRES_USER` 和 `AGENT_RUNTIME_FAILED`。
 - 安装后 smoke 保持运行 25 秒，发现 22 个自有进程和 3 个 loopback listener，非 loopback 为 0；测试停止后残留进程/listener 均为 0。首次启动按设计创建新的 pre-migration 备份，用户数据增加到 20,336 个文件、1,020,989,873 bytes，不是删除或覆盖。Windows UI 控制未能取得窗口，因此新版界面、真实 DeepSeek 规划和真实 Edge 试听仍需用户重新打开应用后实点复验。
-- 当前本地解析器只提取部分 OMML 文本节点和普通文本公式候选，不做可靠 OMML → LaTeX，也没有图片公式 OCR。DeepSeek Chat Provider 只接收解析后的文字、备注、结构和公式候选，用于课程规划、初始讲稿、推导候选与视觉分镜；它不直接接收 PPTX 或页面 PNG，因此不能补回解析器未看到的公式。复杂公式、图表和版面理解的推荐后续是“逐页渲染图 + 结构化文本”的多模态模型链路，该能力尚未实现或验收。
+- 历史说明：截至 2026-08-18，PLAN Provider 只接收解析后的文字、备注、结构和公式候选，不接收页面 PNG；该缺口现已由本页首节的“原页图 + 结构化文本”多模态链路取代。结构化图片公式 OCR 与真实供应商准确率评测仍未完成。
 - 真实 Provider（含用户当前 Key/模型）、真实 Edge TTS、容量、完整媒体播放、clean Windows 10/11、另一台普通用户电脑、签名和成功原子升级继续为 `EXTERNAL_VALIDATION_PENDING`，不得写成通过。本轮没有提交源码、删除用户数据、递归删除安装目录或绕过 NSIS；所有新制品与 smoke 报告均位于独立 P9 候选目录。
 
 ## 2026-08-17 P8 解析、固定单用户身份与本机安装修复

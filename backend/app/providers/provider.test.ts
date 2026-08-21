@@ -18,6 +18,8 @@ const providerCases = [
   { kind: "DEEPSEEK", protocol: "OPENAI_CHAT", path: "chat/completions", header: "authorization", value: "Bearer test-key" },
   { kind: "GLM", protocol: "OPENAI_CHAT", path: "chat/completions", header: "authorization", value: "Bearer test-key" },
   { kind: "KIMI", protocol: "OPENAI_CHAT", path: "chat/completions", header: "authorization", value: "Bearer test-key" },
+  { kind: "DOUBAO", protocol: "OPENAI_CHAT", path: "chat/completions", header: "authorization", value: "Bearer test-key" },
+  { kind: "QWEN", protocol: "OPENAI_CHAT", path: "chat/completions", header: "authorization", value: "Bearer test-key" },
   { kind: "ANTHROPIC", protocol: "ANTHROPIC_MESSAGES", path: "messages", header: "x-api-key", value: "test-key" },
 ] as const;
 
@@ -36,6 +38,7 @@ for (const providerCase of providerCases) {
       const result = await createProvider(configFor(providerCase, fixture.baseUrl)).complete({
         systemPrompt: "system",
         userPayload: { slideId: "slide_1" },
+        images: [{ ref: "slide-image-001", mimeType: "image/png", base64: "cG5n" }],
         signal: new AbortController().signal,
       });
       assert.equal(result.provider, providerCase.kind);
@@ -46,8 +49,18 @@ for (const providerCase of providerCases) {
       assert.equal(requestBody?.model, "fixture-model");
       if (providerCase.kind === "ANTHROPIC") {
         assert.equal(requestBody?.max_tokens, 4_096);
+        const messages = requestBody?.messages as Array<{ content: Array<Record<string, unknown>> }>;
+        assert.deepEqual(messages[0]?.content[2], {
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data: "cG5n" },
+        });
       } else {
         assert.deepEqual(requestBody?.response_format, { type: "json_object" });
+        const messages = requestBody?.messages as Array<{ content: Array<Record<string, unknown>> }>;
+        assert.deepEqual(messages[1]?.content[2], {
+          type: "image_url",
+          image_url: { url: "data:image/png;base64,cG5n" },
+        });
       }
     } finally {
       await fixture.close();
@@ -120,6 +133,7 @@ for (const providerCase of providerCases) {
         model: "fixture-model",
         kind: providerCase.kind,
         protocol: providerCase.protocol,
+        capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
       });
       const repaired = await adapter.run(adapterInput());
       assert.equal(repaired.validationAttempts, 2);
@@ -157,6 +171,7 @@ test("ProviderGatewayAgentAdapter resolves the frozen profile and selected secre
     keyConfigured: true,
     keyVersion: secret.keyVersion,
     credentialRef: "credential_provider_fixture",
+    capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
   };
   const prisma = {
     providerProfile: {
@@ -170,9 +185,10 @@ test("ProviderGatewayAgentAdapter resolves the frozen profile and selected secre
     protocol: "OPENAI_CHAT",
     baseUrl: fixture.baseUrl,
     model: profile.model,
+    capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
     profileVersion: 1,
     keyVersion: secret.keyVersion,
-    promptVersion: "stage-tc-agent-prompt-v1",
+    promptVersion: "stage-tc-agent-prompt-v2-vision",
   };
   try {
     const result = await new ProviderGatewayAgentAdapter(resolver).run({
@@ -223,18 +239,74 @@ test("real Provider connection test sends one bounded probe", async () => {
   let requestBody: Record<string, unknown> | undefined;
   const fixture = await startFixtureServer(async (request, response) => {
     requestBody = JSON.parse(await readBody(request)) as Record<string, unknown>;
-    response.end(JSON.stringify(envelopeFor("DEEPSEEK", '{"ok":true}')));
+    response.end(JSON.stringify(envelopeFor("DEEPSEEK", '{"ok":true,"dominantColor":"RED"}')));
   });
   try {
-    await new RealProviderConnectionTester().test({
+    const result = await new RealProviderConnectionTester(() => 0).test({
       kind: "DEEPSEEK",
       protocol: "OPENAI_CHAT",
       baseUrl: fixture.baseUrl,
       model: "fixture-model",
       apiKey: "test-key",
+      capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
     });
-    assert.equal(requestBody?.max_tokens, 16);
+    assert(result.capabilities.includes("VISION"));
+    assert.equal(requestBody?.max_tokens, 32);
     assert.deepEqual(requestBody?.response_format, { type: "json_object" });
+    const messages = requestBody?.messages as Array<{ content: Array<Record<string, unknown>> }>;
+    const image = messages[1]?.content.find((part) => part.type === "image_url");
+    assert(image && typeof image.image_url === "object");
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("real Provider connection test rejects a model that accepts the image field but cannot see it", async () => {
+  const fixture = await startFixtureServer(async (request, response) => {
+    await readBody(request);
+    response.end(JSON.stringify(envelopeFor("QWEN", '{"ok":true,"dominantColor":"GREEN"}')));
+  });
+  try {
+    await assert.rejects(
+      new RealProviderConnectionTester(() => 0).test({
+        kind: "QWEN",
+        protocol: "OPENAI_CHAT",
+        baseUrl: fixture.baseUrl,
+        model: "text-only-fixture",
+        apiKey: "test-key",
+        capabilities: ["CHAT", "STRUCTURED_OUTPUT"],
+      }),
+      (error: unknown) =>
+        error instanceof ProviderError &&
+        error.code === "PROVIDER_VISION_UNSUPPORTED" &&
+        /视觉探针/.test(error.message),
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("real Provider connection test reports an actionable vision capability failure", async () => {
+  const fixture = await startFixtureServer(async (request, response) => {
+    await readBody(request);
+    response.statusCode = 400;
+    response.end("upstream model detail must not escape");
+  });
+  try {
+    await assert.rejects(
+      new RealProviderConnectionTester().test({
+        kind: "QWEN",
+        protocol: "OPENAI_CHAT",
+        baseUrl: fixture.baseUrl,
+        model: "text-only-fixture",
+        apiKey: "test-key",
+        capabilities: ["CHAT", "STRUCTURED_OUTPUT"],
+      }),
+      (error: unknown) =>
+        error instanceof ProviderError &&
+        error.code === "PROVIDER_VISION_UNSUPPORTED" &&
+        !error.message.includes("upstream model detail"),
+    );
   } finally {
     await fixture.close();
   }
@@ -267,13 +339,31 @@ function configFor(providerCase: typeof providerCases[number], baseUrl: string, 
     baseUrl,
     model: "fixture-model",
     apiKey: "test-key",
+    capabilities: providerCase.kind === "ANTHROPIC"
+      ? ["CHAT", "STREAMING", "VISION"]
+      : ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
     timeoutMs,
   };
 }
 
 function adapterInput(): AgentAdapterInput {
   return {
-    slides: [{ id: "slide_1", title: "导数", slideType: "concept", extractedText: "导数定义", notes: "", formulas: [] }],
+    slides: [{
+      id: "slide_1",
+      title: "导数",
+      slideType: "concept",
+      extractedText: "导数定义",
+      notes: "",
+      formulas: [],
+      image: {
+        ref: "slide-image-001",
+        mimeType: "image/jpeg",
+        base64: "aW1hZ2U=",
+        sha256: "a".repeat(64),
+        width: 1_280,
+        height: 720,
+      },
+    }],
     audience: "大学一年级",
     style: "严谨",
     targetMinutes: 3,

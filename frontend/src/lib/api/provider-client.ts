@@ -28,15 +28,20 @@ export function hasReadyDefaultProvider(settings: ApplicationSettings): boolean 
   const provider = settings.providers.find(
     (candidate) => candidate.id === settings.defaultProviderId,
   );
-  return Boolean(provider?.enabled && provider.keyConfigured && provider.lastTestAt);
+  return Boolean(
+    provider?.enabled &&
+    provider.keyConfigured &&
+    provider.lastTestAt &&
+    provider.capabilities.includes("VISION"),
+  );
 }
 
 export async function assertReadyDefaultProvider(signal?: AbortSignal): Promise<ApplicationSettings> {
   const settings = await getApplicationSettings(signal);
   if (!hasReadyDefaultProvider(settings)) {
     throw new RealApiError(
-      "请先在设置页配置并测试默认 Provider，再上传课件。",
-      "PROVIDER_NOT_CONFIGURED",
+      "请先在设置页配置支持图片输入的默认 Provider，并通过多模态连接测试。",
+      "PROVIDER_VISION_REQUIRED",
       false,
     );
   }

@@ -1,9 +1,10 @@
 import "dotenv/config";
 
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { after, before, beforeEach, test } from "node:test";
@@ -15,6 +16,7 @@ import {
 } from "@ppt-digital-human/contracts";
 import { createApplication } from "./app.ts";
 import { clearProductState, createProductPrismaClient } from "./database.ts";
+import { validateLegacyPptStructure } from "./pptx.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) {
@@ -28,6 +30,8 @@ let assetRoot = "";
 let baseUrl = "";
 let server: ReturnType<typeof serve>;
 let fixture: Uint8Array;
+let emptyFixture: Uint8Array;
+const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 before(async () => {
   assetRoot = await mkdtemp(join(tmpdir(), "ppt-dh-stage-ta-"));
@@ -35,6 +39,13 @@ before(async () => {
     ? resolve(process.env.PPT_DH_TRACER_FIXTURE)
     : fileURLToPath(new URL("../tests/fixtures/tracer-3.pptx", import.meta.url));
   fixture = await readFile(fixturePath);
+  const emptyFixturePath = join(assetRoot, "empty-presentation.pptx");
+  await run("python", [
+    "-m", "backend.tools.create_coverage_fixture",
+    "--output", emptyFixturePath,
+    "--slides", "0",
+  ]);
+  emptyFixture = await readFile(emptyFixturePath);
   const app = createApplication({ prisma, assetRoot, internalToken });
   server = serve({ fetch: app.fetch, port: 0 });
   if (!server.listening) {
@@ -152,6 +163,57 @@ test("invalid ZIP content is rejected before persistence", async () => {
   assert.equal(await prisma.project.count(), 0);
 });
 
+test("a real zero-slide PPTX is rejected before creating a stuck parse task", async () => {
+  const form = new FormData();
+  form.set("title", "空课件");
+  form.set(
+    "file",
+    new File([
+      emptyFixture.buffer.slice(
+        emptyFixture.byteOffset,
+        emptyFixture.byteOffset + emptyFixture.byteLength,
+      ) as ArrayBuffer,
+    ], "空课件.pptx", {
+      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-empty-presentation"),
+    body: form,
+  });
+  assert.equal(response.status, 422);
+  const body = ApiErrorSchema.parse(await response.json());
+  assert.equal(body.error.code, "PPTX_NO_SLIDES");
+  assert.match(body.error.message, /至少添加一页/);
+  assert.equal(await prisma.project.count(), 0);
+  assert.equal(await prisma.generationTask.count(), 0);
+});
+
+test("a valid Chinese-name PPTX with a generic browser MIME is canonicalized", async () => {
+  const form = uploadForm("浏览器 MIME 兼容");
+  const file = form.get("file");
+  assert(file instanceof File);
+  form.set(
+    "file",
+    new File([await file.arrayBuffer()], "中文名课件.pptx", {
+      type: "application/octet-stream",
+    }),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-generic-browser-mime"),
+    body: form,
+  });
+  assert.equal(response.status, 201);
+  const receipt = TracerUploadResponseSchema.parse(await response.json()).data;
+  assert.equal(
+    receipt.presentation.mimeType,
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  );
+  assert.equal(receipt.presentation.originalFileName, "中文名课件.pptx");
+});
+
 test("truncated legacy PPT is rejected before persistence", async () => {
   const form = new FormData();
   form.set("title", "旧版导数课件");
@@ -172,6 +234,19 @@ test("truncated legacy PPT is rejected before persistence", async () => {
   const body = ApiErrorSchema.parse(await response.json());
   assert.equal(body.error.code, "INVALID_PPT_STRUCTURE");
   assert.equal(await prisma.project.count(), 0);
+});
+
+test("legacy PPT validation accepts both standard CFB sector versions", () => {
+  for (const [majorVersion, sectorShift] of [[3, 9], [4, 12]] as const) {
+    const bytes = new Uint8Array(2 ** sectorShift);
+    bytes.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    const view = new DataView(bytes.buffer);
+    view.setUint16(0x1a, majorVersion, true);
+    view.setUint16(0x1c, 0xfffe, true);
+    view.setUint16(0x1e, sectorShift, true);
+    view.setUint16(0x20, 6, true);
+    assert.doesNotThrow(() => validateLegacyPptStructure(bytes));
+  }
 });
 
 test("extension and MIME mismatch is rejected before persistence", async () => {
@@ -229,3 +304,47 @@ test("encrypted PPTX returns a distinct actionable error", async () => {
   assert.match(body.error.message, /取消密码保护/);
   assert.equal(await prisma.project.count(), 0);
 });
+
+test("an Office compound encrypted PPTX gets the same actionable error", async () => {
+  const encrypted = new Uint8Array(4096);
+  encrypted.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+  const view = new DataView(encrypted.buffer);
+  view.setUint16(0x1a, 4, true);
+  view.setUint16(0x1c, 0xfffe, true);
+  view.setUint16(0x1e, 12, true);
+  view.setUint16(0x20, 6, true);
+  const form = new FormData();
+  form.set("title", "Office 加密课件");
+  form.set(
+    "file",
+    new File([encrypted], "Office加密课件.pptx", {
+      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }),
+  );
+  const response = await fetch(`${baseUrl}/v1/projects`, {
+    method: "POST",
+    headers: internalHeaders("upload-office-encrypted"),
+    body: form,
+  });
+  assert.equal(response.status, 422);
+  const body = ApiErrorSchema.parse(await response.json());
+  assert.equal(body.error.code, "ENCRYPTED_PPTX");
+  assert.match(body.error.message, /取消密码保护/);
+  assert.equal(await prisma.project.count(), 0);
+});
+
+function run(command: string, args: string[]): Promise<void> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(command, args, {
+      cwd: repositoryRoot,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.once("error", reject);
+    child.once("exit", (code) => code === 0
+      ? resolveRun()
+      : reject(new Error(`${basename(command)} exited ${code}: ${stderr.slice(-2_000)}`)));
+  });
+}

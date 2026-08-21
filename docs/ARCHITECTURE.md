@@ -1,5 +1,21 @@
 # 当前真实架构
 
+## 2026-08-21 原页多模态课程理解边界
+
+- PPT/PPTX 仍先经过确定性字节校验、LibreOffice/PowerPoint 渲染和 `ParseResultPersister` 原页门。多模态模型不是文件解析器或页数事实来源；它只在 PARSE 成功后由 PLAN Worker 消费完整原页与结构化文本，输出仍经过 `stage-tc-agent-v1` strict Contract 和显式人工批准。
+- PLAN Worker 通过 Asset 关系取得 `SLIDE_RENDER`，读取前复核 `AVAILABLE`、`image/png`、登记大小与 SHA-256。图像在内存中转成有界 JPEG，按 16 MiB 总 Base64 预算逐级降分辨率；Provider 只看到 `imageRef`、图像字节、内容 hash 与公开页面结构，不看到 storage key、磁盘路径或 API Key。
+- Provider Gateway 有两种多模态协议形态：OpenAI Chat compatible 使用 `content[]` 的 `text + image_url(data:...)`，覆盖 OpenAI/DeepSeek/GLM/Kimi/豆包/千问；Anthropic Messages 使用 `text + image(source=base64)`。厂商类型不等于模型能力，视觉能力来自随机红/绿/蓝 64×64 PNG 及主色答案校验，并冻结为 ProviderSelectionSnapshot 的 `VISION` capability。
+- 任一调用相关配置变化会撤销既有视觉通过状态；浏览器上传前检查、Hono 上传门、PLAN repository 和 Agent adapter 分层 fail closed。旧快照缺能力、部分页面缺图、资产损坏、图像请求过大或模型不接受视觉均使用稳定公共错误，不能静默回退到文本模式。
+- Prompt `stage-tc-agent-prompt-v2-vision` 将文本和图像都视为不可信课件数据，并要求冲突时保守表述。模型视觉结果当前只进入 LessonPlanRevision/Scene，不写回确定性 Slide/formulaJson；因此它不是已验收的 OCR 子系统。
+
+## 2026-08-21 PowerPoint 输入规范化与原页画布边界
+
+- 上传的浏览器 MIME 是不可信提示：共享 Contract 允许空值、通用二进制和有限 PowerPoint/ZIP 别名，再按 `.pptx`/`.ppt` 扩展名规范化为 canonical MIME；明确冲突仍拒绝。Hono 对真实字节再次执行 PPTX ZIP 中央目录/条目/展开体积/页数检查或 `.ppt` OLE CFB v3/v4 头检查，因此 MIME 兼容不会替代内容门禁。
+- `.pptx` 必须包含 1～100 个 slide part。零页文件在上传事务前返回 `PPTX_NO_SLIDES`；标准 Office 加密复合容器返回 `ENCRYPTED_PPTX`。`.ppt` 的真实页数只能在 Worker attempt 内经 LibreOffice 转成 `source.pptx` 后确认，转换后的文件复用完全相同的 Python 页数和内容门。
+- Python prepare 是受控失败边界：只向 TypeScript adapter 输出带稳定 code/message/retryable 的 `PPT_DH_PREPARE_ERROR` JSON。Adapter 严格检查该对象后写入 task；stderr 其他内容、异常 cause、磁盘路径与堆栈不进入公共投影。Python 可执行文件缺失单独映射为 `PARSE_RUNTIME_UNAVAILABLE`。
+- 原页资产的统一 Contract 仍为 1920×1080 PNG，但不再假设源课件是 16:9。LibreOffice PDF 和 PowerPoint COM 都先按源比例渲染，再将完整页面 `contain` 到白色 1920×1080 画布并居中补边；4:3、16:10、纵向及其他合法比例不会被裁切、拉伸或因尺寸硬门失败。
+- 结构化文字只是完整原页的可审核辅助。单个复杂对象无法提取、文本/备注或公式候选超过公开 Contract 上限时，解析器执行有界截断并写入页面警告；原页仍必须成功渲染和通过数量、PNG、尺寸、哈希门，不能用文字重排替代。
+
 ## 2026-08-18 Provider 探针、失败分类与显式重试边界
 
 - Provider 连接测试链为 `Renderer -> Next BFF (20s) -> Hono -> Electron secret IPC -> Provider Gateway (15s)`。Hono 只取选定密钥版本到进程内存，向模型发送最多 16 tokens 的最小探针；公共 `ProviderTestResult` 只返回 `CONNECTED/FAILED`、稳定错误码、模型、能力、时间和延迟。配置变化或失败清除 `lastTestAt`，上传前浏览器和 Hono 都要求默认 Provider 最近真实测试通过。

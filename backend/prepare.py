@@ -13,8 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from PIL import Image, ImageOps
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.exc import PackageNotFoundError
 
 from backend.contracts import (
     ContractError,
@@ -33,6 +35,43 @@ FORMULA_HINT = re.compile(
     r"(?:=|→|⇒|⇔|≤|≥|≠|lim|sin|cos|tan|ln|log|sqrt|∫|Σ|Δ|f\(|\^\d|_[a-zA-Z0-9])",
     re.IGNORECASE,
 )
+MAX_SLIDES = 100
+MAX_TEXT_BLOCKS = 5_000
+MAX_TEXT_BLOCK_CHARS = 50_000
+MAX_EXTRACTED_TEXT_CHARS = 200_000
+MAX_NOTES_CHARS = 100_000
+MAX_FORMULAS = 500
+SLIDE_CANVAS_SIZE = (1920, 1080)
+LANCZOS_RESAMPLE = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+PREPARE_ERROR_PREFIX = "PPT_DH_PREPARE_ERROR:"
+
+
+class PrepareError(RuntimeError):
+    """Stable, public-safe failure raised by the presentation adapter."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.public_message = message
+        self.retryable = retryable
+
+
+def emit_prepare_error(error: PrepareError) -> None:
+    payload = {
+        "code": error.code,
+        "message": error.public_message,
+        "retryable": error.retryable,
+    }
+    print(
+        f"{PREPARE_ERROR_PREFIX}{json.dumps(payload, ensure_ascii=True)}",
+        file=sys.stderr,
+    )
 
 
 def utc_now() -> str:
@@ -123,16 +162,14 @@ def spoken_formula_hint(value: str) -> str:
     return re.sub(r"\s+", " ", spoken).strip()
 
 
-def extract_ooxml_math(pptx_path: Path) -> dict[int, list[str]]:
+def extract_ooxml_math(pptx_path: Path) -> dict[str, list[str]]:
     import xml.etree.ElementTree as ET
 
-    formulas: dict[int, list[str]] = {}
+    formulas: dict[str, list[str]] = {}
     with zipfile.ZipFile(pptx_path) as archive:
         for entry in archive.namelist():
-            match = re.fullmatch(r"ppt/slides/slide(\d+)\.xml", entry)
-            if not match:
+            if not re.fullmatch(r"ppt/slides/[^/]+\.xml", entry, re.IGNORECASE):
                 continue
-            slide_number = int(match.group(1))
             root = ET.fromstring(archive.read(entry))
             values: list[str] = []
             for math_node in root.findall(f".//{{{MATH_NAMESPACE}}}oMath"):
@@ -145,7 +182,7 @@ def extract_ooxml_math(pptx_path: Path) -> dict[int, list[str]]:
                 if text and text not in values:
                     values.append(text)
             if values:
-                formulas[slide_number] = values
+                formulas[entry] = values
     return formulas
 
 
@@ -171,17 +208,70 @@ def classify_slide(title: str, text: str, index: int, slide_count: int) -> str:
 
 
 def extract_deck(pptx_path: Path) -> dict[str, Any]:
+    try:
+        return _extract_deck(pptx_path)
+    except PrepareError:
+        raise
+    except (
+        PackageNotFoundError,
+        zipfile.BadZipFile,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise PrepareError(
+            "INVALID_PPTX_STRUCTURE",
+            "课件内容损坏或不是受支持的 PowerPoint 文件。请确认文件可正常打开，并另存为未加密的 .pptx 后重试。",
+        ) from exc
+    except Exception as exc:
+        raise PrepareError(
+            "PPT_PARSE_FAILED",
+            "课件包含当前解析器无法读取的内容。请在 PowerPoint 或 WPS 中另存为标准 .pptx 后重试。",
+        ) from exc
+
+
+def _extract_deck(pptx_path: Path) -> dict[str, Any]:
     presentation = Presentation(str(pptx_path))
+    slide_count = len(presentation.slides)
+    if slide_count == 0:
+        raise PrepareError(
+            "PPTX_NO_SLIDES",
+            "课件中没有幻灯片。请至少添加一页内容并保存后重新上传。",
+        )
+    if slide_count > MAX_SLIDES:
+        raise PrepareError(
+            "PPTX_TOO_MANY_SLIDES",
+            f"课件包含 {slide_count} 页，当前最多支持 {MAX_SLIDES} 页。请拆分课件后重试。",
+        )
     ooxml_math = extract_ooxml_math(pptx_path)
     slides: list[dict[str, Any]] = []
+    source_aspect_ratio = presentation.slide_width / presentation.slide_height
+    needs_canvas_adaptation = abs(source_aspect_ratio - (16 / 9)) > 0.01
 
     for slide_index, slide in enumerate(presentation.slides, 1):
         blocks: list[dict[str, Any]] = []
+        warnings: list[str] = []
         flattened_shapes = list(iter_shapes(slide.shapes))
         for shape in flattened_shapes:
-            text = shape_text(shape)
+            try:
+                text = shape_text(shape)
+            except Exception:
+                warnings.append(
+                    "页面包含无法结构化提取的对象；原页已完整保留，请人工核对。"
+                )
+                continue
             if not text:
                 continue
+            if len(blocks) >= MAX_TEXT_BLOCKS:
+                warnings.append(
+                    "页面文本对象超过解析上限；原页已完整保留，请人工核对未结构化部分。"
+                )
+                break
+            if len(text) > MAX_TEXT_BLOCK_CHARS:
+                text = text[:MAX_TEXT_BLOCK_CHARS]
+                warnings.append(
+                    "单个文本对象过长，结构化文本已截断；原页仍完整保留。"
+                )
             blocks.append(
                 {
                     "text": text,
@@ -193,9 +283,19 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
             )
         blocks.sort(key=lambda block: (block["top"], block["left"]))
         all_text = "\n".join(block["text"] for block in blocks)
+        if len(all_text) > MAX_EXTRACTED_TEXT_CHARS:
+            all_text = all_text[:MAX_EXTRACTED_TEXT_CHARS]
+            warnings.append(
+                "页面结构化文本超过上限并已截断；请以完整原页为准进行人工核对。"
+            )
         title = ""
-        if slide.shapes.title is not None:
-            title = clean_text(slide.shapes.title.text)
+        try:
+            if slide.shapes.title is not None:
+                title = clean_text(slide.shapes.title.text)
+        except Exception:
+            warnings.append(
+                "页面标题对象无法单独提取，已使用页面首行或稳定页码作为标题。"
+            )
         if not title:
             title = next(
                 (
@@ -205,10 +305,13 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 ),
                 f"第{slide_index}页",
             )
+        if len(title) > 500:
+            title = title[:500]
+            warnings.append("页面标题过长，结构化标题已截断；完整文字仍保留在原页中。")
 
         formula_sources: list[tuple[str, str]] = [
             (value, "ooxml")
-            for value in ooxml_math.get(slide_index, [])
+            for value in ooxml_math.get(str(slide.part.partname).lstrip("/"), [])
         ]
         for line in all_text.splitlines():
             candidate = clean_text(line)
@@ -220,13 +323,19 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
             ):
                 formula_sources.append((candidate, "text"))
 
+        if len(formula_sources) > MAX_FORMULAS:
+            formula_sources = formula_sources[:MAX_FORMULAS]
+            warnings.append(
+                "页面公式候选超过解析上限；完整公式仍保留在原页中，请人工核对。"
+            )
+
         formulas = [
             {
-                "id": f"slide-{slide_index:03d}-formula-{formula_index:02d}",
+                "id": f"slide-{slide_index:03d}-formula-{formula_index:03d}",
                 "source": source,
-                "display": value,
+                "display": value[:10_000],
                 "latex": "",
-                "spokenText": spoken_formula_hint(value),
+                "spokenText": spoken_formula_hint(value)[:10_000],
                 "status": "warning",
                 "message": "自动候选，需要人工核对 LaTeX 与中文读法。",
             }
@@ -234,9 +343,29 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 formula_sources, 1
             )
         ]
-        warnings = []
-        if any(shape.shape_type == MSO_SHAPE_TYPE.PICTURE for shape in flattened_shapes):
+        try:
+            contains_picture = any(
+                shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+                for shape in flattened_shapes
+            )
+        except Exception:
+            contains_picture = False
+            warnings.append("页面对象类型无法完整识别；请结合原页人工核对。")
+        if contains_picture:
             warnings.append("页面包含图片；图片公式 OCR 已延期，请人工核对图片中是否存在公式。")
+        if needs_canvas_adaptation:
+            warnings.append(
+                "课件页面不是 16:9；原页已等比完整适配到 1920×1080 画布，未裁切或拉伸。"
+            )
+        try:
+            notes = extract_notes(slide)
+        except Exception:
+            notes = ""
+            warnings.append("页面备注无法结构化提取；原页内容仍可继续审核。")
+        if len(notes) > MAX_NOTES_CHARS:
+            notes = notes[:MAX_NOTES_CHARS]
+            warnings.append("页面备注超过解析上限并已截断。")
+        warnings = list(dict.fromkeys(warnings))[:100]
         slide_type = classify_slide(
             title, all_text, slide_index, len(presentation.slides)
         )
@@ -247,7 +376,7 @@ def extract_deck(pptx_path: Path) -> dict[str, Any]:
                 "type": slide_type,
                 "textBlocks": blocks,
                 "extractedText": all_text,
-                "notes": extract_notes(slide),
+                "notes": notes,
                 "formulas": formulas,
                 "warnings": warnings,
                 "thumbnail": f"slides/slide-{slide_index:03d}.png",
@@ -288,6 +417,46 @@ def find_program(names: list[str], explicit_paths: list[Path] | None = None) -> 
     return None
 
 
+def save_slide_on_canvas(
+    image: Image.Image,
+    output_path: Path,
+    canvas_size: tuple[int, int] = SLIDE_CANVAS_SIZE,
+) -> None:
+    """Save one complete source page on a fixed canvas without cropping or stretching."""
+
+    if image.width < 1 or image.height < 1:
+        raise PrepareError(
+            "PPT_RENDER_FAILED",
+            "课件原页渲染结果为空，请确认文件可在 PowerPoint 或 WPS 中正常打开。",
+        )
+    rgba = image.convert("RGBA")
+    contained = None
+    canvas = None
+    rgb = None
+    try:
+        contained = ImageOps.contain(
+            rgba,
+            canvas_size,
+            method=LANCZOS_RESAMPLE,
+        )
+        canvas = Image.new("RGBA", canvas_size, (255, 255, 255, 255))
+        offset = (
+            (canvas_size[0] - contained.width) // 2,
+            (canvas_size[1] - contained.height) // 2,
+        )
+        canvas.alpha_composite(contained, dest=offset)
+        rgb = canvas.convert("RGB")
+        rgb.save(output_path, "PNG")
+    finally:
+        if rgb is not None:
+            rgb.close()
+        if canvas is not None:
+            canvas.close()
+        if contained is not None:
+            contained.close()
+        rgba.close()
+
+
 def render_with_powerpoint(pptx_path: Path, output_dir: Path) -> str:
     import pythoncom
     import win32com.client
@@ -303,9 +472,32 @@ def render_with_powerpoint(pptx_path: Path, output_dir: Path) -> str:
             Untitled=False,
             WithWindow=False,
         )
+        source_aspect_ratio = (
+            presentation.PageSetup.SlideWidth
+            / presentation.PageSetup.SlideHeight
+        )
+        canvas_width, canvas_height = SLIDE_CANVAS_SIZE
+        if source_aspect_ratio >= canvas_width / canvas_height:
+            export_width = canvas_width
+            export_height = max(1, round(canvas_width / source_aspect_ratio))
+        else:
+            export_height = canvas_height
+            export_width = max(1, round(canvas_height * source_aspect_ratio))
         for index, slide in enumerate(presentation.Slides, 1):
             output_path = output_dir / f"slide-{index:03d}.png"
-            slide.Export(str(output_path.resolve()), "PNG", 1920, 1080)
+            slide.Export(
+                str(output_path.resolve()),
+                "PNG",
+                export_width,
+                export_height,
+            )
+            with Image.open(output_path) as exported:
+                exported.load()
+                source_image = exported.copy()
+            try:
+                save_slide_on_canvas(source_image, output_path)
+            finally:
+                source_image.close()
         return "powerpoint"
     finally:
         if presentation is not None:
@@ -374,10 +566,17 @@ def render_with_libreoffice(pptx_path: Path, output_dir: Path) -> str:
                 image = None
                 try:
                     page_width, page_height = page.get_size()
-                    scale = 1920 / max(page_width, page_height)
+                    canvas_width, canvas_height = SLIDE_CANVAS_SIZE
+                    scale = min(
+                        canvas_width / page_width,
+                        canvas_height / page_height,
+                    )
                     bitmap = page.render(scale=scale)
                     image = bitmap.to_pil()
-                    image.save(output_dir / f"slide-{index + 1:03d}.png", "PNG")
+                    save_slide_on_canvas(
+                        image,
+                        output_dir / f"slide-{index + 1:03d}.png",
+                    )
                 finally:
                     if image is not None:
                         image.close()
@@ -402,34 +601,51 @@ def convert_legacy_ppt(source_path: Path, output_path: Path) -> None:
         ],
     )
     if not soffice:
-        raise RuntimeError("旧版 PPT 转换需要 LibreOffice")
+        raise PrepareError(
+            "PPT_CONVERSION_UNAVAILABLE",
+            "当前解析组件无法转换旧版 .ppt。请安装修复版应用，或先在 PowerPoint/WPS 中另存为 .pptx。",
+        )
     with tempfile.TemporaryDirectory(prefix="ppt-convert-") as temp_value:
         temp_dir = Path(temp_value)
         profile_uri = (temp_dir / "libreoffice-profile").resolve().as_uri()
-        subprocess.run(
-            [
-                soffice,
-                "--headless",
-                "--nologo",
-                "--nodefault",
-                "--nofirststartwizard",
-                "--norestore",
-                f"-env:UserInstallation={profile_uri}",
-                "--convert-to",
-                "pptx",
-                "--outdir",
-                str(temp_dir),
-                str(source_path.resolve()),
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=120,
-        )
+        try:
+            subprocess.run(
+                [
+                    soffice,
+                    "--headless",
+                    "--nologo",
+                    "--nodefault",
+                    "--nofirststartwizard",
+                    "--norestore",
+                    f"-env:UserInstallation={profile_uri}",
+                    "--convert-to",
+                    "pptx",
+                    "--outdir",
+                    str(temp_dir),
+                    str(source_path.resolve()),
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise PrepareError(
+                "PPT_CONVERSION_TIMEOUT",
+                "旧版 .ppt 转换超时。请在 PowerPoint/WPS 中另存为 .pptx 后重试。",
+            ) from exc
+        except (subprocess.CalledProcessError, OSError) as exc:
+            raise PrepareError(
+                "PPT_CONVERSION_FAILED",
+                "旧版 .ppt 无法转换，文件可能已加密、损坏或包含不兼容内容。请取消密码保护并另存为 .pptx。",
+            ) from exc
         converted = temp_dir / f"{source_path.stem}.pptx"
         if not converted.exists() or converted.stat().st_size == 0:
-            raise RuntimeError("LibreOffice 未生成 PPTX 转换结果")
+            raise PrepareError(
+                "PPT_CONVERSION_FAILED",
+                "旧版 .ppt 未生成有效转换结果。请在 PowerPoint/WPS 中另存为 .pptx 后重试。",
+            )
         shutil.copy2(converted, output_path)
 
 
@@ -649,16 +865,28 @@ def main() -> int:
     source_path = Path(args.input).expanduser().resolve()
     job_dir = Path(args.job_dir).expanduser().resolve()
     if not source_path.exists():
-        raise FileNotFoundError(source_path)
+        raise PrepareError(
+            "SOURCE_FILE_NOT_FOUND",
+            "源课件不存在或无法读取，请重新选择文件后上传。",
+        )
     if source_path.suffix.lower() not in {".ppt", ".pptx"}:
-        raise ValueError("当前MVP只支持 .ppt 或 .pptx")
+        raise PrepareError(
+            "PRESENTATION_FORMAT_UNSUPPORTED",
+            "当前只支持 .ppt 或 .pptx 文件。",
+        )
 
     job_dir.mkdir(parents=True, exist_ok=True)
     source_copy = job_dir / "source.pptx"
     if source_path.suffix.lower() == ".ppt":
         convert_legacy_ppt(source_path, source_copy)
     elif source_path != source_copy:
-        shutil.copy2(source_path, source_copy)
+        try:
+            shutil.copy2(source_path, source_copy)
+        except OSError as exc:
+            raise PrepareError(
+                "SOURCE_FILE_UNREADABLE",
+                "源课件无法读取，请关闭占用该文件的程序并重新上传。",
+            ) from exc
 
     deck = extract_deck(source_copy)
     if args.skip_slide_render:
@@ -667,6 +895,11 @@ def main() -> int:
         renderer, render_error = render_slides(
             source_copy, job_dir / "slides"
         )
+        if renderer == "unavailable":
+            raise PrepareError(
+                "PPT_RENDER_FAILED",
+                "课件文字已读取，但无法生成完整原页。请确认文件未加密且可在 PowerPoint/WPS 中正常打开，然后另存为标准 .pptx 后重试。",
+            )
     deck["slideRenderer"] = renderer
     deck["slideRenderError"] = render_error
     write_json(job_dir / "parsed-deck.json", deck)
@@ -762,6 +995,22 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (ContractError, FileNotFoundError, ValueError) as error:
-        print(f"ERROR: {error}", file=sys.stderr)
+    except PrepareError as error:
+        emit_prepare_error(error)
+        raise SystemExit(2)
+    except ContractError:
+        emit_prepare_error(
+            PrepareError(
+                "PPT_CONTENT_UNSUPPORTED",
+                "课件内容超出当前解析契约。请简化异常对象或在 PowerPoint/WPS 中另存为标准 .pptx 后重试。",
+            )
+        )
+        raise SystemExit(2)
+    except Exception:
+        emit_prepare_error(
+            PrepareError(
+                "PPT_PARSE_FAILED",
+                "课件解析失败。请确认文件未加密、未损坏，并在 PowerPoint/WPS 中另存为标准 .pptx 后重试。",
+            )
+        )
         raise SystemExit(2)

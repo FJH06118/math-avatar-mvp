@@ -80,6 +80,7 @@ try {
       await runClaimedPlanStep({
         prisma,
         pool,
+        assets,
         adapter: agentAdapter,
         leaseMs: 30_000,
         maxAttempts: PLAN_EXTERNAL_ATTEMPTS,

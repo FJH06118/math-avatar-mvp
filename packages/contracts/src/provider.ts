@@ -8,6 +8,8 @@ export const ProviderKindSchema = z.enum([
   "DEEPSEEK",
   "GLM",
   "KIMI",
+  "DOUBAO",
+  "QWEN",
   "ANTHROPIC",
 ]);
 
@@ -138,6 +140,7 @@ export const ProviderTestResultSchema = z
         "PROVIDER_TIMEOUT",
         "PROVIDER_CONNECTION_FAILED",
         "PROVIDER_RESPONSE_INVALID",
+        "PROVIDER_VISION_UNSUPPORTED",
         "PROVIDER_TEST_FAILED",
       ])
       .nullable(),
@@ -151,6 +154,7 @@ export const ProviderSelectionSnapshotSchema = z
     protocol: ProviderProtocolSchema,
     baseUrl: ProviderBaseUrlSchema,
     model: z.string().min(1).max(200),
+    capabilities: z.array(ProviderCapabilitySchema).max(20).default([]),
     profileVersion: PositiveIntSchema,
     keyVersion: z.number().int().min(0),
     promptVersion: z.string().min(1).max(100),

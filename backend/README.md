@@ -19,6 +19,16 @@ LibreOffice 转换为 `source.pptx`，随后进入完全相同的 PPTX 解析与
 请求本身不运行 LibreOffice。图片公式 OCR 已获准延期：公式截图仍完整保留在原 PPT
 画面中，包含图片的页面会提示人工核对，讲稿和公式读法必须在审核阶段确认。
 
+准确输入边界为：未加密、结构合法、1～100 页的 `.pptx`，以及 LibreOffice 可转换的
+合法 `.ppt`（OLE CFB v3/v4）。浏览器报告为空 MIME、通用二进制或常见 PowerPoint
+别名时会先规范化，再由服务端以真实 ZIP/OLE 字节复核；明确的扩展名/MIME 冲突仍会
+拒绝。零页、加密、损坏、超页数或无法转换/渲染的文件会返回稳定、可操作错误，不创建
+伪成功结果。
+
+源课件无需是 16:9。LibreOffice 与 PowerPoint 原页都会按源比例完整 `contain` 到白色
+`1920×1080` 画布并居中补边；4:3、16:10、纵向等比例不会裁切或拉伸。非 16:9 页面会
+保留显式解析警告，供审核时确认补边效果。
+
 ## 1. 环境
 
 - Windows 10/11
@@ -174,9 +184,10 @@ Worker attempt 默认隔离在 `backend/work/t-attempts`，源资产和登记后
 
 ```powershell
 $env:LLM_API_KEY = "你新创建的密钥"
-$env:LLM_BASE_URL = "https://api.deepseek.com"
+$env:LLM_BASE_URL = "由 Provider 官方文档给出的 API Base URL"
 $env:LLM_MODEL = "由 Provider/账号实际支持的模型 ID"
-$env:LLM_PROVIDER_KIND = "DEEPSEEK"
+$env:LLM_PROVIDER_KIND = "QWEN" # OPENAI/DEEPSEEK/GLM/KIMI/DOUBAO/QWEN/ANTHROPIC
+$env:LLM_VISION_ENABLED = "1"   # 仅在该模型已确认支持图片输入时启用旧环境回退
 $env:LLM_TIMEOUT_MS = "30000"
 ```
 
@@ -186,7 +197,7 @@ $env:LLM_TIMEOUT_MS = "30000"
 npm.cmd run backend:provider:preflight
 ```
 
-该命令验证密钥、模型、JSON 结构化输出、超时/限流/服务端错误的重试分类；它不会输出密钥。
+该命令验证密钥、模型、JSON 结构化输出、超时/限流/服务端错误的重试分类；它不会输出密钥。正式桌面设置页的“连接测试”会随机发送一张纯红、纯绿或纯蓝的 64×64 PNG，并核对返回主色；只有接口接受图片且模型识别正确才记录 `VISION` 并允许上传。
 
 Provider Gateway 的离线 fixture 和严格评测命令为：
 
@@ -195,15 +206,15 @@ npm.cmd run test:provider-gateway
 npx.cmd tsx --test --test-concurrency=1 backend/evals/provider-fixtures.test.ts
 ```
 
-上述测试覆盖五种适配器、401/403/429/5xx、超时、截断 JSON、严格 Contract、单次 JSON
+上述测试覆盖七种适配器（OpenAI、DeepSeek、GLM、Kimi、豆包、千问、Anthropic）、两类多模态请求体、原页资产 hash/压缩、401/403/429/5xx、超时、截断 JSON、严格 Contract、单次 JSON
 包装修复和 100 个按类别划分的 slide-level 样本。真实上游 smoke 默认跳过；只有明确设置
 `PPT_DH_PROVIDER_SMOKE=1`，并为每家提供 `PPT_DH_SMOKE_<KIND>_API_KEY`、`_BASE_URL`
 和 `_MODEL` 后才会运行 `npm.cmd run test:provider-smoke`。fixture 通过不等于真实供应商
 正式支持，未完成对应 opt-in smoke 前不得作此声明。
 
-存在密钥时，解析器会把整套课件的结构化文本一次性提交给模型，让模型从
-全局规划场景，并允许拆页或合并相邻页。模型返回内容仍会经过页码、场景、
-讲稿非空和 ID 唯一性校验。
+产品 PLAN Worker 会把整套课件的“登记原页图 + 结构化文本/备注/公式候选”一次性提交给已通过 `VISION` 探针的模型。原页先复核大小与 SHA-256，再按 16 MiB 总图像预算从 1440×810 逐级压缩；API 请求不含磁盘路径或 storage key。OpenAI、DeepSeek、GLM、Kimi、豆包和千问使用 OpenAI-compatible `image_url` Data URL，Anthropic 使用 Messages Base64 image block。模型返回仍会经过页码、场景、讲稿非空和 ID 唯一性校验，并等待人工批准。
+
+视觉模型可以辅助理解图片公式、图表和版式，但当前不会把视觉结果写回结构化 `formulaJson`，也没有图片公式 OCR 准确率结论。真实供应商 smoke 必须显式 opt-in；离线请求体测试不能替代账号、模型、地域、限流和费用验收。
 
 没有密钥时流水线仍然可运行，但采用“一页一个场景”的保守规则，适合离线
 回归测试，不应直接作为最终数学讲稿。

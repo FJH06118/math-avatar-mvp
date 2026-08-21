@@ -134,7 +134,10 @@ export function UploadFlow() {
 
   const isUploading = uploadMutation.isPending;
   const isSuccess = uploadMutation.isSuccess;
-  const providerSetupRequired = uploadMutation.error instanceof RealApiError && uploadMutation.error.code === "PROVIDER_NOT_CONFIGURED";
+  const providerSetupRequired = uploadMutation.error instanceof RealApiError && [
+    "PROVIDER_NOT_CONFIGURED",
+    "PROVIDER_VISION_REQUIRED",
+  ].includes(uploadMutation.error.code);
 
   function handleFileAccepted(file: File) {
     setSelectedFile(file);

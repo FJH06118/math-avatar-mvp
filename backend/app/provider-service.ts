@@ -107,6 +107,7 @@ export class ProviderService {
       input.apiKey !== undefined
     ) {
       patch.lastTestAt = null;
+      patch.capabilities = capabilitiesFor(kind);
     }
     const record = await this.repository.update(principal, id, input.expectedVersion, patch);
     return toPublicProfile(record);
@@ -131,11 +132,12 @@ export class ProviderService {
       throw new AppHttpError(409, "STALE_PROVIDER_PROFILE", "Provider Profile 已有更新，请刷新后重试。", false);
     }
     const testedAt = this.now();
+    const baseCapabilities = capabilitiesFor(parseKind(existing.kind));
     const base = {
       profileId: existing.id,
       latencyMs: null,
       model: existing.model,
-      capabilities: parseCapabilities(existing.capabilities),
+      capabilities: baseCapabilities,
       testedAt: testedAt.toISOString(),
     };
     if (!existing.enabled) {
@@ -161,26 +163,42 @@ export class ProviderService {
       throw error;
     }
     try {
-      await this.connectionTester.test({
+      const probe = await this.connectionTester.test({
         kind: parseKind(existing.kind),
         protocol: parseProtocol(existing.protocol),
         baseUrl: existing.baseUrl,
         model: existing.model,
         apiKey,
+        capabilities: baseCapabilities,
       });
+      const capabilities = normalizeCapabilities(probe.capabilities);
+      if (!capabilities.includes("VISION")) {
+        throw new ProviderError(
+          "PROVIDER_VISION_UNSUPPORTED",
+          false,
+          "所选模型未通过图片输入能力验证。",
+        );
+      }
+      await this.repository.setTestState(
+        principal,
+        id,
+        expectedVersion,
+        testedAt,
+        capabilities,
+      );
+      return {
+        ...base,
+        status: "CONNECTED",
+        latencyMs: Math.max(0, Date.now() - startedAt),
+        capabilities,
+        errorCode: null,
+      };
     } catch (error: unknown) {
       const errorCode = error instanceof ProviderError
         ? providerTestErrorCode(error.code)
         : "PROVIDER_TEST_FAILED";
       return this.failedTest(principal, existing, expectedVersion, base, errorCode);
     }
-    await this.repository.setLastTestAt(principal, id, expectedVersion, testedAt);
-    return {
-      ...base,
-      status: "CONNECTED",
-      latencyMs: Math.max(0, Date.now() - startedAt),
-      errorCode: null,
-    };
   }
 
   private async failedTest(
@@ -190,7 +208,13 @@ export class ProviderService {
     base: Omit<ProviderTestResult, "status" | "errorCode">,
     errorCode: Exclude<ProviderTestResult["errorCode"], null>,
   ): Promise<ProviderTestResult> {
-    await this.repository.setLastTestAt(principal, existing.id, expectedVersion, null);
+    await this.repository.setTestState(
+      principal,
+      existing.id,
+      expectedVersion,
+      null,
+      capabilitiesFor(parseKind(existing.kind)),
+    );
     return { ...base, status: "FAILED", errorCode };
   }
 
@@ -223,6 +247,7 @@ function providerTestErrorCode(
     case "PROVIDER_TIMEOUT":
     case "PROVIDER_CONNECTION_FAILED":
     case "PROVIDER_RESPONSE_INVALID":
+    case "PROVIDER_VISION_UNSUPPORTED":
       return code;
     case "PROVIDER_CREDENTIAL_NOT_CONFIGURED":
       return "CREDENTIAL_NOT_CONFIGURED";
@@ -262,6 +287,14 @@ function assertCompatible(kind: string, protocol: string): void {
 
 function capabilitiesFor(kind: string): ProviderCapability[] {
   return kind === "ANTHROPIC" ? ["CHAT", "STREAMING"] : ["CHAT", "STRUCTURED_OUTPUT"];
+}
+
+function normalizeCapabilities(value: unknown): ProviderCapability[] {
+  const parsed = ProviderCapabilitySchema.array().safeParse(value);
+  if (!parsed.success) {
+    throw new ProviderError("PROVIDER_RESPONSE_INVALID", false, "Provider 能力探针返回了无效结果。");
+  }
+  return [...new Set(parsed.data)].sort();
 }
 
 function parseKind(value: string) {

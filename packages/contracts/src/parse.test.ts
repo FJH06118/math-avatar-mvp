@@ -48,4 +48,30 @@ describe("parse adapter contract", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("accepts a dense slide's three-digit formula candidate id", () => {
+    expect(
+      ParseAdapterDeckSchema.safeParse({
+        schemaVersion: 1,
+        sourceFile: "source.pptx",
+        courseTitle: "公式密集课件",
+        slideCount: 1,
+        parsedAt: "2026-08-03T00:00:00+00:00",
+        slides: [{
+          ...slide,
+          formulas: [{
+            id: "slide-001-formula-100",
+            source: "text",
+            display: "f(x)=x",
+            latex: "",
+            spokenText: "函数 f 等于 x",
+            status: "warning",
+            message: "需要人工核对",
+          }],
+        }],
+        slideRenderer: "libreoffice",
+        slideRenderError: null,
+      }).success,
+    ).toBe(true);
+  });
 });

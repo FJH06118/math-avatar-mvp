@@ -28,6 +28,7 @@ const app = createApplication({
   providerConnectionTester: {
     async test(input) {
       assert.equal(input.apiKey, "sk-p6-runtime-health-key");
+      return { capabilities: [...input.capabilities, "VISION" as const] };
     },
   },
 });
@@ -85,4 +86,35 @@ test("health becomes ready after a configured default Provider passes its connec
   const health = RuntimeDiagnosticResponseSchema.parse(await (await request("/v1/runtime/diagnostic")).json()).data.health;
   assert.equal(health.components.find((component) => component.id === "provider")?.status, "READY");
   assert.equal(health.components.find((component) => component.id === "edge-tts")?.status, "WARN");
+});
+
+test("a legacy text-only connection cannot pass the production upload guard", async () => {
+  const created = await request("/v1/providers", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      displayName: "旧文本 Provider",
+      kind: "DEEPSEEK",
+      protocol: "OPENAI_CHAT",
+      baseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+      enabled: true,
+      isDefault: true,
+      apiKey: "sk-p6-runtime-health-key",
+    }),
+  });
+  const provider = ProviderProfileResponseSchema.parse(await created.json()).data;
+  await prisma.providerProfile.update({
+    where: { id: provider.id },
+    data: { lastTestAt: new Date(), capabilities: ["CHAT", "STRUCTURED_OUTPUT"] },
+  });
+
+  const form = new FormData();
+  form.set("title", "旧文本 Provider 课件");
+  form.set("file", new File(["not-read"], "课件.pptx", {
+    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  }));
+  const blocked = await request("/v1/projects", { method: "POST", body: form });
+  assert.equal(blocked.status, 409);
+  assert.equal(ApiErrorSchema.parse(await blocked.json()).error.code, "PROVIDER_VISION_REQUIRED");
 });
