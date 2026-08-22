@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -28,6 +29,7 @@ import {
   heartbeatProductLease,
 } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
+import { staticAnimationManifestFixture } from "./test-animation-fixture.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) {
@@ -135,6 +137,7 @@ test("real parse worker registers 3/3 original pages and durable progress", asyn
   assert.equal(task.progressTotal, 3);
   assert.equal(presentation.parseStatus, "COMPLETED");
   assert.equal(presentation.slideCount, 3);
+  assert(presentation.animationManifestJson);
   assert.equal(slides.length, 3);
   assert.deepEqual(slides.map((slide) => slide.slideNumber), [1, 2, 3]);
   assert(slides.every((slide) => slide.renderAssetId));
@@ -164,6 +167,9 @@ test("real parse worker registers 3/3 original pages and durable progress", asyn
   assert.deepEqual(snapshot.slides.map((slide) => slide.slideNumber), [1, 2, 3]);
   assert.equal(new Set(snapshot.slides.map((slide) => slide.id)).size, 3);
   assert(snapshot.slides.every((slide) => slide.originalPage.url.endsWith("/preview")));
+  assert.equal(snapshot.animationManifest.slideCount, 3);
+  assert.deepEqual(snapshot.animationManifest.slides.map((slide) => slide.slideNumber), [1, 2, 3]);
+  assert.doesNotMatch(JSON.stringify(snapshot.animationManifest), /storageKey|diskPath|[A-Z]:\\|Traceback|COMError/i);
 
   const previewResponse = await app.request(snapshot.slides[0]!.originalPage.url.replace("/api/t", "/v1"), {
     headers: { "X-Internal-Token": internalToken, "X-Principal": principal },
@@ -337,6 +343,10 @@ function incompletePageAdapter(): ParseAdapter {
         slides,
         slideRenderer: "libreoffice",
         slideRenderError: null,
+        animationManifest: staticAnimationManifestFixture(
+          createHash("sha256").update(await readFile(input.sourcePath)).digest("hex"),
+          3,
+        ),
       });
       return { deck, attemptDir: input.attemptDir };
     },

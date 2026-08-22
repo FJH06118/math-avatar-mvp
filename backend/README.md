@@ -19,6 +19,36 @@ LibreOffice 转换为 `source.pptx`，随后进入完全相同的 PPTX 解析与
 请求本身不运行 LibreOffice。图片公式 OCR 已获准延期：公式截图仍完整保留在原 PPT
 画面中，包含图片的页面会提示人工核对，讲稿和公式读法必须在审核阶段确认。
 
+## PowerPoint 动画元数据与教学理解
+
+Windows 上可用 Microsoft PowerPoint 时，`backend.prepare` 会先启动独立 Python 子进程，
+由 `pythoncom.CoInitialize/CoUninitialize`、`DispatchEx("PowerPoint.Application")` 和
+PowerPoint Object Model 读取 `TimeLine.MainSequence`、`InteractiveSequences`、效果对象、
+文本范围、触发/延迟/时长/重复及 `SlideShowTransition`。打开前强制
+`AutomationSecurity=3`，Presentation 只读且 `WithWindow=False`；代码不访问或执行宏、
+ActionSettings、超链接、外部程序或嵌入脚本。父进程默认 120 秒超时，取消/失租会终止
+adapter 进程树，并只在状态文件 PID 的真实映像为 `POWERPNT.EXE` 时做兜底回收。
+
+产物 `parsed-deck.json.animationManifest` 必须通过 `animation-manifest-v1` 严格契约；同一清单
+也持久化到 Presentation，并随公开 PARSE snapshot 返回。未知枚举保留原始整数并附警告，
+不能静默丢弃。无动画是合法的零效果清单。COM 不可用、超时、文件损坏或结构异常不会
+破坏已成功的静态解析，而是返回 `STATIC_FALLBACK` 及可操作原因。LibreOffice/PDF 不能
+提供动画事实；旧 `.ppt` 必须先直接尝试 COM，再做 LibreOffice 转换。
+
+PLAN Prompt `stage-tc-agent-prompt-v3-animation` 同时接收完整原页、文本/备注/公式候选和
+对应页动画清单。模型输出 `animationUnderstanding`，逐个权威 effect ID 解释逐步推导、
+条件揭示、答案展示、强调或装饰作用并建议 narration 同步；strict Contract 要求 ID 与
+COM 顺序完全一致，且没有任何可覆盖触发器或原始计时的输出字段。静态/复杂/低置信度结果
+必须标记人工审核。完整页图最多 100 张、1440×810，总 Base64 16 MiB，准备 20 秒；
+Provider 默认请求 30 秒、上限 120 秒。第一阶段不生成对象裁剪（上限为 0），因此不会把
+截图推测当作动画事实。
+
+支持等级为 `METADATA_SUPPORTED`、`REBUILD_WHITELIST`、
+`PRESERVE_NATIVE_RECOMMENDED`、`UNSUPPORTED_REQUIRES_REVIEW` 和 `STATIC_FALLBACK`。
+这表示“识别与理解”已接入，不表示 Morph、自定义/路径/媒体/交互动画已完整视觉复现。
+`PowerPoint.CreateVideo` 本轮未接入；后续若实现，必须保持独立适配器、进度轮询、超时、
+输出验证与进程回收。没有引入 MATLAB。
+
 准确输入边界为：未加密、结构合法、1～100 页的 `.pptx`，以及 LibreOffice 可转换的
 合法 `.ppt`（OLE CFB v3/v4）。浏览器报告为空 MIME、通用二进制或常见 PowerPoint
 别名时会先规范化，再由服务端以真实 ZIP/OLE 字节复核；明确的扩展名/MIME 冲突仍会

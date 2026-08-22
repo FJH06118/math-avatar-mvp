@@ -9,6 +9,10 @@ import { failProductStep, heartbeatProductLease, type ProductClaim } from "./pro
 import { LocalAssetStore } from "./storage.ts";
 import { prepareVisionInputs } from "./vision-input.ts";
 import { toWorkerError, WorkerError } from "./worker-error.ts";
+import {
+  animationForSlide,
+  readPresentationAnimationManifest,
+} from "./animation-manifest.ts";
 
 const PlanConfigSchema = z
   .object({
@@ -74,6 +78,7 @@ export async function runClaimedPlanStep(
   if (!slides.length || slides.some((slide) => !slide.renderAssetId)) {
     return failProductStep(dependencies.pool, claim, workerId, "PARSE_OUTPUT_INCOMPLETE", "课件解析结果不完整。", false, dependencies.maxAttempts);
   }
+  const animationManifest = readPresentationAnimationManifest(task.presentation);
 
   const controller = new AbortController();
   let heartbeatRunning = false;
@@ -96,6 +101,9 @@ export async function runClaimedPlanStep(
         extractedText: slide.extractedText,
         notes: slide.notes,
         formulas: slide.formulaJson,
+        animationManifestId: animationManifest.id,
+        animationMetadataSource: animationManifest.metadataSource,
+        animation: animationForSlide(animationManifest, slide.slideNumber),
         image: visionInputs.get(slide.id),
       })),
       principal: task.principal,

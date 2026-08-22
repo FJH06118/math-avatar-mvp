@@ -5,6 +5,13 @@
 
 ## 已确定
 
+### D-51 PowerPoint COM 是动画事实来源，模型只解释教学语义
+
+- **决策**：Windows PowerPoint 可用时，以隔离 STA 子进程读取 `TimeLine.MainSequence`、`InteractiveSequences`、Effect/Timing/Shape/文本范围和 SlideShowTransition，形成严格版本化 `animation-manifest-v1`。旧 `.ppt` 必须在 LibreOffice 转换前先直接读取。模型输入可结合完整原页和动画清单，但输出只能解释教学作用与 narration 同步建议，不得修改 effect 顺序、触发器或原始计时。
+- **原因**：静态截图与 PDF 不含权威动画时间轴；视觉模型无法可靠推断进入/强调/退出、点击对象触发或延迟/重复。反过来，COM 能提供事实但不能判断动画在教学上是逐步推导、条件揭示、答案展示还是装饰，需要受约束的多模态解释和人工审核。
+- **安全边界**：使用 `DispatchEx`、强制宏禁用、只读/无窗口打开，不访问 ActionSettings、超链接、外部程序或脚本。父进程有明确超时，取消/失租终止进程树，状态文件只记录内部 PID，兜底回收前必须确认真实映像为 `POWERPNT.EXE`。所有异常只映射稳定公共错误，不返回路径、COM 异常、堆栈或用户环境。
+- **影响**：支持等级固定为 `METADATA_SUPPORTED`、`REBUILD_WHITELIST`、`PRESERVE_NATIVE_RECOMMENDED`、`UNSUPPORTED_REQUIRES_REVIEW`、`STATIC_FALLBACK`。LibreOffice/PDF 明确静态降级；未知/自定义/Morph/复杂路径/媒体/交互效果保留原始值并审核。第一阶段只完成准确识别与理解，不宣称完整视觉复现；`CreateVideo` 如后续接入，必须是独立、可超时、可验证、可回收的适配器。MATLAB 不进入该链路。
+
 ### D-50 PPT 理解采用“确定性原页事实 + Provider 能力探针 + 多模态 PLAN”
 
 - **决策**：PPT 字节、页数、原页和资产完整性继续由本地确定性链负责；PARSE 成功后，PLAN 必须把每页原图与结构化文本一并发送给已通过真实图片探针的多模态 Provider。OpenAI-compatible 视觉块覆盖 OpenAI、DeepSeek、GLM、Kimi、豆包和千问，Anthropic 使用 Messages image block；模型和地址由用户配置。

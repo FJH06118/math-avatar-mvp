@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ParseAdapterDeckSchema,
@@ -47,7 +47,10 @@ export class PythonParseAdapter implements ParseAdapter {
       ],
       { cwd: REPOSITORY_ROOT, stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
     );
-    const abort = () => terminateProcessTree(child);
+    const abort = () => {
+      terminateProcessTree(child);
+      cleanupAnimationPowerPoint(input.attemptDir, this.pythonCommand);
+    };
     child.stdout?.resume();
     input.signal.addEventListener("abort", abort, { once: true });
     try {
@@ -176,4 +179,23 @@ function terminateProcessTree(child: ChildProcess): void {
     return;
   }
   child.kill("SIGTERM");
+}
+
+function cleanupAnimationPowerPoint(attemptDir: string, pythonCommand: string): void {
+  if (process.platform !== "win32") return;
+  const cleaner = spawn(
+    pythonCommand,
+    [
+      "-m",
+      "backend.powerpoint_animation_adapter",
+      "--cleanup-state",
+      join(attemptDir, "animation", "powerpoint-process.json"),
+    ],
+    {
+      cwd: REPOSITORY_ROOT,
+      stdio: "ignore",
+      windowsHide: true,
+    },
+  );
+  cleaner.unref();
 }

@@ -12,7 +12,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { stableHash, stableId } from "./lesson-plan-builder.ts";
 
-export const VISION_PROMPT_VERSION = "stage-tc-agent-prompt-v2-vision";
+export const VISION_PROMPT_VERSION = "stage-tc-agent-prompt-v3-animation";
 
 export class LessonPlanRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -148,7 +148,10 @@ export class LessonPlanRepository {
         modelName: "manual-edit",
         promptVersion: old.promptVersion,
         inputHash: old.outputHash,
-        outputHash: stableHash(editable),
+        outputHash: stableHash({
+          ...editable,
+          animationUnderstanding: old.animationUnderstanding,
+        }),
         createdBy: "user",
         createdAt: new Date().toISOString(),
         approval: { status: "pending" },

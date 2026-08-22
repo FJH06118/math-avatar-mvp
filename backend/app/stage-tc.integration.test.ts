@@ -28,6 +28,10 @@ import { runClaimedPlanStep } from "./plan-worker.ts";
 import { claimNextProductStep } from "./product-lease.ts";
 import { LocalAssetStore } from "./storage.ts";
 import { WorkerError } from "./worker-error.ts";
+import {
+  animationUnderstandingFixture,
+  staticAnimationInput,
+} from "./test-animation-fixture.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) throw new Error("PPT_DH_DATABASE_URL is required for stage T-C integration tests.");
@@ -122,6 +126,7 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   const revisions = LessonPlanRevisionListResponseSchema.parse(await listResponse.json()).data;
   assert.equal(revisions.length, 3);
   assert(revisions.every((revision) => revision.approval.status === "pending"));
+  assert(revisions.every((revision) => revision.animationUnderstanding));
   assert.equal(await prisma.plannedScene.count(), 3);
   assert.equal(await prisma.asset.count({ where: { kind: { notIn: ["SOURCE_PPT", "SLIDE_RENDER"] } } }), 0);
 
@@ -172,6 +177,7 @@ test("PLAN worker persists strict revisions, user edits, and explicit approval",
   const revised = LessonPlanRevisionResponseSchema.parse(await revisedResponse.json()).data;
   assert.equal(revised.revision, 2);
   assert.equal(revised.createdBy, "user");
+  assert.deepEqual(revised.animationUnderstanding, original.animationUnderstanding);
   const unaffected = await prisma.lessonPlanRevision.findMany({
     where: { id: { in: [...unaffectedHashes.keys()] } },
   });
@@ -293,7 +299,7 @@ test("OpenAI-compatible adapter treats provider JSON as unknown and rejects extr
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({
       choices: [{ message: { content: JSON.stringify({
-        schemaVersion: "stage-tc-agent-v1",
+        schemaVersion: "stage-tc-agent-v2-animation",
         slides: [{
           slideId: "slide_alpha",
           teachingGoal: "理解导数",
@@ -301,6 +307,13 @@ test("OpenAI-compatible adapter treats provider JSON as unknown and rejects extr
           derivation: [],
           scenes: [{ durationMs: 3_000 }],
           preservationMode: "FULL_PRESERVE",
+          animationUnderstanding: {
+            manifestId: "animation_manifest_test",
+            interpretations: [],
+            summary: "动画元数据不可用。",
+            reviewRequired: true,
+            reviewNotes: ["需要人工审核动画。"],
+          },
           untrustedExtra: true,
         }],
       }) } }],
@@ -317,7 +330,15 @@ test("OpenAI-compatible adapter treats provider JSON as unknown and rejects extr
     });
     await assert.rejects(
       adapter.run({
-        slides: [{ id: "slide_alpha", title: "导数", slideType: "concept", extractedText: "导数定义", notes: "", formulas: [] }],
+        slides: [{
+          id: "slide_alpha",
+          title: "导数",
+          slideType: "concept",
+          extractedText: "导数定义",
+          notes: "",
+          formulas: [],
+          ...staticAnimationInput(),
+        }],
         audience: "大学一年级学生",
         style: "严谨",
         targetMinutes: 3,
@@ -356,8 +377,14 @@ function validAgent(): AgentAdapter {
         slide.image.width > 0 &&
         slide.image.height > 0
       ));
+      assert(input.slides.every((slide, index) =>
+        slide.animation.slideNumber === index + 1 &&
+        slide.animationManifestId.length > 3 &&
+        !/storageKey|diskPath|[A-Z]:\\|Traceback|COMError/i.test(JSON.stringify(slide.animation))
+      ));
+      assert.equal(new Set(input.slides.map((slide) => slide.animationManifestId)).size, 1);
       const output: AgentPlanOutput = {
-        schemaVersion: "stage-tc-agent-v1",
+        schemaVersion: "stage-tc-agent-v2-animation",
         slides: input.slides.map((slide) => ({
           slideId: slide.id,
           teachingGoal: `理解${slide.title}`,
@@ -365,9 +392,10 @@ function validAgent(): AgentAdapter {
           derivation: [],
           scenes: [{ durationMs: 3_000 }],
           preservationMode: "FULL_PRESERVE",
+          animationUnderstanding: animationUnderstandingFixture(slide),
         })),
       };
-      return { output, provider: "integration-stub", model: "strict-fixture", promptVersion: "stage-tc-agent-prompt-v2-vision" };
+      return { output, provider: "integration-stub", model: "strict-fixture", promptVersion: "stage-tc-agent-prompt-v3-animation" };
     },
   };
 }

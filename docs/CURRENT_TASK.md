@@ -3,6 +3,25 @@
 > [!WARNING]
 > 本工作树是待人工试验候选。真实豆包/千问等多模态账号、多个外部来源 PPT、公式/图表视觉准确率、异常文件提示、100 页容量，以及重建后的 Windows 桌面安装包仍需人工端到端测试；在完成并记录证据前不得标记为正式供应商或安装版验收通过。
 
+## 2026-08-23 基于当前成果的后续规划（仅规划，不改变当前人工测试门）
+
+- 已根据当前工作树、现有架构/决策、既有教学质量/唇形/Windows 计划和用户总结，新增 [后续能力路线图](planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md)。它把已完成的动画识别/多模态解析列为人工验收事项，而不是新的开发承诺。
+- 推荐严格顺序为：先补动画/Provider/桌面候选的外部证据与文档真相，再以左栏/右栏/隐藏三种安全模板实现真实数字人站位；固定手势只能先做生产外 POC，五档口型失败不恢复；自然语言功能只生成可审核 revision 提案。
+- 本条没有修改业务代码、Provider 配置、桌面候选或真实课件，也没有把外部测试写成通过。当前 `MANUAL_TESTING_REQUIRED`、动画完整视觉复现后置、L5 FAIL/L6 STOP 和人工批准门保持不变。
+
+## 2026-08-22 PowerPoint 动画识别与多模态教学理解（源码与本机门禁收口，人工试验待补）
+
+- 已用真实 PowerPoint COM 生成中文名/中文文本的两页合成 fixture：第一页含进入、强调、退出、单击、与上一动画同时、上一动画之后、延迟、时长、重复/自动反转、点击指定对象交互触发器和页面切换；第二页无对象动画。旧基线 `4ec538c` 的 LibreOffice PARSE 只生成两张静态 PNG，源 XML 有 `p:timing/p:transition`，但旧 `parsed-deck.json` 与 PLAN 输入没有动画字段。
+- 新的隔离链为 `prepare.py -> powerpoint_animation_runner.py -> powerpoint_animation_adapter.py`。子进程使用 STA COM 初始化、`DispatchEx`、强制禁用宏、只读无窗口打开；父进程默认 120 秒超时，Node 取消/失租终止进程树并按记录的精确 `POWERPNT.EXE` PID 兜底。COM 异常、环境缺失、损坏、超时和结构不完整只产生稳定动画降级，不破坏成功的静态原页。
+- `packages/contracts` 新增 `AnimationManifestV1`、页面/切换/序列/效果/计时/触发器/支持评估及教学解释 strict Contract；外部 COM JSON 先在 Python 严格验证，再在 TypeScript/Zod 按 `unknown` 验证。稳定 ID 绑定源 SHA、页码、序列、效果索引和 Shape；未知/自定义/Morph/复杂路径/媒体效果保留原始枚举与明确警告。
+- PARSE 将完整清单写入 `parsed-deck.json` 和 `Presentation.animationManifestJson`，公开 snapshot 只返回严格业务数据，不含路径、storage key、COM 对象、堆栈或上游正文。旧 `.ppt` 先直接 COM 读取动画再转换；仅 LibreOffice/PDF 时返回 `STATIC_FALLBACK/ANIMATION_METADATA_UNAVAILABLE`；无动画返回合法零效果清单。
+- PLAN Prompt 升为 `stage-tc-agent-prompt-v3-animation`，输入按页绑定完整原图、结构化文本/备注/公式候选和权威动画清单。模型只能逐个 effect ID 解释教学作用与 narration 同步建议；输出不包含原始顺序/触发器/计时字段，strict Contract 又强制 effect ID 顺序与 COM 完全一致，不能覆盖事实。不确定、静态降级和复杂动画必须等待人工审核。
+- 图片预算为最多 100 张完整页、1440×810 起步、总 Base64 16 MiB、准备 20 秒；Provider 请求默认 30 秒、上限 120 秒。本阶段不生成动画对象裁剪（裁剪上限 0），也未接入 `CreateVideo`，没有引入 MATLAB。
+- 本机真实证据：直接 COM 与完整 `prepare` 均读取 2 页、第一页 4 个效果，序列 `MAIN/INTERACTIVE`，触发器 `1/2/3/4`，时长 `0.5/1.25/0.75/0.6`，延迟 `0.1/0.2/0.3/0.15`，重复 2、自动反转 true、Fade 切换和 4 秒自动换页；静态原页仍由 LibreOffice 生成 2/2 PNG。两次记录的隔离 PowerPoint PID 均为 `CLOSED` 且进程不存在。opt-in 真实 COM 集成测试 1/1 通过。
+- 当前专项已通过：动画 Python 单元/降级/生命周期 18/18；Contract 57/57；Provider/图片预算 59/59；Agent evaluator 2/2；T-B/T-C PostgreSQL integration 10/10。opt-in 真实 PowerPoint COM 集成另行启用后 1/1 通过；默认 `backend:test` 没有把该外部用例伪装为通过。
+- 文档完成后已严格串行通过最终根门禁：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 33 pass/1 个真实 PowerPoint opt-in skip、Next 16.2.11 production build 成功。
+- 仍需人工验证：真实 WPS 保存/播放语义、多个来源的 Morph/复杂路径/媒体触发器、旧 `.ppt` 真实动画、PowerPoint 未安装与损坏文件的安装版 UI 提示、100 页容量、真实七类 Provider 的教学理解质量，以及重建后的 Windows 桌面安装包。完整原生视觉复现和隔离 `CreateVideo` 属于后续工作。
+
 ## 2026-08-21 PPT 原页多模态 Provider 接入（源码与离线/本机集成收口，真实供应商待验）
 
 - 既有 PLAN 只把 `extractedText`、备注和公式候选序列化为字符串发送给 Provider，原页 PNG 从未进入模型；因此复杂公式、图片文字、图表、示意图、空间关系和版式只能依赖不完整的本地提取。现在确定性 PPT 解包/渲染仍负责安全、页数和原页事实，多模态模型在其后结合“完整原页图 + 结构化文本”生成可审核课程规划，不用模型结果替换原页或绕过人工批准。

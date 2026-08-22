@@ -4,7 +4,7 @@ import { evaluateAgentFixtures, parseAndValidateAgentContent } from "./agent-eva
 
 const slideId = "slide_eval_1";
 const valid = {
-  schemaVersion: "stage-tc-agent-v1",
+  schemaVersion: "stage-tc-agent-v2-animation",
   slides: [{
     slideId,
     teachingGoal: "理解导数定义",
@@ -12,6 +12,13 @@ const valid = {
     derivation: [{ input: "Δy/Δx", output: "f'(x)", transformation: "取极限", explanation: "令增量趋近于零", risk: "L2" }],
     scenes: [{ durationMs: 2_000 }],
     preservationMode: "FULL_PRESERVE",
+    animationUnderstanding: {
+      manifestId: "animation_manifest_eval",
+      interpretations: [],
+      summary: "该页没有动画效果。",
+      reviewRequired: false,
+      reviewNotes: [],
+    },
   }],
 };
 

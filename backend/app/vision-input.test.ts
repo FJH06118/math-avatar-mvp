@@ -7,7 +7,7 @@ import { after, before, test } from "node:test";
 import sharp from "sharp";
 
 import { LocalAssetStore } from "./storage.ts";
-import { prepareVisionInputs } from "./vision-input.ts";
+import { prepareVisionInputs, VISION_INPUT_LIMITS } from "./vision-input.ts";
 import { WorkerError } from "./worker-error.ts";
 
 let root = "";
@@ -56,6 +56,30 @@ test("vision input rejects a page whose registered hash does not match disk", as
       },
     ], store, new AbortController().signal),
     (error: unknown) => error instanceof WorkerError && error.code === "AGENT_VISION_SOURCE_INVALID",
+  );
+});
+
+test("vision and animation visual context expose explicit count, resolution, Base64 and time budgets", async () => {
+  assert.deepEqual(VISION_INPUT_LIMITS, {
+    maxFullPageImages: 100,
+    maxAnimationObjectCrops: 0,
+    maxBase64Characters: 16 * 1024 * 1024,
+    maxWidth: 1_440,
+    maxHeight: 810,
+    maxPreparationMs: 20_000,
+    defaultProviderRequestTimeoutMs: 30_000,
+    maxProviderRequestTimeoutMs: 120_000,
+  });
+  await assert.rejects(
+    prepareVisionInputs([slide()], store, new AbortController().signal, {
+      preparationTimeoutMs: 1,
+      now: (() => {
+        let value = 0;
+        return () => value += 2;
+      })(),
+    }),
+    (error: unknown) =>
+      error instanceof WorkerError && error.code === "AGENT_VISION_PREPARATION_TIMEOUT",
   );
 });
 

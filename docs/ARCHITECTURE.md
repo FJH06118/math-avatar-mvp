@@ -1,8 +1,33 @@
 # 当前真实架构
 
+## 2026-08-22 PowerPoint 动画事实与多模态解释边界
+
+```text
+源 .ppt/.pptx
+  ├─ 隔离 COM runner（旧 .ppt 在转换前）
+  │    └─ STA + DispatchEx + 宏禁用 + 只读/无窗口
+  │         └─ animation-manifest-v1（PowerPoint 动画事实）
+  └─ 既有静态 PARSE
+       ├─ LibreOffice/PDF 或 PowerPoint Export → 完整原页 PNG
+       └─ python-pptx → 文本、备注、公式候选
+                    ↓
+       strict Python JSON → strict Zod → PostgreSQL Presentation
+                    ↓
+PLAN：完整原页 + 结构化内容 + 对应页动画清单
+                    ↓
+strict animationUnderstanding（只解释/建议同步）→ 人工批准
+```
+
+- `backend/powerpoint_animation_adapter.py` 是 COM 事实适配器；读取主序列、交互序列、Effect、Timing、Shape、文本范围与 SlideShowTransition，不读取或执行 ActionSettings、宏、超链接、外部程序或嵌入脚本。`backend/powerpoint_animation_runner.py` 提供 5～300 秒有界超时（默认 120）、稳定错误、进程树终止和经映像名复核的精确 PID 回收。Node PARSE adapter 在取消/失租时额外调用同一安全 cleanup 入口。
+- COM 清单的稳定业务 ID 由源文件 SHA-256、页码、序列类型/索引、Effect 索引/顺序及 Shape ID/几何派生；重新打开同一文件可复现。未知枚举不丢弃，原始整数、`known=false` 和审核警告共同保留。任何不完整枚举都会撤销整份“已识别”声明，静态链继续。
+- `animation-manifest-v1` 既是 `parsed-deck.json` 的必填字段，也通过向前 migration 存入 `Presentation.animationManifestJson`。PARSE snapshot 返回同一 strict 清单；PLAN 读取时再次按 `unknown` 验证源 SHA、页数和连续页映射。旧数据库记录没有清单时只生成明确的 legacy `STATIC_FALLBACK`。
+- 多模态 Provider 输入按同一 slide ID 同时携带原页图和 `SlideAnimationManifest`。模型输出 `stage-tc-agent-v2-animation`，只含教学角色、理由、旁白段落关系、置信度和审核标记；契约要求 effect ID 数量与顺序逐项等于权威事实，且拒绝任何计时覆盖字段。
+- 支持评估分为元数据可读、简单重建白名单、建议原生保留、不支持需审核和静态降级。当前渲染器没有消费动画清单来完整重放 PowerPoint；Morph、自定义/路径/媒体/交互效果不会被伪装为已复现。`CreateVideo` 仍是解耦的后续适配器候选。
+- 图像链最多 100 张完整页、1440×810、总 Base64 16 MiB、准备 20 秒；第一阶段对象裁剪为 0。Provider HTTP 默认 30 秒且配置上限 120 秒。动画元数据与图像预算彼此独立，截图永远不是动画事实来源。
+
 ## 2026-08-21 原页多模态课程理解边界
 
-- PPT/PPTX 仍先经过确定性字节校验、LibreOffice/PowerPoint 渲染和 `ParseResultPersister` 原页门。多模态模型不是文件解析器或页数事实来源；它只在 PARSE 成功后由 PLAN Worker 消费完整原页与结构化文本，输出仍经过 `stage-tc-agent-v1` strict Contract 和显式人工批准。
+- PPT/PPTX 仍先经过确定性字节校验、LibreOffice/PowerPoint 渲染和 `ParseResultPersister` 原页门。多模态模型不是文件解析器或页数事实来源；它只在 PARSE 成功后由 PLAN Worker 消费完整原页、结构化文本与对应动画清单，输出经过 `stage-tc-agent-v2-animation` strict Contract 和显式人工批准。
 - PLAN Worker 通过 Asset 关系取得 `SLIDE_RENDER`，读取前复核 `AVAILABLE`、`image/png`、登记大小与 SHA-256。图像在内存中转成有界 JPEG，按 16 MiB 总 Base64 预算逐级降分辨率；Provider 只看到 `imageRef`、图像字节、内容 hash 与公开页面结构，不看到 storage key、磁盘路径或 API Key。
 - Provider Gateway 有两种多模态协议形态：OpenAI Chat compatible 使用 `content[]` 的 `text + image_url(data:...)`，覆盖 OpenAI/DeepSeek/GLM/Kimi/豆包/千问；Anthropic Messages 使用 `text + image(source=base64)`。厂商类型不等于模型能力，视觉能力来自随机红/绿/蓝 64×64 PNG 及主色答案校验，并冻结为 ProviderSelectionSnapshot 的 `VISION` capability。
 - 任一调用相关配置变化会撤销既有视觉通过状态；浏览器上传前检查、Hono 上传门、PLAN repository 和 Agent adapter 分层 fail closed。旧快照缺能力、部分页面缺图、资产损坏、图像请求过大或模型不接受视觉均使用稳定公共错误，不能静默回退到文本模式。

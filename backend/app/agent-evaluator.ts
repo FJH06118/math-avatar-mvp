@@ -5,6 +5,7 @@ import {
   type AgentEvaluationReport,
   type AgentModuleReview,
   type AgentPlanOutput,
+  type AgentAnimationFacts,
 } from "@ppt-digital-human/contracts";
 
 const MODULES = [
@@ -16,7 +17,11 @@ const MODULES = [
   "result-review",
 ] as const;
 
-export function parseAndValidateAgentContent(content: string, slideIds: readonly string[]): {
+export function parseAndValidateAgentContent(
+  content: string,
+  slideIds: readonly string[],
+  animationFacts: readonly AgentAnimationFacts[] = [],
+): {
   output: AgentPlanOutput;
   attempts: number;
   modules: AgentModuleReview[];
@@ -26,7 +31,7 @@ export function parseAndValidateAgentContent(content: string, slideIds: readonly
   for (const [index, candidate] of candidates.entries()) {
     try {
       const payload: unknown = JSON.parse(candidate);
-      const parsed = createAgentPlanOutputSchema(slideIds).safeParse(payload);
+      const parsed = createAgentPlanOutputSchema(slideIds, animationFacts).safeParse(payload);
       if (!parsed.success) {
         lastReason = parsed.error.issues.slice(0, 8).map((issue) => `${issue.path.join(".") || "root"}:${issue.message}`).join("；");
         continue;
@@ -74,8 +79,8 @@ export function evaluateAgentFixtures(fixtures: Array<{ id: string; content: str
   const rate = (numerator: number) => ({ numerator, denominator: fixtures.length, percent: Number(((numerator / fixtures.length) * 100).toFixed(2)) });
   return AgentEvaluationReportSchema.parse({
     schemaVersion: "stage-11c-agent-eval-v1",
-    promptVersion: "stage-tc-agent-prompt-v1",
-    contractVersion: "stage-tc-agent-v1",
+    promptVersion: "stage-tc-agent-prompt-v3-animation",
+    contractVersion: "stage-tc-agent-v2-animation",
     modelName: "offline-fixture",
     sampleCount: fixtures.length,
     firstPassSchemaRate: rate(firstPass),

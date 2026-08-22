@@ -29,12 +29,17 @@
 
 桌面仓库当前是可继续开发的 P0 骨架，尚未宣称已有安装包或 Provider 原生适配。两仓库的同步边界、版本策略和后续实现顺序见 [Windows 软件封装计划](docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md)。
 
-## 当前已知限制（2026-08-21）
+## 当前已知限制（2026-08-23）
 
 - **Edge TTS 当前按不可用处理**：真实 Windows 安装环境中的试听尚未通过，真实音频、完整播放与外部网络验收仍是 `EXTERNAL_VALIDATION_PENDING`。代码中的 adapter、错误分类和测试不等于真实服务已可用，也不会把失败伪装成成功。
 - **PPT 文件判断仍由确定性解析器负责**：系统先校验/转换 `.pptx`、`.ppt` 并登记完整原页，再把“原页图 + 结构化文本/备注/公式候选”交给通过视觉探针的 Provider。模型不会决定真实页数、替换原页或绕过人工批准。
+- **动画事实由 PowerPoint COM 读取，不由模型猜测**：Windows 上安装 Microsoft PowerPoint 时，PARSE 会在隔离子进程中以禁用宏、只读、无窗口方式读取主序列、点击对象交互序列、效果/对象/文本范围、触发器、延迟、时长、重复和页面切换，并生成 `animation-manifest-v1`。PLAN 收到完整原页、结构化内容和对应页动画清单，只能解释教学作用并建议旁白同步，不能改写 COM 顺序或计时；结果仍须人工批准。
+- **动画视觉复现仍有明确边界**：当前完成的是动画元数据识别和多模态教学理解，不是完整 PowerPoint 动画重放。简单白名单只标记为可重建候选；Morph、自定义/未知效果、复杂路径、媒体与交互触发器建议保留 PowerPoint 原生播放并人工审核。当前未接入 `CreateVideo`，也不会用屏幕录制或固定等待冒充原生动画导出。
+- **LibreOffice/PDF 只能静态降级**：仅有 LibreOffice 时仍能生成完整原页，但 PDF 转换不保留动画时间轴，公开解析结果会返回 `STATIC_FALLBACK` 与 `ANIMATION_METADATA_UNAVAILABLE`，不会显示“动画已识别”。旧 `.ppt` 会先尝试直接 COM 读取动画，再进入现有转换流程。
 - **本地公式能力只是候选提取，不是完整公式识别**：解析器可读取部分原生 OOXML/OMML 公式中的文本节点，也会用数学符号启发式发现普通文本公式；当前不执行可靠的 OMML → LaTeX 转换，所有候选都需要人工核对。图片公式、扫描公式和嵌入对象没有 OCR，只保留原页并提示人工检查。
 - **多模态链路已实现但尚未完成真实供应商人工验收**：OpenAI-compatible 图像请求覆盖 OpenAI、DeepSeek、GLM、Kimi、豆包和千问类型，Anthropic 使用 Messages 图像块；所选模型只有正确识别随机红/绿/蓝探针后才会获得 `VISION`。离线 fixture 通过不等于对应账号、模型、地域和限流已正式支持。
+
+本轮没有引入 MATLAB。真实 WPS、复杂 Morph/路径/媒体课件、安装版 PowerPoint 生命周期、重建后的桌面安装包及各真实多模态 Provider 仍需人工端到端试验。
 
 因此，大模型当前负责结合原页图和已提取结构规划“怎么讲”，不负责 PPTX 解包、原页渲染、结构化图片公式 OCR、Edge TTS 或视频编码。任何初始讲稿和公式读法在生成音视频前都必须由用户审核。
 
@@ -96,20 +101,19 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 运行后端测试前，普通开发终端必须能解析 Python 3.10 或更高版本的 `python`
 命令；不要将任何本机或 Codex 私有解释器绝对路径写入项目脚本。
 
-## 当前开发状态（2026-08-14）
+## 当前开发状态（2026-08-23）
 
-项目当前处于“真实后端纵切已建立、桌面软件封装尚未开始”的阶段。
+网页/共享服务已经具备阶段 T 的真实后端纵切，并新增了 PowerPoint 动画事实读取和多模态 PLAN 输入；当前仍是待人工试验的候选版本，不是正式发布版。
 
-- 阶段 T 的真实链路已具备：PPTX 上传、原页解析、讲稿规划与人工批准、Edge TTS、逐页渲染、合成、媒体硬验证，以及 MP4/SRT/元数据受控下载。
-- 真实链路目前验证到 3 页样例；解析测试覆盖到 100 页，尚未据此承诺 100 页视频稳定生成。
-- 前端默认仍使用浏览器内存 Mock；设置 NEXT_PUBLIC_PPT_DH_API_MODE=stage-t 才会进入 Next BFF → Hono → PostgreSQL → Worker 的真实链路。
-- 生产数字人当前固定为周老师开口/闭口两态整身图切换。五档局部嘴型 Demo 已被人工判定不自然并回退，L5 为 FAIL，L6 未开始。
-- 当前工作树保留唇形研究素材、契约和向前 migration，但它们没有接入正式 PAGE_RENDER。
-- 用户已确认下一阶段目标为 Windows 10/11 本地单机软件：用户配置 OpenAI、DeepSeek、GLM、Kimi 或 Anthropic Claude API，语音首发使用 Edge TTS，生成前必须审核讲稿，首发只提供一个内置数字人。
-- Windows 软件封装实施计划已经完成，见 [docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md](docs/planning/WINDOWS_DESKTOP_SOFTWARE_PLAN.md)。计划中的 Electron 宿主、API 设置页、安全密钥存储、Provider 适配、服务端根工作流、一键安装包和升级链路尚未实现。
-- 2026-08-14 代码审查修复已完成：逐页批准门禁、项目作用域媒体下载、并发渲染终态、取消/租约竞态、源文件完整性、复合快照和服务端快照重试均已接入；当前仍未进入 Windows 桌面宿主与多 Provider 实现阶段。
+- 阶段 T 的真实链路已具备：PPTX/PPT 上传、原页解析、讲稿规划与人工批准、Edge TTS、逐页渲染、合成、媒体硬验证，以及 MP4/SRT/元数据受控下载。
+- PowerPoint 安装且可用时，PARSE 会在隔离 COM 子进程读取动画清单；LibreOffice/PDF 路径只做静态降级，不伪造动画时间轴。
+- PLAN 可以把登记原页图与结构化文本/备注/公式候选发送给通过视觉探针的 Provider；真实供应商账号、模型、地域、限流和教学质量仍需人工验收。
+- 前端默认仍使用浏览器内存 Mock；设置 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t` 才会进入 Next BFF → Hono → PostgreSQL → Worker 的真实链路。
+- 生产数字人当前固定为周老师开口/闭口两态整身图切换。五档局部嘴型 Demo 已被人工判定不自然并回退，L5 为 FAIL，L6 为 STOP。
+- 当前渲染器实际支持右侧面板或隐藏；前端预览暂时可显示左侧人物，这个差异已列入后续路线图，不能把左侧预览当成最终渲染能力。
+- Windows 软件仍是独立仓库和后续交付目标；安装包重建、安装覆盖/升级、普通用户电脑和签名验收仍需单独证据。
 
-本阶段最近一次项目门禁已串行通过：npm.cmd run typecheck、npm.cmd run lint、npm.cmd run backend:test（13/13）和 npm.cmd run build。这些命令不代表桌面安装包或多 Provider 已经交付。
+最近已知的自动化门禁曾串行通过 typecheck、lint、backend:test 和 build；本次上传前重新执行的 `npm.cmd run typecheck` 已通过。真实 Provider、真实 PowerPoint/WPS 样本、完整动画视觉复现、100 页视频容量和桌面安装版仍不得宣称已通过。
 
 ## 当前能力边界
 
@@ -122,6 +126,8 @@ npm.cmd run backend:render -- --job-dir "backend/work/job-001" --tts-mode edge
 - [文档索引与归档规则](docs/README.md)
 - [当前任务与续接点](docs/CURRENT_TASK.md)
 - [当前项目状态](docs/STATUS.md)
+- [继续开发指南](docs/CONTINUE_DEVELOPMENT.md)
+- [当前成果后续能力路线图](docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md)
 - [产品需求摘要](docs/PRD.md)
 - [当前真实架构](docs/ARCHITECTURE.md)
 - [项目决策](docs/DECISIONS.md)

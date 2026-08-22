@@ -1,5 +1,6 @@
 import { ProviderError } from "./errors.ts";
 import { parseAndValidateAgentContent } from "../agent-evaluator.ts";
+import type { AgentAnimationFacts } from "@ppt-digital-human/contracts";
 
 export function readOpenAiContent(value: unknown): string {
   if (!value || typeof value !== "object") throw invalidResponse();
@@ -25,9 +26,13 @@ export function readAnthropicContent(value: unknown): string {
   return text;
 }
 
-export function validateAgentOutput(content: string, slideIds: readonly string[]) {
+export function validateAgentOutput(
+  content: string,
+  slideIds: readonly string[],
+  animationFacts: readonly AgentAnimationFacts[] = [],
+) {
   try {
-    return parseAndValidateAgentContent(content, slideIds);
+    return parseAndValidateAgentContent(content, slideIds, animationFacts);
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : "unknown";
     throw new ProviderError("PROVIDER_OUTPUT_INVALID", false, `Provider 输出未通过严格契约：${detail}`);

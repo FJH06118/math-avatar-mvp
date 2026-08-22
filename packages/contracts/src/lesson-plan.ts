@@ -13,6 +13,7 @@ import {
   PreservationModeSchema,
   SceneSchema,
 } from "./scene";
+import { AnimationTeachingUnderstandingSchema } from "./animation";
 
 export const NarrationSegmentSchema = z
   .object({
@@ -56,6 +57,7 @@ const LessonPlanRevisionShape = {
   sourceSlideCoverage: z.array(SlideIdSchema).min(1).max(100),
   preservationMode: PreservationModeSchema,
   estimatedDurationMs: z.number().int().min(1_500),
+  animationUnderstanding: AnimationTeachingUnderstandingSchema.optional(),
   modelProvider: z.string().min(1).max(100),
   modelName: z.string().min(1).max(200),
   promptVersion: z.string().min(1).max(100),

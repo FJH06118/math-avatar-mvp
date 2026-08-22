@@ -1,5 +1,22 @@
 # 项目状态
 
+## 2026-08-23 当前成果后续能力规划（仅规划）
+
+- 新增 `docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md`，把用户总结中的动画/多模态、数字人位置/观感和自然语言修改拆为可顺序执行的门禁：外部证据收口 → 左/右/隐藏安全布局 → 生产外人物动态 POC → 受限自然语言 revision 提案。
+- 该规划以代码为准确认：当前正式渲染仍只有 `right-panel/hidden`；左侧只存在预览/领域候选而非最终渲染能力；五档口型的人工失败不被自动指标覆盖；自然语言不能跳过不可变 revision、显式批准或媒体硬门。
+- 本项未实现新功能、未更改供应商或桌面安装产物，也没有执行真实凭据/外部 PPT 测试。动画/多模态、Provider、容量与桌面候选仍为 `MANUAL_TESTING_REQUIRED` / `EXTERNAL_VALIDATION_PENDING`。
+
+## 2026-08-22 PowerPoint 动画识别与多模态教学理解
+
+- 已实现 `animation-manifest-v1` 双语义严格边界：Python 在 COM 子进程输出后先验证，TypeScript/Zod 在 PARSE、持久化、公开 snapshot 和 PLAN 入口再次按 `unknown` 验证。契约覆盖主/交互序列、Effect 原始枚举、Exit、Shape、段落/文本范围、Trigger/TriggerShape、延迟/时长/重复/自动反转、页面切换和支持等级。
+- Windows COM adapter 使用独立进程、STA 初始化、`DispatchEx`、宏禁用、只读无窗口打开；默认 120 秒超时。取消、失租、异常和超时均有进程树终止及精确 `POWERPNT.EXE` PID 回收；公共错误不包含路径、密钥、堆栈、COM 内部信息或上游正文。
+- 真实 PowerPoint 合成 fixture 与完整 PARSE 已通过：2 页、第一页 4 个效果、主/交互序列、触发器 1/2/3/4、时长/延迟/重复/Shape/切换均与 fixture 设置一致；第二页是合法空动画清单。LibreOffice 同时保留 2/2 静态原页，PowerPoint 记录 PID 已关闭且不存在。
+- PLAN 已升级为“完整原页 + 文本/备注/公式候选 + 对应页严格动画清单”，Prompt 将全部课件数据视为不可信。`animationUnderstanding` 逐 effect 输出教学角色和 narration 同步建议；effect ID 顺序必须等于 COM，严格对象没有可覆盖原始计时的字段，静态/复杂/低置信度结果保持人工批准门。
+- 兼容降级已覆盖：旧 `.ppt` 先 COM 后转换；仅 LibreOffice/PDF 返回 `ANIMATION_METADATA_UNAVAILABLE`；动画失败不破坏静态解析；旧数据库记录得到 legacy 静态降级。没有引入 MATLAB，也没有以屏幕录制或固定等待实现 `CreateVideo`。
+- 当前专项证据：Python 动画/生命周期/降级 18/18，默认全 Python 33 pass/1 个真实 PowerPoint opt-in skip，真实 PowerPoint opt-in 另行启用后 1/1，Contract 57/57，Provider/视觉预算 59/59，Agent evaluator 2/2，T-B/T-C PostgreSQL integration 10/10。
+- 最终根门禁已严格串行通过：前后端 typecheck 0 error、ESLint 0 warning、Python `backend:test` 33 pass/1 个真实 PowerPoint opt-in skip、Next 16.2.11 production build 成功。
+- 未完成/人工项：真实 WPS、多个外部来源 Morph/复杂路径/媒体触发器、真实旧 `.ppt` 动画、100 页容量、安装版缺失/损坏提示、七家真实 Provider 教学解释质量、clean Windows 与桌面安装包。完整动画视觉复现和隔离 PowerPoint `CreateVideo` 仍是后续范围。
+
 > [!WARNING]
 > 当前源码仍处于 `MANUAL_TESTING_REQUIRED`：自动化门禁通过不替代真实豆包/千问等账号、外部 PPT 样本、视觉准确率、容量和重建后桌面安装包的人工试验测试。
 

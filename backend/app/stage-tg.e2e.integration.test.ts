@@ -28,6 +28,7 @@ import { claimNextProductStep } from "./product-lease.ts";
 import { SharpFfmpegPageRenderAdapter } from "./render-adapter.ts";
 import { runClaimedRenderStep } from "./render-worker.ts";
 import { LocalAssetStore } from "./storage.ts";
+import { animationUnderstandingFixture } from "./test-animation-fixture.ts";
 
 const databaseUrl = process.env.PPT_DH_DATABASE_URL ?? process.env.PPT_DH_T0_DATABASE_URL;
 if (!databaseUrl) throw new Error("PPT_DH_DATABASE_URL is required for stage T-G e2e tests.");
@@ -109,6 +110,6 @@ test("three-page HTTP upload reaches scoped full/range MP4, SRT and metadata del
   }
 });
 
-function agent(): AgentAdapter { return { async run(input) { const output: AgentPlanOutput = { schemaVersion: "stage-tc-agent-v1", slides: input.slides.map((slide, index) => ({ slideId: slide.id, teachingGoal: `理解${slide.title}`, narration: [{ displayText: `讲解第${index + 1}页。`, spokenText: `讲解第${index + 1}页。` }], derivation: [], scenes: [{ durationMs: 1650, ...(index === 0 ? { overlay: { id: "overlay_tg_1", slideId: slide.id, type: "highlightBox" as const, bounds: { x: .1, y: .1, width: .25, height: .15 }, color: "#ef4444" } } : {}) }], preservationMode: index === 0 ? "PRESERVE_WITH_OVERLAY" : "FULL_PRESERVE" })) }; return { output, provider: "local-e2e", model: "fixture", promptVersion: "stage-tc-agent-prompt-v1" }; } }; }
+function agent(): AgentAdapter { return { async run(input) { const output: AgentPlanOutput = { schemaVersion: "stage-tc-agent-v2-animation", slides: input.slides.map((slide, index) => ({ slideId: slide.id, teachingGoal: `理解${slide.title}`, narration: [{ displayText: `讲解第${index + 1}页。`, spokenText: `讲解第${index + 1}页。` }], derivation: [], scenes: [{ durationMs: 1650, ...(index === 0 ? { overlay: { id: "overlay_tg_1", slideId: slide.id, type: "highlightBox" as const, bounds: { x: .1, y: .1, width: .25, height: .15 }, color: "#ef4444" } } : {}) }], preservationMode: index === 0 ? "PRESERVE_WITH_OVERLAY" : "FULL_PRESERVE", animationUnderstanding: animationUnderstandingFixture(slide) })) }; return { output, provider: "local-e2e", model: "fixture", promptVersion: "stage-tc-agent-prompt-v3-animation" }; } }; }
 function toneAdapter(): AudioAdapter { return { async run() { return { bytes: tone, durationMs: 1650 }; } }; }
 function request(app: ReturnType<typeof createApplication>, path: string, init: RequestInit = {}, asPrincipal = principal) { const headers = new Headers(init.headers); headers.set("X-Internal-Token", internalToken); headers.set("X-Principal", asPrincipal); return app.request(path, { ...init, headers }); }

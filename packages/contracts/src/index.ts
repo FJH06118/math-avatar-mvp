@@ -1,4 +1,5 @@
 export * from "./api";
+export * from "./animation";
 export * from "./agent";
 export * from "./agent-evaluation";
 export * from "./asset";

@@ -24,6 +24,10 @@ from backend.contracts import (
     write_json,
 )
 from backend.env import load_local_env
+from backend.powerpoint_animation_runner import (
+    extract_animation_manifest_isolated,
+    finalize_animation_manifest,
+)
 
 
 load_local_env()
@@ -876,6 +880,12 @@ def main() -> int:
         )
 
     job_dir.mkdir(parents=True, exist_ok=True)
+    # Read legacy .ppt animation facts before any conversion. LibreOffice/PDF
+    # conversions are intentionally never treated as an animation source.
+    animation_result = extract_animation_manifest_isolated(
+        source_path,
+        job_dir / "animation",
+    )
     source_copy = job_dir / "source.pptx"
     if source_path.suffix.lower() == ".ppt":
         convert_legacy_ppt(source_path, source_copy)
@@ -889,6 +899,20 @@ def main() -> int:
             ) from exc
 
     deck = extract_deck(source_copy)
+    animation_manifest = finalize_animation_manifest(
+        animation_result,
+        source_path,
+        deck["slideCount"],
+    )
+    deck["animationManifest"] = animation_manifest
+    for slide, animation_slide in zip(deck["slides"], animation_manifest["slides"]):
+        animation_warnings = [
+            f"[动画:{item['code']}] {item['message']}"
+            for item in animation_slide["warnings"]
+        ]
+        slide["warnings"] = list(
+            dict.fromkeys([*slide["warnings"], *animation_warnings])
+        )[:100]
     if args.skip_slide_render:
         renderer, render_error = "skipped", None
     else:

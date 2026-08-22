@@ -10,6 +10,7 @@ import {
 import { TaskSchema } from "./task";
 import { ReviewFlagSchema } from "./review";
 import { FormulaSchema } from "./slide";
+import { AnimationManifestV1Schema } from "./animation";
 
 const ParsedTextBlockSchema = z
   .object({
@@ -57,6 +58,7 @@ export const ParseAdapterDeckSchema = z
     slides: z.array(ParseAdapterSlideSchema).min(1).max(100),
     slideRenderer: z.enum(["libreoffice", "powerpoint"]),
     slideRenderError: z.null(),
+    animationManifest: AnimationManifestV1Schema,
   })
   .strict()
   .superRefine((deck, context) => {
@@ -116,6 +118,7 @@ export const ParseSnapshotSchema = z
   .object({
     task: TaskSchema,
     slides: z.array(ParsedSlideSummarySchema).max(100),
+    animationManifest: AnimationManifestV1Schema,
   })
   .strict()
   .superRefine((snapshot, context) => {
@@ -135,6 +138,13 @@ export const ParseSnapshotSchema = z
         });
       }
     });
+    if (snapshot.animationManifest.slideCount !== snapshot.slides.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["animationManifest", "slideCount"],
+        message: "公开动画清单必须与解析页面数量一致",
+      });
+    }
   });
 
 export const ParseSnapshotResponseSchema = createApiSuccessSchema(ParseSnapshotSchema);

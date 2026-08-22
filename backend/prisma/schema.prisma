@@ -211,6 +211,7 @@ model Presentation {
   aspectRatio      Float?
   parseStatus      PresentationParseLifecycle @default(PENDING)
   parserVersion    String
+  animationManifestJson Json?
   revision         Int                        @default(1)
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt

@@ -10,6 +10,11 @@ import {
 } from "../agent-adapter.ts";
 import { RealProviderConnectionTester } from "../provider-connection-tester.ts";
 import { InMemorySecretClient } from "../secret-client.ts";
+import {
+  animationUnderstandingFixture,
+  metadataAnimationInput,
+  staticAnimationInput,
+} from "../test-animation-fixture.ts";
 import { ProviderError } from "./errors.ts";
 import { createProvider, type ProviderHttpConfig } from "./provider.ts";
 
@@ -188,7 +193,7 @@ test("ProviderGatewayAgentAdapter resolves the frozen profile and selected secre
     capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
     profileVersion: 1,
     keyVersion: secret.keyVersion,
-    promptVersion: "stage-tc-agent-prompt-v2-vision",
+    promptVersion: "stage-tc-agent-prompt-v3-animation",
   };
   try {
     const result = await new ProviderGatewayAgentAdapter(resolver).run({
@@ -332,6 +337,62 @@ test("unexpected local planning failures use a safe non-retryable runtime code",
   );
 });
 
+test("multimodal PLAN keeps each original page paired with its strict animation list", async () => {
+  let requestBody: Record<string, unknown> | undefined;
+  const input = adapterInput();
+  input.slides = [1, 2].map((slideNumber) => ({
+    ...input.slides[0]!,
+    id: `slide_${slideNumber}`,
+    title: `第${slideNumber}页`,
+    ...metadataAnimationInput(slideNumber, `effect_page_${slideNumber}`),
+    image: {
+      ...input.slides[0]!.image!,
+      ref: `slide-image-${String(slideNumber).padStart(3, "0")}`,
+      sha256: String(slideNumber).repeat(64),
+    },
+  }));
+  const output = {
+    schemaVersion: "stage-tc-agent-v2-animation",
+    slides: input.slides.map((slide) => ({
+      slideId: slide.id,
+      teachingGoal: `理解${slide.title}`,
+      narration: [{ displayText: "逐步讲解。", spokenText: "逐步讲解。" }],
+      derivation: [],
+      scenes: [{ durationMs: 2_000 }],
+      preservationMode: "FULL_PRESERVE",
+      animationUnderstanding: animationUnderstandingFixture(slide),
+    })),
+  };
+  const fixture = await startFixtureServer(async (request, response) => {
+    requestBody = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    response.end(JSON.stringify(envelopeFor("OPENAI", JSON.stringify(output))));
+  });
+  try {
+    const result = await new OpenAiCompatibleAgentAdapter({
+      apiKey: "test-key",
+      baseUrl: fixture.baseUrl,
+      model: "fixture-model",
+      kind: "OPENAI",
+      protocol: "OPENAI_CHAT",
+      capabilities: ["CHAT", "STRUCTURED_OUTPUT", "VISION"],
+    }).run(input);
+    assert.equal(result.output.slides.length, 2);
+    const messages = requestBody?.messages as Array<{ content: Array<{ type: string; text?: string }> }>;
+    const userPayload = JSON.parse(messages[1]!.content[0]!.text!) as {
+      slides: Array<{ id: string; imageRef: string; animation: { sequences: Array<{ effects: Array<{ id: string; timing: { durationSeconds: number } }> }> } }>;
+    };
+    assert.deepEqual(userPayload.slides.map((slide) => slide.id), ["slide_1", "slide_2"]);
+    assert.deepEqual(userPayload.slides.map((slide) => slide.imageRef), ["slide-image-001", "slide-image-002"]);
+    assert.deepEqual(
+      userPayload.slides.map((slide) => slide.animation.sequences[0]!.effects[0]!.id),
+      ["effect_page_1", "effect_page_2"],
+    );
+    assert(userPayload.slides.every((slide) => slide.animation.sequences[0]!.effects[0]!.timing.durationSeconds === 0.5));
+  } finally {
+    await fixture.close();
+  }
+});
+
 function configFor(providerCase: typeof providerCases[number], baseUrl: string, timeoutMs?: number): ProviderHttpConfig {
   return {
     kind: providerCase.kind,
@@ -355,6 +416,7 @@ function adapterInput(): AgentAdapterInput {
       extractedText: "导数定义",
       notes: "",
       formulas: [],
+      ...staticAnimationInput(),
       image: {
         ref: "slide-image-001",
         mimeType: "image/jpeg",
@@ -372,8 +434,9 @@ function adapterInput(): AgentAdapterInput {
 }
 
 function validPlanJson(): string {
+  const slide = { ...staticAnimationInput() };
   return JSON.stringify({
-    schemaVersion: "stage-tc-agent-v1",
+    schemaVersion: "stage-tc-agent-v2-animation",
     slides: [{
       slideId: "slide_1",
       teachingGoal: "理解导数定义",
@@ -381,6 +444,7 @@ function validPlanJson(): string {
       derivation: [],
       scenes: [{ durationMs: 2_000 }],
       preservationMode: "FULL_PRESERVE",
+      animationUnderstanding: animationUnderstandingFixture(slide),
     }],
   });
 }

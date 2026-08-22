@@ -48,10 +48,31 @@ function slide(slideNumber: number) {
   };
 }
 
+const animationManifest = {
+  schemaVersion: "animation-manifest-v1",
+  id: "animation_manifest_stage5",
+  metadataSource: "STATIC_FALLBACK",
+  parserVersion: "static-animation-fallback-v1",
+  sourceFileSha256: "c".repeat(64),
+  extractedAt: now,
+  slideCount: 1,
+  slides: [{
+    id: "slide_animation_stage5_1",
+    slideNumber: 1,
+    sequences: [],
+    transition: null,
+    effectCount: 0,
+    supportAssessment: { levels: ["STATIC_FALLBACK"], summary: "该页只能静态处理。" },
+    warnings: [{ code: "ANIMATION_METADATA_UNAVAILABLE", message: "动画元数据不可用。" }],
+  }],
+  supportAssessment: { levels: ["STATIC_FALLBACK"], summary: "课件只能静态处理。" },
+  warnings: [{ code: "ANIMATION_METADATA_UNAVAILABLE", message: "动画元数据不可用。" }],
+};
+
 describe("stage 5 parse snapshot contract", () => {
   it("accepts stable slides with scoped original-page URLs", () => {
     const parsed = ParseSnapshotResponseSchema.parse({
-      data: { task, slides: [slide(1)] },
+      data: { task, slides: [slide(1)], animationManifest },
       meta: { requestId: "request_stage5", inputVersion: "v1", outputVersion: "v1" },
     });
     expect(parsed.data.slides[0]?.originalPage.assetId).toBe("asset_stage5_1");
@@ -60,7 +81,7 @@ describe("stage 5 parse snapshot contract", () => {
   it("rejects gaps and reconstructed or external page URLs", () => {
     expect(
       ParseSnapshotResponseSchema.safeParse({
-        data: { task, slides: [slide(2)] },
+        data: { task, slides: [slide(2)], animationManifest },
         meta: { requestId: "request_stage5", inputVersion: "v1", outputVersion: "v1" },
       }).success,
     ).toBe(false);
@@ -69,6 +90,7 @@ describe("stage 5 parse snapshot contract", () => {
         data: {
           task,
           slides: [{ ...slide(1), originalPage: { ...slide(1).originalPage, url: "https://example.com/page.png" } }],
+          animationManifest,
         },
         meta: { requestId: "request_stage5", inputVersion: "v1", outputVersion: "v1" },
       }).success,

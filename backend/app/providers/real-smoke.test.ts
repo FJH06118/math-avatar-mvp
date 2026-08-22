@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { ProviderKind } from "@ppt-digital-human/contracts";
 import sharp from "sharp";
 import { OpenAiCompatibleAgentAdapter, type AgentProviderConfig } from "../agent-adapter.ts";
+import { staticAnimationInput } from "../test-animation-fixture.ts";
 
 const enabled = process.env.PPT_DH_PROVIDER_SMOKE === "1";
 
@@ -27,6 +28,7 @@ for (const kind of ["OPENAI", "DEEPSEEK", "GLM", "KIMI", "DOUBAO", "QWEN", "ANTH
         extractedText: "导数描述函数的瞬时变化率。",
         notes: "",
         formulas: [],
+        ...staticAnimationInput(),
         image: {
           ref: "slide-image-001",
           mimeType: "image/jpeg",

@@ -52,6 +52,7 @@ export function buildAgentRevision(input: {
     derivation,
     scenes,
     preservationMode: input.plan.preservationMode,
+    animationUnderstanding: input.plan.animationUnderstanding,
   };
   return LessonPlanRevisionSchema.parse({
     id: revisionId,

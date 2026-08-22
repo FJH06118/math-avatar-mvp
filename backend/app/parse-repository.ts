@@ -4,6 +4,7 @@ import type { PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError } from "./errors.ts";
 import { reviewFlagsForSlide } from "./lesson-plan-review.ts";
 import { projectTask } from "./projections.ts";
+import { readPresentationAnimationManifest } from "./animation-manifest.ts";
 
 export class ParseRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -11,6 +12,7 @@ export class ParseRepository {
   async getSnapshot(principal: string, taskId: string) {
     const task = await this.prisma.generationTask.findFirst({
       where: { id: taskId, principal, kind: "PARSE" },
+      include: { presentation: true },
     });
     if (!task) {
       throw new AppHttpError(404, "PARSE_TASK_NOT_FOUND", "解析任务不存在。", false);
@@ -27,8 +29,13 @@ export class ParseRepository {
         false,
       );
     }
+    const animationManifest = readPresentationAnimationManifest({
+      ...task.presentation,
+      slides,
+    });
     return ParseSnapshotSchema.parse({
       task: projectTask(task),
+      animationManifest,
       slides: slides.map((slide) => {
         const formulas = Array.isArray(slide.formulaJson)
           ? slide.formulaJson.flatMap((value) => {

@@ -164,6 +164,7 @@ export class ParseResultPersister {
           width: first.width,
           height: first.height,
           aspectRatio: first.width / first.height,
+          animationManifestJson: result.deck.animationManifest as Prisma.InputJsonValue,
           parseStatus: "COMPLETED",
         },
       });
