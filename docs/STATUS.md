@@ -1,10 +1,12 @@
 # 项目状态
 
-## 2026-08-23 当前成果后续能力规划（仅规划）
+## 2026-08-23 当前成果后续规划重审（仅规划）
 
-- 新增 `docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md`，把用户总结中的动画/多模态、数字人位置/观感和自然语言修改拆为可顺序执行的门禁：外部证据收口 → 左/右/隐藏安全布局 → 生产外人物动态 POC → 受限自然语言 revision 提案。
-- 该规划以代码为准确认：当前正式渲染仍只有 `right-panel/hidden`；左侧只存在预览/领域候选而非最终渲染能力；五档口型的人工失败不被自动指标覆盖；自然语言不能跳过不可变 revision、显式批准或媒体硬门。
-- 本项未实现新功能、未更改供应商或桌面安装产物，也没有执行真实凭据/外部 PPT 测试。动画/多模态、Provider、容量与桌面候选仍为 `MANUAL_TESTING_REQUIRED` / `EXTERNAL_VALIDATION_PENDING`。
+- `docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md` 已完全重写。代码审查确认上一版遗漏了最重要的产品差距：COM/PLAN 已认识动画，但 PAGE_RENDER/COMPOSITE 只使用静态原页，最终视频不会因此自动保留任何动画。
+- 新路线图以 Release A/B 组织：先交付 Windows 单机内部 Beta，再交付单页自然语言改课 Beta。主线为 `M0 文档/金样 → M1 显式动画处置 → M2 CreateVideo GO/NO-GO → M3 三模板/字幕 → M4 桌面候选 → M5 revision proposal`；人物动作不再阻塞主线。
+- M1 即使在 M2 原生导出失败时仍可成立：含动画页没有匹配处置即返回 `ANIMATION_REVIEW_REQUIRED`，用户明确接受静态并批准后才可生成。M2 的失败是局部 NO-GO，不再把整个产品计划卡死。
+- Release A 的外部门被收窄为同一候选上的一个真实多模态 Provider、真实 Edge TTS、五个金样、10 页完整生成和安装/升级/回滚；其余 Provider、WPS、旧 `.ppt` 动画和 30/50/100 页视频容量分别保留独立证据状态。
+- 本轮仅修改规划/续接文档，没有实现 M0～M5、访问真实账号、生成收费请求或重建桌面候选。当前源码与外部证据状态不变。
 
 ## 2026-08-22 PowerPoint 动画识别与多模态教学理解
 

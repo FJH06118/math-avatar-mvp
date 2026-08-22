@@ -3,11 +3,13 @@
 > [!WARNING]
 > 本工作树是待人工试验候选。真实豆包/千问等多模态账号、多个外部来源 PPT、公式/图表视觉准确率、异常文件提示、100 页容量，以及重建后的 Windows 桌面安装包仍需人工端到端测试；在完成并记录证据前不得标记为正式供应商或安装版验收通过。
 
-## 2026-08-23 基于当前成果的后续规划（仅规划，不改变当前人工测试门）
+## 2026-08-23 后续规划重审完成（仅规划）
 
-- 已根据当前工作树、现有架构/决策、既有教学质量/唇形/Windows 计划和用户总结，新增 [后续能力路线图](planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md)。它把已完成的动画识别/多模态解析列为人工验收事项，而不是新的开发承诺。
-- 推荐严格顺序为：先补动画/Provider/桌面候选的外部证据与文档真相，再以左栏/右栏/隐藏三种安全模板实现真实数字人站位；固定手势只能先做生产外 POC，五档口型失败不恢复；自然语言功能只生成可审核 revision 提案。
-- 本条没有修改业务代码、Provider 配置、桌面候选或真实课件，也没有把外部测试写成通过。当前 `MANUAL_TESTING_REQUIRED`、动画完整视觉复现后置、L5 FAIL/L6 STOP 和人工批准门保持不变。
+- 已重写 [下一阶段产品闭环路线图](planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md)。旧版评分为完整性 2/5、可行性 2/5、范围 2/5、可测试性 3/5、风险 4/5、假设 2/5；主要错误是把动画事实识别当成动画只剩外部验收，却没有处理正式 renderer 完全不消费动画清单这一事实。
+- 新主线分为两个发布：Release A 先完成“动画不静默丢失、原生视频 GO/NO-GO、左/右/隐藏、可靠字幕、一个真实 Provider/Edge/10 页/安装候选”；Release B 再做单页自然语言 revision proposal。人物动作/新口型降为 Release A 后的 Optional R&D。
+- 当前严格顺序为 `M0 文档真相与金样 → M1 动画处置门 → M2 PowerPoint 原生视频 POC → M3 布局与字幕 → M4 桌面 Release A → M5 自然语言提案`。M2 失败只禁用原生动画，不阻塞 M3/M4；M1/M3/M4 失败才阻止 Release A。
+- 下一步从 M0 开始；第一个业务代码纵切是把 `AnimationDispositionV1` 写入不可变 revision，并以 `ANIMATION_REVIEW_REQUIRED` 阻止含动画页面无提示生成。此项尚未实现。
+- 本轮没有修改业务代码、Provider 配置、真实课件或桌面安装产物，也没有执行外部测试；所有既有 `MANUAL_TESTING_REQUIRED` / `EXTERNAL_VALIDATION_PENDING` 状态保持。
 
 ## 2026-08-22 PowerPoint 动画识别与多模态教学理解（源码与本机门禁收口，人工试验待补）
 

@@ -1,11 +1,30 @@
 # 项目开发执行路线图
 
-> 状态：Active
-> 更新日期：2026-08-03
-> 适用范围：从当前已提交原型到可控生产版本的完整开发过程
-> 详细依据：`docs/IMPLEMENTATION_PLAN.md`、`docs/ARCHITECTURE_DECISIONS.md`
+> 状态：Historical execution record；当前执行入口见 `CURRENT_RESULTS_CAPABILITY_ROADMAP.md`
+> 更新日期：2026-08-23
+> 适用范围：保留阶段 0～12 的历史设计与门禁，禁止用其中 2026-08-03 的“当前起点”判断现状
+> 当前详细依据：`docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md`、`docs/CURRENT_TASK.md`、`docs/STATUS.md`
 
-## 1. 当前起点
+## 0. 当前有效执行顺序（2026-08-23）
+
+旧阶段 T、3～11 以及 Windows P0～P8 的实现和历史证据已经进入当前代码/状态文档；下面的长篇阶段说明仅供追溯，不再是续接顺序。
+
+当前唯一有效主线是：
+
+```text
+M0 文档真相与五个金样
+→ M1 动画显式处置门
+→ M2 PowerPoint CreateVideo 单页 GO/NO-GO
+→ M3 左/右/隐藏与字幕时序
+→ M4 一个可追溯 Windows Release A 候选
+→ M5 单页自然语言 revision proposal
+```
+
+人物动作/新口型是 M4 后的可选 R&D。M2 失败只关闭原生动画底片；M1、M3 或 M4 失败才阻止 Release A。完整范围、文件、验收、风险、回退和 STOP 条件以 [重规划路线图](CURRENT_RESULTS_CAPABILITY_ROADMAP.md) 为准。
+
+## 历史路线图（仅供追溯）
+
+## 1. 2026-08-03 的历史起点
 
 当前 Git 基线已经完成目录重组、前后端原型、上下文文档和阶段 1A 测试保护提交。
 本地 `main` 相对 `origin/main` ahead 14，尚未执行 push。T-A 已按四个提交固化，T-B/T-C 变更尚未提交；当前代码保留 Mock/CLI 并新增最小真实入口：

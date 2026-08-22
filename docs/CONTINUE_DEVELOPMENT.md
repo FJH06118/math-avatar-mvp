@@ -21,19 +21,18 @@
 
 ## 从哪里开始
 
-当前推荐的第一步不是继续堆功能，而是完成路线图 A 的外部证据闭环：
+当前唯一有效顺序以 [重规划后的产品闭环路线图](planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md) 为准：
 
-1. 在真实 PowerPoint/WPS、不同来源 `.pptx`/`.ppt`、4:3/纵向、复杂动画、PowerPoint 缺失和损坏文件上做人工矩阵。
-2. 对真实豆包、千问及其他已配置 Provider 做视觉探针、真实 PLAN 质量和失败提示验收。
-3. 在明确授权后重建 Windows 桌面候选并做安装、启动、升级和回滚验证。
-4. 把每一项结果写入 [`CURRENT_TASK.md`](CURRENT_TASK.md)、[`STATUS.md`](STATUS.md) 和对应详细计划；没有证据时保持 `MANUAL_TESTING_REQUIRED` / `EXTERNAL_VALIDATION_PENDING`。
+1. **M0 文档真相与金样**：先修正 PRD/架构/旧路线图中的过时当前态，并固化静态、简单自动动画和不支持动画金样。不要先跑七家 Provider 的大矩阵。
+2. **M1 动画处置门**：含动画页面没有匹配的显式处置时必须阻止生成；这是下一项业务代码工作，也是 Release A 的最低诚信门。
+3. **M2 原生视频 POC**：用 PowerPoint `CreateVideo` 对单页、自动计时白名单做 GO/NO-GO。失败只关闭原生动画，不阻塞后续布局和内测闭环。
+4. **M3 成片可用性**：实现左栏/右栏/隐藏统一布局，并让字幕按可靠的 Edge word timing 或保守 narration segment 时序生成。
+5. **M4 桌面 Release A**：M1～M3 收口后只重建一个可追溯候选，验收一个真实 Provider、真实 Edge TTS、五个金样和 10 页完整生成。
+6. **M5 自然语言改课**：Release A 后再做单页、文本字段限定的 proposal → diff → apply → approve → 精确重生成闭环。
 
-外部证据收口后，再按以下顺序进入实现：
+人物动作和新口型不在主线。五档口型 L5 为 FAIL、L6 为 STOP；没有用户明确要求、许可素材和连续播放验收前，不要恢复或替换这条路线。
 
-1. **数字人站位**：把当前实际渲染统一为可验证的 `left-panel` / `right-panel` / `hidden` 三种模板；先完成一页纵切，再扩展到多页。
-2. **动作 POC**：只在生产链路之外验证 2～3 个低幅度固定手势；连续播放、字幕安全区和失败回退通过后才考虑接入。
-3. **自然语言修改**：实现为可审阅的 `ChangeProposal`/revision diff，必须人工批准并重新验证媒体；不允许直接改 PPT 二进制或执行模型生成代码。
-4. **口型**：五档局部嘴型已经人工判定不自然，L5 为 FAIL、L6 为 STOP；没有新的素材和重新批准前，不要恢复该路线。
+如果现在开始开发，应从 M0 开始；M0 完成后第一个代码切片是 `AnimationDispositionV1 + ANIMATION_REVIEW_REQUIRED`，不是桌面打包、手势或七供应商普查。
 
 ## 按任务查代码
 
