@@ -7,6 +7,7 @@ import {
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
+import { assertPresentationAnimationDisposition } from "./animation-disposition-gate.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 import { normalizeSupportedTeachingSettings } from "./teaching-settings.ts";
 
@@ -45,6 +46,8 @@ export class RenderRepository {
       },
     });
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
+    // M1：与 workflow 共用同一道动画处置门，避免从 renders 端点绕过。
+    assertPresentationAnimationDisposition(presentation);
     const parsedSettings = TeachingSettingsSchema.safeParse(presentation.project.settings);
     const slideOverrides = parsedSettings.success
       ? normalizeSupportedTeachingSettings(parsedSettings.data).slideOverrides

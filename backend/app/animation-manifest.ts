@@ -7,6 +7,7 @@ import {
   type SlideAnimationManifest,
 } from "@ppt-digital-human/contracts";
 import { WorkerError } from "./worker-error.ts";
+import { dispositionManifestHash } from "./animation-disposition.ts";
 
 interface PresentationAnimationSource {
   sha256: string;
@@ -44,12 +45,14 @@ export function animationFactsForSlides(
   manifest: AnimationManifestV1,
   slides: Array<{ id: string; slideNumber: number }>,
 ): AgentAnimationFacts[] {
+  const manifestHash = dispositionManifestHash(manifest);
   return slides.map((slide) => {
     const animation = animationForSlide(manifest, slide.slideNumber);
     const levels = animation.supportAssessment.levels;
     return {
       slideId: slide.id,
       manifestId: manifest.id,
+      manifestHash,
       effectIds: orderedAnimationEffectIds(animation),
       reviewRequired:
         manifest.metadataSource === "STATIC_FALLBACK" ||
@@ -73,7 +76,7 @@ export function animationForSlide(
   return animation;
 }
 
-function createLegacyStaticFallback(
+export function createLegacyStaticFallback(
   sourceFileSha256: string,
   slideCount: number,
   extractedAt: Date,

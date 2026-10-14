@@ -13,6 +13,7 @@ import {
   animationForSlide,
   readPresentationAnimationManifest,
 } from "./animation-manifest.ts";
+import { dispositionManifestHash } from "./animation-disposition.ts";
 
 const PlanConfigSchema = z
   .object({
@@ -93,6 +94,7 @@ export async function runClaimedPlanStep(
 
   try {
     const visionInputs = await prepareVisionInputs(slides, dependencies.assets, controller.signal);
+    const animationManifestHash = dispositionManifestHash(animationManifest);
     const result = await dependencies.adapter.run({
       slides: slides.map((slide) => ({
         id: slide.id,
@@ -102,6 +104,7 @@ export async function runClaimedPlanStep(
         notes: slide.notes,
         formulas: slide.formulaJson,
         animationManifestId: animationManifest.id,
+        animationManifestHash,
         animationMetadataSource: animationManifest.metadataSource,
         animation: animationForSlide(animationManifest, slide.slideNumber),
         image: visionInputs.get(slide.id),

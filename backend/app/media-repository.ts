@@ -4,6 +4,7 @@ import { FinalMediaSchema, MediaValidationReportSchema, type CompositeTaskCreate
 import type { Prisma, PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
+import { assertPresentationAnimationDisposition } from "./animation-disposition-gate.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface CompositeRequestedPayload {
@@ -31,6 +32,8 @@ export class MediaRepository {
       },
     });
     if (!presentation) throw new AppHttpError(404, "PRESENTATION_NOT_FOUND", "演示文稿不存在。", false);
+    // M1：与 workflow 共用同一道动画处置门，避免从 composites 端点绕过。
+    assertPresentationAnimationDisposition(presentation);
     for (const slide of presentation.slides) {
       assertCurrentApprovedRevision(slide);
     }

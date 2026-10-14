@@ -61,6 +61,8 @@ export const AgentPlanOutputSchema = z
 export interface AgentAnimationFacts {
   slideId: string;
   manifestId: string;
+  /** 绑定当前源动画清单的稳定哈希；清单变化时旧处置必须失效（M1）。 */
+  manifestHash: string;
   effectIds: readonly string[];
   reviewRequired: boolean;
 }

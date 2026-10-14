@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  AnimationDispositionReportSchema,
   ProviderSelectionSnapshotSchema,
+  Sha256Schema,
   TeachingSettingsSchema,
   WorkflowRunCreateInputSchema,
   WorkflowRunRetryInputSchema,
   WorkflowRunSchema,
+  type AnimationDispositionReport,
   type ProviderSelectionSnapshot,
   type TeachingSettings,
   type WorkflowRun,
@@ -15,6 +18,7 @@ import {
 import type { Prisma, PrismaClient, WorkflowRun as PrismaWorkflowRun } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
+import { assertPresentationAnimationDisposition } from "./animation-disposition-gate.ts";
 import { findDefaultProviderSelection } from "./lesson-plan-repository.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 import { normalizeSupportedTeachingSettings } from "./teaching-settings.ts";
@@ -33,6 +37,10 @@ export type WorkflowInputSnapshot = {
   targetMinutes: number;
   settings: TeachingSettings;
   providerSelection: ProviderSelectionSnapshot | null;
+  /** M1：冻结当时的动画清单哈希，保证处置与生成输入同源。 */
+  animationManifestHash: string;
+  /** M1：生成时的动画处置计数报告。 */
+  animationDispositionReport: AnimationDispositionReport;
 };
 
 export class WorkflowRunRepository {
@@ -239,6 +247,9 @@ export class WorkflowRunRepository {
     const approvedRevisionIds = presentation.slides.map((slide) => {
       return assertCurrentApprovedRevision(slide).revision.id;
     });
+    // M1 动画处置门：含动画页面缺少匹配处置时，必须在创建生成流程之前阻断。
+    // 与 audio / renders / composites 三条创建路径共用同一个门，避免任何一条绕过。
+    const animationState = assertPresentationAnimationDisposition(presentation);
     const parsedSettings = TeachingSettingsSchema.safeParse(presentation.project.settings);
     if (!parsedSettings.success) {
       throw new AppHttpError(500, "PROJECT_SETTINGS_INVALID", "项目授课配置无效。", false);
@@ -253,6 +264,8 @@ export class WorkflowRunRepository {
       targetMinutes: DEFAULT_TARGET_MINUTES,
       settings,
       providerSelection: providerSelection ?? null,
+      animationManifestHash: animationState.manifestHash,
+      animationDispositionReport: animationState.report,
     };
     const inputHash = stableHash({ presentationId, snapshot });
     const planTask = await this.prisma.generationTask.findFirst({
@@ -305,5 +318,7 @@ function zWorkflowInputSnapshot() {
     targetMinutes: z.number().int().min(1).max(120),
     settings: TeachingSettingsSchema,
     providerSelection: ProviderSelectionSnapshotSchema.nullable(),
+    animationManifestHash: Sha256Schema,
+    animationDispositionReport: AnimationDispositionReportSchema,
   }).strict();
 }

@@ -6,6 +6,8 @@ import {
   TracerUploadMetadataSchema,
   TracerUploadResponseSchema,
   LessonPlanApprovalRequestSchema,
+  AnimationDispositionDecisionRequestSchema,
+  AnimationDispositionReviewResponseSchema,
   LessonPlanRevisionEditRequestSchema,
   LessonPlanRevisionListResponseSchema,
   LessonPlanRevisionResponseSchema,
@@ -559,6 +561,24 @@ export function createApplication(dependencies: AppDependencies): Hono {
     if (!parsed.success) throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
     const revision = await lessonPlans.approve(principal, context.req.param("revisionId"), parsed.data.expectedRevision);
     return context.json(LessonPlanRevisionResponseSchema.parse({ data: revision, meta: apiMeta(requestId) }));
+  });
+
+  // M1：用户为某一页选择动画处置，成功时创建一个新的 pending 修订。
+  app.post("/v1/revisions/:revisionId/animation-disposition", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
+    const parsed = AnimationDispositionDecisionRequestSchema.safeParse(await context.req.json().catch(() => null));
+    if (!parsed.success) throw invalidBody(parsed.error.issues.map((issue) => issue.path.join(".")));
+    const revision = await lessonPlans.decideAnimationDisposition(principal, context.req.param("revisionId"), parsed.data);
+    return context.json(LessonPlanRevisionResponseSchema.parse({ data: revision, meta: apiMeta(requestId) }), 201);
+  });
+
+  // M1：逐页动画事实与当前处置，供工作台展示；结果报告只含计数。
+  app.get("/v1/projects/:projectId/animation-disposition", async (context) => {
+    const requestId = `request_${randomUUID()}`;
+    const principal = authenticate(context.req.header("x-internal-token"), context.req.header("x-principal"), dependencies.internalToken);
+    const report = await lessonPlans.animationDispositionReview(principal, context.req.param("projectId"));
+    return context.json(AnimationDispositionReviewResponseSchema.parse({ data: report, meta: apiMeta(requestId) }));
   });
 
   app.post("/v1/revisions/:revisionId/lock", async (context) => {

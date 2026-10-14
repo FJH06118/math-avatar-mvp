@@ -21,6 +21,8 @@
     "test:stage-11b": "tsx --test --test-concurrency=1 app/stage-11b-ppt-coverage.test.ts",
     "eval:agent": "tsx --test app/agent-evaluator.test.ts",
     "test:lip-sync": "tsx --test --test-concurrency=1 app/lip-sync.test.ts app/avatar-assets.test.ts app/binary-mouth.test.ts",
+    "test:animation-disposition": "tsx --test --test-concurrency=1 app/animation-disposition.test.ts",
+    "test:m1-gate": "tsx --test --test-concurrency=1 app/m1-animation-gate.integration.test.ts",
     "test:stage-11d": "tsx --test --test-concurrency=1 app/audio-quality.test.ts app/stage-td.integration.test.ts",
     "test:stage-11e": "tsx --test --test-concurrency=1 app/render-benchmark.test.ts app/stage-te.integration.test.ts",
     "test:stage-11f": "tsx --test --test-concurrency=1 app/stage-tf.integration.test.ts app/stage-tg.e2e.integration.test.ts"

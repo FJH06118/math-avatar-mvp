@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { Sha256Schema, StableIdSchema } from "./primitives";
+import { ApiMetaSchema } from "./api";
+import { PresentationIdSchema, Sha256Schema, StableIdSchema } from "./primitives";
 
 const FiniteNumberSchema = z.number().refine(Number.isFinite, "必须是有限数值");
 const RawEnumSchema = z
@@ -149,10 +150,12 @@ export const AnimationEffectSchema = z
   })
   .strict();
 
+export const AnimationSequenceKindSchema = z.enum(["MAIN", "INTERACTIVE"]);
+
 export const AnimationSequenceSchema = z
   .object({
     id: StableIdSchema,
-    kind: z.enum(["MAIN", "INTERACTIVE"]),
+    kind: AnimationSequenceKindSchema,
     index: z.number().int().min(1),
     effects: z.array(AnimationEffectSchema).max(2_000),
     supportAssessment: AnimationSupportAssessmentSchema,
@@ -353,6 +356,131 @@ export const AnimationTeachingUnderstandingSchema = z
 export function orderedAnimationEffectIds(slide: SlideAnimationManifest): string[] {
   return slide.sequences.flatMap((sequence) => sequence.effects.map((effect) => effect.id));
 }
+
+/**
+ * 动画处置（M1）：与 COM 动画事实**分离**的一层，记录"这一页的动画最终怎么处理"。
+ *
+ * - `NOT_APPLICABLE`：该页没有动画，服务端派生；
+ * - `ACCEPT_STATIC`：用户明确接受"最终视频不会播放本页动画"；
+ * - `PRESERVE_NATIVE`：保留 PowerPoint 原生播放，**M2 判定 GO 之前不得作为可选项**。
+ *
+ * disposition 与动画清单通过 `manifestHash` 绑定：清单变化（重新解析或替换源课件）后，
+ * 旧的处置自动失效，必须重新确认。
+ */
+export const AnimationDispositionModeSchema = z.enum([
+  "NOT_APPLICABLE",
+  "ACCEPT_STATIC",
+  "PRESERVE_NATIVE",
+]);
+
+export const AnimationDispositionSchema = z
+  .object({
+    schemaVersion: z.literal("animation-disposition-v1"),
+    slideId: StableIdSchema,
+    manifestHash: Sha256Schema,
+    mode: AnimationDispositionModeSchema,
+    decidedBy: StableIdSchema,
+    decidedAt: z.string().datetime({ offset: true }),
+    reason: z.string().min(1).max(1_000).optional(),
+  })
+  .strict()
+  .superRefine((disposition, context) => {
+    if (disposition.mode === "NOT_APPLICABLE" && disposition.reason !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "系统派生的处置不接受用户理由",
+      });
+    }
+    if (disposition.mode === "ACCEPT_STATIC" && disposition.reason === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "接受静态必须记录依据",
+      });
+    }
+  });
+
+/**
+ * 面向工作台与结果报告的逐页动画事实投影。
+ * 只包含业务数据，不含磁盘路径、storage key、COM 内部对象或上游正文。
+ */
+export const SlideAnimationReviewSchema = z
+  .object({
+    slideId: StableIdSchema,
+    slideNumber: z.number().int().min(1).max(100),
+    manifestHash: Sha256Schema,
+    metadataSource: AnimationMetadataSourceSchema,
+    effectCount: z.number().int().min(0).max(20_000),
+    sequenceKinds: z.array(AnimationSequenceKindSchema).max(100),
+    supportLevels: z.array(AnimationSupportLevelSchema).max(20),
+    supportSummary: z.string().min(1).max(5_000),
+    warnings: z.array(AnimationWarningSchema).max(200),
+    /** 该页是否存在权威动画事实（无动画或元数据不可用时为 false）。 */
+    hasAnimationFacts: z.boolean(),
+    disposition: AnimationDispositionSchema.nullable(),
+    /** 当前处置是否仍然对应当前动画清单。 */
+    dispositionCurrent: z.boolean(),
+  })
+  .strict()
+  .superRefine((review, context) => {
+    if (review.effectCount > 0 && review.sequenceKinds.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["sequenceKinds"],
+        message: "存在动画效果时必须报告序列类别",
+      });
+    }
+    if (review.disposition !== null && review.disposition.slideId !== review.slideId) {
+      context.addIssue({
+        code: "custom",
+        path: ["disposition"],
+        message: "处置必须属于同一页面",
+      });
+    }
+    if (!review.dispositionCurrent && review.disposition !== null) {
+      context.addIssue({
+        code: "custom",
+        path: ["dispositionCurrent"],
+        message: "处以失效状态时必须清空处置",
+      });
+    }
+  });
+
+/**
+ * 结果报告：只暴露计数，不暴露页码之外的任何内部数据。
+ */
+export const AnimationDispositionReportSchema = z
+  .object({
+    animatedSlideCount: z.number().int().min(0).max(100),
+    nativePreservedSlideCount: z.number().int().min(0).max(100),
+    acceptedStaticSlideCount: z.number().int().min(0).max(100),
+    metadataUnavailableSlideCount: z.number().int().min(0).max(100),
+  })
+  .strict();
+
+/** 工作台/结果页的动画处置总览：逐页事实 + 计数报告 + 当前可选模式。 */
+export const AnimationDispositionReviewSchema = z
+  .object({
+    presentationId: PresentationIdSchema,
+    manifestHash: Sha256Schema,
+    /** 需要用户处置、当前尚未处置的页面。 */
+    pendingSlideIds: z.array(StableIdSchema).max(100),
+    selectableModes: z.array(AnimationDispositionModeSchema).max(10),
+    report: AnimationDispositionReportSchema,
+    slides: z.array(SlideAnimationReviewSchema).max(100),
+  })
+  .strict();
+
+export const AnimationDispositionReviewResponseSchema = z
+  .object({ data: AnimationDispositionReviewSchema, meta: ApiMetaSchema })
+  .strict();
+
+export type AnimationDispositionReview = z.infer<typeof AnimationDispositionReviewSchema>;
+export type AnimationDisposition = z.infer<typeof AnimationDispositionSchema>;
+export type AnimationDispositionMode = z.infer<typeof AnimationDispositionModeSchema>;
+export type SlideAnimationReview = z.infer<typeof SlideAnimationReviewSchema>;
+export type AnimationDispositionReport = z.infer<typeof AnimationDispositionReportSchema>;
 
 export type AnimationManifestV1 = z.infer<typeof AnimationManifestV1Schema>;
 export type SlideAnimationManifest = z.infer<typeof SlideAnimationManifestSchema>;

@@ -8,6 +8,13 @@ import type { AgentInputSlide } from "./agent-adapter.ts";
 
 export const TEST_ANIMATION_MANIFEST_ID = "animation_manifest_test";
 
+/**
+ * 测试用动画清单哈希。
+ * 与真实 `dispositionManifestHash()` 的一致性由 M1 的专项测试单独覆盖；
+ * 这里只用于让 fixture 通过 `AgentInputSlide` 的结构校验。
+ */
+export const TEST_ANIMATION_MANIFEST_HASH = "b3f1c9d2e4a5678b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7";
+
 export function staticAnimationManifestFixture(
   sourceFileSha256: string,
   slideCount: number,
@@ -56,6 +63,7 @@ export function staticAnimationFixture(slideNumber = 1): SlideAnimationManifest 
 export function staticAnimationInput(slideNumber = 1) {
   return {
     animationManifestId: TEST_ANIMATION_MANIFEST_ID,
+    animationManifestHash: TEST_ANIMATION_MANIFEST_HASH,
     animationMetadataSource: "STATIC_FALLBACK" as const,
     animation: staticAnimationFixture(slideNumber),
   };
@@ -122,6 +130,7 @@ export function metadataAnimationInput(slideNumber: number, effectId: string) {
   };
   return {
     animationManifestId: TEST_ANIMATION_MANIFEST_ID,
+    animationManifestHash: TEST_ANIMATION_MANIFEST_HASH,
     animationMetadataSource: "POWERPOINT_COM" as const,
     animation,
   };

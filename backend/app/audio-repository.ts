@@ -8,6 +8,7 @@ import type { Prisma } from "../generated/prisma/client.ts";
 import type { PrismaClient } from "../generated/prisma/client.ts";
 import { AppHttpError, isUniqueViolation } from "./errors.ts";
 import { assertCurrentApprovedRevision } from "./lesson-plan-review.ts";
+import { assertPresentationAnimationDisposition } from "./animation-disposition-gate.ts";
 import { stableHash } from "./lesson-plan-builder.ts";
 
 export interface AudioRequestedPayload {
@@ -138,6 +139,8 @@ export class AudioRepository {
     if (presentation.parseStatus !== "COMPLETED" || presentation.slides.length === 0) {
       throw new AppHttpError(409, "PRESENTATION_NOT_PARSED", "演示文稿尚未完成解析。", false);
     }
+    // M1：与 workflow 共用同一道动画处置门，避免从 audio 端点绕过。
+    assertPresentationAnimationDisposition(presentation);
     const revisions = presentation.slides.map((slide) => ({
       slide,
       revision: assertCurrentApprovedRevision(slide).revision,

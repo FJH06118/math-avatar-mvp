@@ -13,7 +13,7 @@ import {
   PreservationModeSchema,
   SceneSchema,
 } from "./scene";
-import { AnimationTeachingUnderstandingSchema } from "./animation";
+import { AnimationDispositionSchema, AnimationTeachingUnderstandingSchema } from "./animation";
 
 export const NarrationSegmentSchema = z
   .object({
@@ -58,6 +58,11 @@ const LessonPlanRevisionShape = {
   preservationMode: PreservationModeSchema,
   estimatedDurationMs: z.number().int().min(1_500),
   animationUnderstanding: AnimationTeachingUnderstandingSchema.optional(),
+  /**
+   * M1 动画处置。与 COM 动画事实分离，随本修订一起冻结与批准。
+   * 含动画页面缺少匹配处置时，GENERATE/Workflow 必须返回 ANIMATION_REVIEW_REQUIRED。
+   */
+  animationDisposition: AnimationDispositionSchema.nullable().optional(),
   modelProvider: z.string().min(1).max(100),
   modelName: z.string().min(1).max(200),
   promptVersion: z.string().min(1).max(100),
@@ -82,6 +87,14 @@ export const LessonPlanRevisionSchema = z
         code: "custom",
         path: ["sourceSlideCoverage"],
         message: "sourceSlideCoverage 必须由当前场景重新派生",
+      });
+    }
+    const disposition = revision.animationDisposition;
+    if (disposition && disposition.slideId !== revision.slideId) {
+      context.addIssue({
+        code: "custom",
+        path: ["animationDisposition", "slideId"],
+        message: "动画处置必须属于本修订对应的页面",
       });
     }
   });
@@ -113,6 +126,24 @@ export function createApprovedLessonPlanRevisionSchema(
     }
   });
 }
+
+/**
+ * M1：用户为某一页选择动画处置的请求。
+ *
+ * `slideId` / `manifestHash` / `decidedAt` 由服务端派生，客户端**不能**指定，
+ * 因此这里只接受模式与依据；`expectedRevision` 用于乐观并发。
+ */
+export const AnimationDispositionDecisionRequestSchema = z
+  .object({
+    expectedRevision: z.number().int().min(1),
+    mode: z.enum(["ACCEPT_STATIC", "PRESERVE_NATIVE"]),
+    reason: z.string().min(1).max(1_000).optional(),
+  })
+  .strict();
+
+export type AnimationDispositionDecisionRequest = z.infer<
+  typeof AnimationDispositionDecisionRequestSchema
+>;
 
 export type LessonPlanRevision = z.infer<typeof LessonPlanRevisionSchema>;
 export type ApprovedLessonPlanRevision = z.infer<

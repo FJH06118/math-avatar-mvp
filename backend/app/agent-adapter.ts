@@ -27,6 +27,8 @@ export interface AgentInputSlide {
   notes: string;
   formulas: unknown;
   animationManifestId: string;
+  /** 当前动画清单的稳定哈希，用于把 M1 处置绑定到同一份事实。 */
+  animationManifestHash: string;
   animationMetadataSource: "POWERPOINT_COM" | "STATIC_FALLBACK";
   animation: SlideAnimationManifest;
   image?: AgentInputImage;
@@ -237,6 +239,7 @@ async function runWithProvider(
       input.slides.map((slide) => ({
         slideId: slide.id,
         manifestId: slide.animationManifestId,
+        manifestHash: slide.animationManifestHash,
         effectIds: orderedAnimationEffectIds(slide.animation),
         reviewRequired:
           slide.animationMetadataSource === "STATIC_FALLBACK" ||
