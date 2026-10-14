@@ -1,5 +1,111 @@
 # 项目状态
 
+## 2026-10-12 M1 动画处置门（已完成）
+
+**结论：M1 六项要求全部实现并通过测试。** 契约、四条创建路径的阻断门、服务端派生、失效机制、前端工作台与结果报告均已完成；`PRESERVE_NATIVE` 按计划在 M2 GO 前保持不可选。下一步为 M2 PowerPoint 原生视频 POC。
+
+### 1. 契约（`packages/contracts/src/`）
+
+- `animation.ts` 新增：
+  - `AnimationDispositionModeSchema`：`NOT_APPLICABLE | ACCEPT_STATIC | PRESERVE_NATIVE`；
+  - `AnimationDispositionSchema`（`animation-disposition-v1`，strict）：`slideId` / `manifestHash` / `mode` / `decidedBy` / `decidedAt` / 可选 `reason`，并强制：`ACCEPT_STATIC` 必须给出依据、`NOT_APPLICABLE` 不接受用户依据；
+  - `SlideAnimationReviewSchema`：面向工作台/报告的逐页事实投影（效果数、序列类别、支持等级、警告、`hasAnimationFacts`、当前处置与是否仍然有效），**不含路径或 COM 内部数据**；
+  - `AnimationDispositionReportSchema`：只含四个计数（含动画页/原生保留页/明确静态页/元数据不可用页）；
+  - `AnimationSequenceKindSchema` 抽出复用（原先在序列里内联）。
+- `lesson-plan.ts`：`LessonPlanRevision` 增加 `animationDisposition`（可空），并校验"处置必须属于本修订对应页面"——**未新增第二套审核实体**。
+- `agent.ts`：`AgentAnimationFacts` 增加 `manifestHash`，把 PLAN 输入也绑定到同一份动画事实。
+
+### 2. 后端实现
+
+| 文件 | 作用 |
+| --- | --- |
+| `backend/app/animation-disposition.ts`（新增） | `dispositionManifestHash()`（稳定哈希，只纳入清单身份与逐页动画事实，忽略 `extractedAt`）、`buildAnimationDispositionState()`、`assertAnimationDispositionComplete()`、`deriveNotApplicableDisposition()`、`isDispositionCurrent()`、`SELECTABLE_DISPOSITION_MODES` |
+| `backend/app/animation-disposition-gate.ts`（新增） | `assertPresentationAnimationDisposition(presentation)`：**唯一门入口**；缺清单字段时按旧课件静态降级处理。单独成模块以避免 `animation-manifest` ↔ `animation-disposition` 循环导入 |
+| `backend/app/animation-manifest.ts` | 导出 `createLegacyStaticFallback`；`animationFactsForSlides` 输出 `manifestHash` |
+| `backend/app/workflow-repository.ts` | 创建根工作流前调用门；快照新增并冻结 `animationManifestHash` 与 `animationDispositionReport` |
+| `backend/app/audio-repository.ts` / `render-repository.ts` / `media-repository.ts` | 三条独立创建路径（AUDIO / PAGE_RENDER / COMPOSITE）**共用同一道门**，堵住原先可绕过 workflow 的缺口 |
+
+稳定错误码：**`ANIMATION_REVIEW_REQUIRED`**（HTTP 409，`retryable: false`），`details` 含 `manifestHash`、需处置的页面（`slideId`/`slideNumber`/`effectCount`）与 `selectableModes`。
+
+### 3. 门的行为（已用真实数据库验证）
+
+- 含动画页面没有匹配处置时，`/workflows`、`/audio`、`/renders`、`/composites` **全部**返回 `ANIMATION_REVIEW_REQUIRED`，且**不留下任何生成任务**；
+- 显式 `ACCEPT_STATIC` 并批准后放行；
+- 动画清单变化（同页多出一个效果）后，旧处置**自动失效**并重新阻断；
+- 零效果清单不触发门；缺少清单字段的旧课件按静态降级、不误伤；
+- 元数据不可用时**不要求**用户处置，但逐页如实计入 `metadataUnavailableSlideCount`（契约不允许静态降级声明任何效果数）。
+
+### 4. 测试
+
+| 脚本 | 覆盖 | 结果 |
+| --- | --- | --- |
+| `test:animation-disposition` | 12 个纯单元用例：阻断、放行、哈希失效、`NOT_APPLICABLE` 服务端派生、`PRESERVE_NATIVE` 不可选、元数据不可用、归属校验、契约约束、报告只含计数 | 12/12 通过 |
+| `test:m1-gate` | 10 个数据库/HTTP 集成用例：四端点阻断、放行、陈旧处置、静态不误伤、旧课件不误伤、阻断无副作用且幂等键可复用、报告不含路径、处置端点创建 pending 修订、拒绝不可选模式/陈旧 revision/零动画页 | 10/10 通过 |
+| `test:components` | 新增 4 个面板用例：逐页事实、文案、依据必填与请求载荷、Mock 模式不渲染 | 25/25 通过 |
+
+回归：`typecheck` 0 error、`lint` 0 warning、`backend:test` 34 tests（33 pass / 1 opt-in skip）、`test:contracts` 57/57、`test:unit` 14/14、`test:workflow` 3/3、`test:integration` 57 tests（56 pass / 1 skip / 0 fail）、前端 `build` 成功。
+
+### 6. 前端
+
+| 文件 | 作用 |
+| --- | --- |
+| `frontend/src/app/api/t/revisions/[revisionId]/animation-disposition/route.ts`（新增） | BFF：提交处置选择 |
+| `frontend/src/app/api/t/projects/[projectId]/animation-disposition/route.ts`（新增） | BFF：读取逐页事实与计数报告 |
+| `frontend/src/lib/api/real-tracer.ts` | `getTracerAnimationDisposition()` / `decideTracerAnimationDisposition()` |
+| `frontend/src/components/workspace/animation-disposition-panel.tsx`（新增） | 工作台逐页展示效果数/序列类别/支持评估/元数据来源/警告；`ACCEPT_STATIC` 依据必填；文案明确"**最终视频不会播放本页动画**"；展示四项计数报告 |
+| `frontend/src/components/workspace/workspace-page.tsx` | 接入面板（Mock 模式下 `enabled=false` 不渲染） |
+
+### 7. 明确未做 / 下一步
+
+1. `PRESERVE_NATIVE` 在 M2 判定 GO 之前保持不可选（当前 `SELECTABLE_DISPOSITION_MODES = ["ACCEPT_STATIC"]`），下一步进入 **M2 PowerPoint 原生视频 POC**；
+2. 本轮未提交任何改动。
+
+## 2026-10-12 M0 文档真相与最小金样（完成）
+
+### 1. 文档当前态修正
+
+- `docs/PRD.md`：「当前实现与需求的主要差距」整节按代码事实重写（默认 Mock、真实 BFF/Hono/PostgreSQL/outbox 任务链、`.ppt` 隔离转换、原页真实 URL、多源漏页未修、产品链 25/30fps 与 CLI 12fps 的区别、稳定资源 URL 与失败步骤重试已实现）；同时修正「图片公式 OCR 尚待 P-11 确认」为**已批准延期**（D-27）；并引用新增的 Provider 证据文档。
+- `docs/ARCHITECTURE.md`：删除「尚未采用的候选技术」中与代码矛盾的两条（audio/render/validate lease Worker「尚未采用」、BFF「只有 T-A 上传与任务查询两个公开边界」），修正「后续视频/媒体 Worker 仍未实现」的表述；`audio-worker.ts`/`render-worker.ts`/`media-worker.ts` 已实现并有集成测试，`frontend/src/app/api/**` 现有 41 个 `route.ts`。
+- `docs/planning/DEVELOPMENT_ROADMAP.md`：**无需修改**——其头部已声明「Historical execution record；当前执行入口见 `CURRENT_RESULTS_CAPABILITY_ROADMAP.md`」，符合 M0 对历史文档的要求（已复核）。
+
+### 2. 五个金样全部固化
+
+工具：`backend/tools/create_golden_samples.py`（静态度）与 `backend/tools/create_animation_goldens.py`（动画，真实 PowerPoint COM）。清单：`backend/tests/fixtures/golden/golden-samples.json`（记录 SHA-256、大小、预期页数、动画分类、画幅、生成器、人工观察点）。
+
+| 金样 | 页数 | 画幅 | 已验证事实 |
+| --- | --- | --- | --- |
+| `static-math-16x9.pptx` | 3 | 16:9 | 公式/图表/表格；解析链页数一致 |
+| `static-4x3.pptx` | 2 | 4:3 | 同上 |
+| `static-portrait.pptx` | 2 | 纵向 | 同上 |
+| `animated-auto-simple.pptx` | 2 | 16:9 | `metadataSource=POWERPOINT_COM`；第1页 `effectCount=3`、仅 `MAIN` 序列（ENTRANCE 0.5s / EMPHASIS 1.0s / EXIT 0.75s）；自动换页 3.0s；第2页零动画 |
+| `animated-unsupported.pptx` | 1 | 16:9 | `metadataSource=POWERPOINT_COM`；第1页 `effectCount=4`、序列 `MAIN` + `INTERACTIVE`（含指定触发形状） |
+
+动画事实的验证方式：直接运行 `backend.powerpoint_animation_adapter` 提取并逐项核对，不是靠文档转述。
+
+### 3. "清单存在但成片静态"缺陷基线（已复现并固化）
+
+报告：`backend/tests/fixtures/golden/ANIMATION_STATIC_BASELINE.md`。
+
+- 用 `animated-auto-simple.pptx` 跑完整真实管线（`prepare` → `approve` → `render --tts-mode silent`）。
+- **清单侧**：`metadataSource=POWERPOINT_COM`，第1页 3 个效果 + 自动换页 3.0s。
+- **成片侧**：`video/animated-scenes.txt` 共 138 条，去重后**只有 4 张静态合成帧**（`001-closed/open`、`002-closed/open`，即数字人开/闭两态 120ms/100ms）；`video/composited/` 每页恰好 2 张图，**不存在任何动画中间态**。
+- 最终 MP4：h264 1920×1080 12fps aac，15.107s，`verify.mjs status=passed`（注意该脚本不检查动画保真）。
+- 结论：**动画事实已提取并持久化，但最终 renderer 完全不消费它，成片仍为静态原页。**
+
+### 4. Provider 逐供应商证据
+
+新增 `docs/PROVIDER_EVIDENCE.md`：七类 adapter 均实现；真实账号层面**只有 DeepSeek 在本机实测通过**（文本调用 + 三色视觉探针 3/3，可获 `VISION`），其余六类保持「adapter 已实现、真实账号未验收」。
+
+### 5. 环境与更正记录（重要）
+
+- **本机 PowerPoint COM 可用，但有前置条件**：无实例时 `DispatchEx` 报 `服务器运行失败`（约 16 秒超时）；**先有一个运行中的 PowerPoint 实例时约 4.8 秒成功**。
+- Office 授权状态记录：`OSPP.VBS /dstatus` 唯一有效许可证为 `Office16OneNoteFreeR_Bypass`，`HomeStudent2021Retail` 无有效授权、`DeployedInAuditMode=True`。实测该**未激活状态不阻塞动画事实提取**——阻塞点只是"必须先有运行实例"。
+- **更正**：本条目早前版本曾判定"动画金样与静态基线在本机不可能完成"。该结论**错误且已撤回**：当时把「调用时没有可用 PowerPoint 实例」误归因为「机器上不存在动画事实」。详见 `backend/tests/fixtures/golden/ANIMATION_BASELINE_EVIDENCE.md` 的更正记录与教训。
+
+### 6. 门禁与工作树
+
+本轮串行门禁全部 exit 0：`git diff --check` 0 命中、前后端 `typecheck` 0 error、`lint` 0 warning、Python `backend:test` 34 tests（33 pass / 1 个真实 PowerPoint opt-in skip / 0 fail）、共享 Contract 57/57、Next `build` Compiled successfully。**未提交任何改动。**
+
 ## 2026-08-23 当前成果后续规划重审（仅规划）
 
 - `docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md` 已完全重写。代码审查确认上一版遗漏了最重要的产品差距：COM/PLAN 已认识动画，但 PAGE_RENDER/COMPOSITE 只使用静态原页，最终视频不会因此自动保留任何动画。

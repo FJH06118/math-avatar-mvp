@@ -41,6 +41,7 @@ import {
   type WorkspaceSaveState,
 } from "./workspace-header";
 import { WorkspaceSkeleton } from "./workspace-skeleton";
+import { AnimationDispositionPanel } from "./animation-disposition-panel";
 
 interface WorkspacePageProps {
   projectId: string;
@@ -482,6 +483,16 @@ function WorkspaceLoaded({ data }: { data: WorkspaceData }) {
           selectedSlideTitle={selectedSlide.title}
           previewAvailable={!missingRevision}
           previewUnavailableReason={missingRevision ? "请先重试规划并生成初始讲稿；当前尚未调用 Edge TTS。" : undefined}
+        />
+      </div>
+
+      {/* M1：含动画页面必须先选择处置方式，否则生成会被服务端阻断。 */}
+      <div className="px-4 pb-4 sm:px-6 lg:px-8">
+        <AnimationDispositionPanel
+          projectId={data.project.id}
+          enabled={Boolean(realAdapter)}
+          selectedSlideId={selectedSlide.id}
+          onSelectSlide={handleSlideSelect}
         />
       </div>
 

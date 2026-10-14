@@ -3,6 +3,34 @@
 > [!WARNING]
 > 本工作树是待人工试验候选。真实豆包/千问等多模态账号、多个外部来源 PPT、公式/图表视觉准确率、异常文件提示、100 页容量，以及重建后的 Windows 桌面安装包仍需人工端到端测试；在完成并记录证据前不得标记为正式供应商或安装版验收通过。
 
+## 2026-10-12 M1 实现完成：动画处置门（详见 `STATUS.md` 同日条目）
+
+- 已完成：
+  1. **契约**：`packages/contracts/src/animation.ts` 新增严格 `AnimationDispositionSchema`（`animation-disposition-v1`，含 `manifestHash`/`mode`/`reason`/`decidedBy`/`decidedAt`）、`SlideAnimationReviewSchema`、`AnimationDispositionReportSchema`（只含四个计数）、`AnimationDispositionReviewSchema`；`lesson-plan.ts` 将其放入 `LessonPlanRevision.animationDisposition`（**未新增第二套审核实体**）并校验处置归属页面；`agent.ts` 的 `AgentAnimationFacts` 增加 `manifestHash`。
+  2. **门**：`backend/app/animation-disposition-gate.ts` 提供唯一入口 `assertPresentationAnimationDisposition()`；`workflow-repository` 与 `audio-` / `render-` / `media-repository` **四条创建路径共用同一道门**（此前 audio/renders/composites 可绕过）。阻断错误码为稳定码 `ANIMATION_REVIEW_REQUIRED`（409，`retryable:false`）。
+  3. **派生与失效**：无动画页面由服务端派生 `NOT_APPLICABLE`（只存在于审阅投影，不写入修订，保持修订不可变）；有动画页面必须用户显式选择，`PRESERVE_NATIVE` 在 M2 GO 前不出现在 `SELECTABLE_DISPOSITION_MODES`；`manifestHash` 变化后旧处置自动失效并重新阻断。
+  4. **端点**：`POST /v1/revisions/:revisionId/animation-disposition`（创建新的 **pending** 修订）、`GET /v1/projects/:projectId/animation-disposition`（逐页事实 + 计数报告，不含路径/存储键/COM 内部数据），并接好 BFF 路由与 API 客户端。
+  5. **前端**：`frontend/src/components/workspace/animation-disposition-panel.tsx` 在工作台逐页展示效果数、序列类别、支持评估、元数据来源与警告，提供 `ACCEPT_STATIC` 选择（依据必填），文案明确写"最终视频不会播放本页动画"，并展示四项计数报告。Mock 模式下不渲染。
+- 测试：`test:animation-disposition` 12/12、`test:m1-gate` 10/10、面板组件 4/4。
+- 下一步：进入 **M2 PowerPoint 原生视频 POC**（决定 `PRESERVE_NATIVE` 是否能转为可选）。
+- 本轮未提交任何改动。
+
+## 2026-10-12 M0 完成：文档真相与五个金样
+
+- 已完成（详见 `STATUS.md` 同日条目）：
+  1. `docs/PRD.md`「当前实现与需求的主要差距」按代码事实重写，并修正图片公式 OCR 状态为已批准延期（D-27）。
+  2. `docs/ARCHITECTURE.md` 删除两处与代码矛盾的「尚未采用」表述，修正媒体 Worker 的过时描述。
+  3. **五个金样全部生成并验证**，清单为 `backend/tests/fixtures/golden/golden-samples.json`：
+     - 静态：`static-math-16x9.pptx`（3 页）、`static-4x3.pptx`（2 页）、`static-portrait.pptx`（2 页）——生成器 `backend/tools/create_golden_samples.py`，均通过真实解析链验证；
+     - 动画：`animated-auto-simple.pptx`（2 页，第1页 3 个效果、仅 `MAIN` 序列、自动换页 3.0s）、`animated-unsupported.pptx`（1 页，`MAIN` + `INTERACTIVE` 含指定触发形状）——生成器 `backend/tools/create_animation_goldens.py`，动画事实由真实 COM 提取核对。
+  4. **缺陷基线已复现并固化**：`backend/tests/fixtures/golden/ANIMATION_STATIC_BASELINE.md`——清单里有 3 个动画效果，但成片 138 条 concat 去重后只有 4 张静态帧（数字人开/闭两态），无任何动画中间态。
+  5. 新增 `docs/PROVIDER_EVIDENCE.md`，Provider 支持声明改为逐供应商证据（真实账号仅 DeepSeek 本机实测通过）。
+  6. 复核 `docs/planning/DEVELOPMENT_ROADMAP.md`：其头部已声明为历史执行记录并指向当前入口，无需修改。
+- **环境要点（后续会话必读）**：本机 PowerPoint COM **可用但有前置条件**——无实例时 `DispatchEx` 报 `服务器运行失败`（约 16s 超时），**先启动一个运行中的 PowerPoint 实例后约 4.8s 成功**。Office 虽未激活（唯一许可证为 `OneNoteFreeR_Bypass`、`DeployedInAuditMode=True`），但实测**不影响**动画事实提取。详见 `backend/tests/fixtures/golden/ANIMATION_BASELINE_EVIDENCE.md`。
+- 更正：本条目早前版本曾判定动画金样与基线"在本机不可能完成"，该结论**错误并已撤回**（当时把"没有可用 PowerPoint 实例"误归因为"机器上不存在动画事实"）。
+- 下一步：进入 **M1**（`AnimationDispositionV1` + `ANIMATION_REVIEW_REQUIRED`），这是 Release A 的最低诚信门，也是路线图指定的第一个业务代码切片。
+- 本轮未提交任何改动。
+
 ## 2026-08-23 后续规划重审完成（仅规划）
 
 - 已重写 [下一阶段产品闭环路线图](planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md)。旧版评分为完整性 2/5、可行性 2/5、范围 2/5、可测试性 3/5、风险 4/5、假设 2/5；主要错误是把动画事实识别当成动画只剩外部验收，却没有处理正式 renderer 完全不消费动画清单这一事实。

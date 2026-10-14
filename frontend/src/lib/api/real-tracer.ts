@@ -1,5 +1,7 @@
 import {
   ApiErrorSchema,
+  AnimationDispositionDecisionRequestSchema,
+  AnimationDispositionReviewResponseSchema,
   StableIdSchema,
   TracerTaskResponseSchema,
   TracerUploadMetadataSchema,
@@ -37,6 +39,8 @@ import {
   type WorkflowRun,
   type WorkflowRunCreateInput,
   type WorkflowRunRetryInput,
+  type AnimationDispositionDecisionRequest,
+  type AnimationDispositionReview,
   type LessonPlanRevision,
   type LessonPlanRevisionEditRequest,
   type PlanTaskCreateRequest,
@@ -392,6 +396,36 @@ export async function approveTracerLessonPlan(
   return mutateRevision(
     `/api/t/revisions/${encodeURIComponent(revisionId)}/approve`,
     { expectedRevision },
+    signal,
+  );
+}
+
+/** M1：读取逐页动画事实、当前处置与只含计数的报告。 */
+export async function getTracerAnimationDisposition(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<AnimationDispositionReview> {
+  StableIdSchema.parse(projectId);
+  const response = await fetch(
+    `/api/t/projects/${encodeURIComponent(projectId)}/animation-disposition`,
+    { signal },
+  );
+  const payload: unknown = await response.json();
+  if (!response.ok) throwPublicError(payload);
+  return AnimationDispositionReviewResponseSchema.parse(payload).data;
+}
+
+/** M1：提交某一页的动画处置选择（服务端创建新的 pending 修订）。 */
+export async function decideTracerAnimationDisposition(
+  revisionId: string,
+  input: AnimationDispositionDecisionRequest,
+  signal?: AbortSignal,
+): Promise<LessonPlanRevision> {
+  StableIdSchema.parse(revisionId);
+  const body = AnimationDispositionDecisionRequestSchema.parse(input);
+  return mutateRevision(
+    `/api/t/revisions/${encodeURIComponent(revisionId)}/animation-disposition`,
+    body,
     signal,
   );
 }
