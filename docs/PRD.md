@@ -34,8 +34,8 @@
 
 - 项目列表、新建项目和课件上传。
 - PPTX 安全校验、`.ppt` 安全转换、解析、页数确认和逐页原页预览；默认输入上限为 100 MB、100 页。
-- 每页文本、图片、表格、备注和公式的结构化结果；公式按 OMML、可识别文本、数学 OCR、保留原图和人工确认的顺序处理。图片公式 OCR 仍属于原 MVP，是否延期尚待 P-11 确认。
-- 一个模块化课程导演 Agent；PPT 解析、TTS、渲染和媒体检查保持确定性。
+- 每页文本、图片、表格、备注和公式的结构化结果；公式按 OMML、可识别文本、数学 OCR、保留原图和人工确认的顺序处理。**图片公式 OCR 已于 2026-08-04 经用户批准从 Web MVP 延期**（`DECISIONS.md` D-27）。
+- 一个模块化课程导演 Agent；PPT 解析、TTS、渲染和媒体检查保持确定性。多模态 Provider 的支持声明按供应商逐个记录证据，见 [`PROVIDER_EVIDENCE.md`](PROVIDER_EVIDENCE.md)（七类 adapter 已实现，真实账号仅 DeepSeek 在本机实测）。
 - 每页结构化教学目标、讲稿、公式推导、场景/叠加计划与置信度的人工审核和修订。
 - 逐页编辑、跳过、锁定与单页重生成。
 - 2D 半身卡通数字人、简化口型、声音、语速、字幕与基础教学视觉设置。
@@ -44,7 +44,7 @@
 - 可持久化的任务和步骤状态、取消、失败定位、失败步骤重试及最终下载。
 - 输入版本、提示词/模型、模板、渲染参数和输出哈希等复现信息。
 
-当前代码只实现了前端 Mock 交互和独立后端 CLI 原型；上述列表不是“已完成”声明。
+当前代码已实现前端 Mock 交互、真实产品纵切（BFF/Hono/PostgreSQL/Worker）与独立后端 CLI 原型；两条链并存，上述列表仍不是"全部已完成"的声明。
 
 ## 非目标
 
@@ -84,10 +84,29 @@
 
 ## 当前实现与需求的主要差距
 
-- 浏览器仅使用内存 Mock API，未接入后端，也不能在刷新后恢复项目。
-- 后端只直接接受 `.pptx`，尚未实现产品要求的 `.ppt` 隔离转换，也没有完整上传安全层、HTTP 服务、数据库、任务队列或对象存储。
-- 前端审核区是重排的标题/摘要/公式示意，不是后端生成的真实原页预览。
-- 多源页面场景当前可能只渲染 `sourceSlides[0]`，不满足完整页覆盖要求。
-- 本地规则回退、12 fps 原型渲染和现有验证脚本不等同于生产验收通过。
-- 图片公式 OCR 尚未实现，且延期请求 P-11 尚未获批。
-- 阶段 2 已建立共享 Zod 契约、稳定业务 ID 和公开资产引用；稳定资源 URL、持久任务和失败步骤重试仍未实现。
+> 2026-10 修正（M0 文档真相）：本节此前描述的是 2026-08-04 之前的 Mock/CLI 阶段，
+> 与当前代码冲突。以下按代码事实重写；完成度仍以 `docs/STATUS.md` 与
+> `docs/CURRENT_TASK.md` 为准。
+
+- 页面**默认仍是浏览器内存 Mock**（`frontend/src/lib/api/mock-client.ts`）：只有显式设置
+  `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t|production` 才走真实链，因此默认状态下刷新会丢失数据。
+- 真实链已实现：`backend/app/app.ts`（Hono，仅绑 loopback）、PostgreSQL + Prisma（17 个
+  migration）、transactional outbox + lease/attempt 任务模型，以及 41 个 `frontend/src/app/api/**/route.ts`
+  同源 BFF。旧「没有 HTTP 服务/数据库/队列」的描述已不成立。
+- `.ppt` 隔离转换已实现：上传按 OLE CFB v3/v4 头校验，PARSE attempt 内用独立 LibreOffice
+  profile 转为 `source.pptx`（`backend/app/stage-11b-ppt-coverage.test.ts` 覆盖）。零页课件返回
+  `PPTX_NO_SLIDES`，加密容器返回 `ENCRYPTED_PPTX`。
+- 审核区已使用后端原页资产的真实 URL（`frontend/src/components/workspace/slide-preview.tsx`
+  使用 `slide.originalPageUrl`），不再是"标题/摘要示意图"；但左侧站位预览与最终渲染仍不一致
+  （见 `docs/planning/CURRENT_RESULTS_CAPABILITY_ROADMAP.md` 的 M3）。
+- **多源页面场景当前仍可能只渲染 `sourceSlides[0]`**，不满足完整页覆盖要求（未修复项，保留）。
+- 帧率与门禁分属两条链：产品链为 25/30 fps（`packages/contracts/src/render.ts`）并经过
+  Stage 11F 媒体硬门；旧 CLI 原型固定 12 fps，只有基础 ffprobe/解码校验。**CLI 通过不等同于
+  生产验收通过**（`DECISIONS.md` D-04）。
+- 图片公式 OCR 尚未实现，但**用户已于 2026-08-04 批准延期**（`DECISIONS.md` D-27），
+  图片公式保留原页并产生人工核对警告。
+- 稳定资源 URL、持久任务与失败步骤重试已实现：公开投影只导出稳定 ID 与受控 URL
+  （`packages/contracts/src/asset.ts` 的 `PublicAssetRefSchema`），下载支持 Range/ETag
+  （`backend/app/app.ts`），重试走 `RetryTaskRequestSchema` 与稳定重试键。
+- 仍然缺失的能力集中在中长期范围：对象存储/CDN、任意 PowerPoint 动画在成片中的保留
+  （当前成片为静态原页）、自由布局、100 页级视频容量验证与正式供应商 SLA。

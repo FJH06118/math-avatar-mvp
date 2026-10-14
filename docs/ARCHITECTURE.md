@@ -207,7 +207,7 @@ Python 与 Node.js 之间通过本地 JSON 和文件路径传递数据，没有�
 
 阶段 11A 增加只面向本地资产适配器的对账边界：数据库 `Asset` 是已登记资产事实来源，对账器复核存在性、大小和 SHA-256，并报告未登记文件。默认 dry-run；只有显式启用、文件位于规范化的 `assetRoot/projects` 内且超过宽限期时才删除孤儿普通文件，符号链接永不跟随。该能力不把磁盘路径暴露给浏览器，也不替代阶段 11F 的媒体质量门禁。
 
-PostgreSQL/Prisma 与 PARSE/PLAN/AUDIO lease Worker 已接入产品任务。对象存储和后续视频/媒体 Worker 仍未实现；Redis/BullMQ 不属于当前方案。
+PostgreSQL/Prisma 与 PARSE/PLAN/AUDIO/PAGE_RENDER/COMPOSITE/VALIDATE lease Worker 均已接入产品任务（见上方阶段 T-E～T-G）。对象存储仍未实现；Redis/BullMQ 不属于当前方案。
 
 ## 视频生成数据流
 
@@ -264,12 +264,16 @@ T-G 的 `DeliveryRepository` 从任务、MediaOutput、ValidationRecord 与 Asse
 
 以下内容不得在新文档或代码评审中写成现状：
 
-- 产品 audio/render/validate lease Worker；当前已有 PARSE 与单 Agent PLAN Worker。
-- 完整 Next.js BFF/API；当前只有 T-A 上传与任务查询两个公开边界。
 - S3/OSS 等对象存储、签名 URL 和 CDN。
 - Remotion 或其他替代当前 Sharp/FFmpeg 管线的渲染框架。
 - OpenAI Agents SDK、多 Agent 编排或固定生产模型。
 - 阿里云或其他正式 SLA TTS、特定云部署平台。
+
+> 2026-10 修正：本节此前还列出「产品 audio/render/validate lease Worker 尚未采用」与
+> 「BFF 当前只有 T-A 上传与任务查询两个公开边界」。这两条已与代码不符并按 M0 要求移除：
+> `audio-worker.ts`、`render-worker.ts`、`media-worker.ts`（COMPOSITE/VALIDATE）均已实现并
+> 有集成测试覆盖；`frontend/src/app/api/**` 现有 41 个 `route.ts`。对象存储与替代渲染框架
+> 仍未采用，继续保留在上方。
 
 仓库中的 `backend/Dockerfile` 只封装现有 CLI，不代表已经存在 HTTP 服务、数据库、
 队列、对象存储或 `docker-compose` 运行环境。Docker Desktop 4.84.0 虽已安装，但其
@@ -280,7 +284,7 @@ WSL2 engine 在当前主机上无法创建 `docker-desktop` 发行版；用户�
 
 | 文档中的目标或旧描述 | 代码事实 |
 | --- | --- |
-| 前端完成上传到生成的端到端流程 | 页面流程存在，但业务数据全部来自 Mock client；后端 CLI 未接入。 |
+| 前端完成上传到生成的端到端流程 | 页面流程与真实 BFF/Worker 链均已存在；页面**默认仍是 Mock client**，只有显式设置 `NEXT_PUBLIC_PPT_DH_API_MODE=stage-t|production` 才走真实链，因此刷新后 Mock 数据不保留。 |
 | 使用共享 Zod 契约和稳定 ID | `packages/contracts/` 已创建并被前端 Mock adapter 使用；Python/Node CLI 仍有独立内部模型和 JSON 形状。 |
 | 真实异步任务、数据库、队列和对象存储 | 上传与 PARSE 已形成持久异步闭环；Agent/媒体、对象存储和最终交付仍缺失。 |
 | 每个非跳过源页完整出现 | 多源场景的渲染路径当前取第一个 `sourceSlides`，存在漏页风险。 |

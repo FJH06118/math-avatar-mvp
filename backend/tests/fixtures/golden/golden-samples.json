@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-12T14:44:40.060083+00:00",
+  "purpose": "M0 最小金样：为动画处置、布局、字幕与桌面验收提供固定且无隐私的输入",
+  "privacy": "全部为脚本合成内容，不含任何真实课件或用户数据",
+  "samples": [
+    {
+      "file": "static-math-16x9.pptx",
+      "sha256": "AE990DF0D969F071943624A90C1E030F55A1D07246257A029B947C868C09FD6D",
+      "sizeBytes": 37954,
+      "expectedSlideCount": 3,
+      "animationClass": "static",
+      "animationDetail": "无对象动画、无页面切换动画（COM 事实为零效果清单）",
+      "layout": "16:9",
+      "generator": "backend/tools/create_golden_samples.py",
+      "manualObservationPoints": [
+        "页数与预期一致",
+        "公式/表格/图表完整保留，未被裁切",
+        "数字人叠加不得遮挡标题与公式"
+      ]
+    },
+    {
+      "file": "static-4x3.pptx",
+      "sha256": "13C0C46D1D07B6FF11229D3A957F931F441E7AE41B14836234D4086BF579B2CD",
+      "sizeBytes": 31119,
+      "expectedSlideCount": 2,
+      "animationClass": "static",
+      "animationDetail": "无对象动画、无页面切换动画（COM 事实为零效果清单）",
+      "layout": "4:3",
+      "generator": "backend/tools/create_golden_samples.py",
+      "manualObservationPoints": [
+        "页数与预期一致",
+        "公式/表格/图表完整保留，未被裁切",
+        "数字人叠加不得遮挡标题与公式"
+      ]
+    },
+    {
+      "file": "static-portrait.pptx",
+      "sha256": "C57EC08E20EB9C0FBEF00C6BC84F6AA57EA1B1BF3B7D926F5110A77552904943",
+      "sizeBytes": 29621,
+      "expectedSlideCount": 2,
+      "animationClass": "static",
+      "animationDetail": "无对象动画、无页面切换动画（COM 事实为零效果清单）",
+      "layout": "portrait",
+      "generator": "backend/tools/create_golden_samples.py",
+      "manualObservationPoints": [
+        "页数与预期一致",
+        "公式/表格/图表完整保留，未被裁切",
+        "数字人叠加不得遮挡标题与公式"
+      ]
+    },
+    {
+      "file": "animated-auto-simple.pptx",
+      "sha256": "E1EDF8BB524827BF76DA785BBA3A39E6EAAD5D81F8061998F908EF396A9CAEFC",
+      "sizeBytes": 35683,
+      "expectedSlideCount": 2,
+      "animationClass": "animated",
+      "animationDetail": "仅主序列、自动计时、普通进入/强调/退出效果；用于 M2 原生视频 POC 的 GO/NO-GO",
+      "layout": "16:9",
+      "generator": "backend/tools/create_animation_goldens.py",
+      "verifiedAnimationFacts": {
+        "metadataSource": "POWERPOINT_COM",
+        "expectedSlideCount": 2,
+        "slide1EffectCount": 3,
+        "sequenceKinds": [
+          "MAIN"
+        ],
+        "effectCategories": [
+          "ENTRANCE",
+          "EMPHASIS",
+          "EXIT"
+        ],
+        "slideTransition": {
+          "advanceOnTime": true,
+          "advanceTimeSeconds": 3.0
+        },
+        "slide2EffectCount": 0
+      },
+      "verifiedBy": "backend.powerpoint_animation_adapter（真实 COM 提取）",
+      "evidence": "backend/tests/fixtures/golden/ANIMATION_BASELINE_EVIDENCE.md",
+      "baseline": "backend/tests/fixtures/golden/ANIMATION_STATIC_BASELINE.md",
+      "manualObservationPoints": [
+        "COM 提取的效果数/序列/触发器与课件设计一致",
+        "animated-unsupported 在没有处置时必须被阻断生成"
+      ]
+    },
+    {
+      "file": "animated-unsupported.pptx",
+      "sha256": "61EBB1F14DE4199B7BBA6C50647B435320281042B9CA21BA2CF5292413538CBF",
+      "sizeBytes": 35397,
+      "expectedSlideCount": 1,
+      "animationClass": "animated",
+      "animationDetail": "含交互触发器 + 指定触发形状；用于验证保守处置（必须由用户显式接受静态）",
+      "layout": "16:9",
+      "generator": "backend/tools/create_animation_goldens.py",
+      "verifiedAnimationFacts": {
+        "metadataSource": "POWERPOINT_COM",
+        "expectedSlideCount": 1,
+        "slide1EffectCount": 4,
+        "sequenceKinds": [
+          "MAIN",
+          "INTERACTIVE"
+        ],
+        "excludedByM2Whitelist": true
+      },
+      "verifiedBy": "backend.powerpoint_animation_adapter（真实 COM 提取）",
+      "evidence": "backend/tests/fixtures/golden/ANIMATION_BASELINE_EVIDENCE.md",
+      "baseline": null,
+      "manualObservationPoints": [
+        "COM 提取的效果数/序列/触发器与课件设计一致",
+        "animated-unsupported 在没有处置时必须被阻断生成"
+      ]
+    }
+  ]
+}

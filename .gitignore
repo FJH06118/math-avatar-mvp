@@ -54,3 +54,6 @@ __pycache__/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 本地演示数据脚本（含演示用 Provider 登记与演示课件，不属于产品代码）
+backend/app/seed-demo-animation.ts
